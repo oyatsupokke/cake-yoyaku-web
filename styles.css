@@ -1,0 +1,201 @@
+/* pokke予約フォーム — パステル・手描きの温かみ・絵本感（テーマ色はJSがCSS変数で上書き） */
+:root {
+  --primary: #f6cfd6;      /* 淡いピンク */
+  --primary-deep: #e89aa8;
+  --ink: #5b4a4e;
+  --bg: #fdf8f6;
+  --card: #ffffff;
+  --line: #f0e0e4;
+  --accent: #f5a623;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", "Yu Gothic", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.7;
+}
+#app { max-width: 560px; margin: 0 auto; padding: 0 16px 120px; }
+
+.shop-header { text-align: center; padding: 28px 0 8px; }
+.shop-header h1 { margin: 0; font-size: 1.5rem; letter-spacing: .06em; }
+.shop-sub { margin: 4px 0 0; color: var(--primary-deep); font-size: .95rem; }
+
+/* プレビュー */
+.preview-box { text-align: center; margin: 12px 0 20px; }
+.preview-canvas {
+  width: 240px; height: 240px; margin: 0 auto;
+  background: #fff; border: 2px dashed var(--primary);
+  border-radius: 24px; display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.preview-canvas canvas { width: 100%; height: 100%; }
+.preview-canvas img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.preview-placeholder { font-size: 72px; }
+.preview-caption { margin: 8px 0 0; font-weight: bold; font-size: .95rem; }
+.preview-note, .small { font-size: .78rem; color: #a08a8f; margin: 2px 0 0; }
+
+/* ステップ */
+.step { margin: 26px 0; }
+.step h2 {
+  font-size: 1.05rem; display: flex; align-items: center; gap: 8px;
+  border-bottom: 2px solid var(--line); padding-bottom: 6px;
+}
+.step-no {
+  background: var(--primary); color: #fff; border-radius: 50%;
+  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: .9rem; flex-shrink: 0;
+}
+.hidden { display: none !important; }
+
+/* 商品カード */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card {
+  background: var(--card); border: 2px solid var(--line); border-radius: 16px;
+  padding: 14px 12px; cursor: pointer; text-align: center; transition: .15s;
+}
+.card:hover { border-color: var(--primary); }
+.card.selected { border-color: var(--primary-deep); background: #fff5f7; }
+.card .card-emoji { font-size: 34px; }
+.card .card-photo {
+  width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden;
+  margin-bottom: 6px; background: #fff;
+}
+.card .card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card .card-name { font-weight: bold; font-size: .92rem; margin-top: 4px; }
+.card .card-desc { font-size: .74rem; color: #a08a8f; margin-top: 4px; }
+.card .card-price { font-size: .8rem; color: var(--primary-deep); margin-top: 4px; }
+
+/* ピル（サイズ・時間枠） */
+.pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.pill {
+  border: 2px solid var(--line); background: var(--card); border-radius: 999px;
+  padding: 8px 18px; cursor: pointer; font-size: .95rem; transition: .15s;
+}
+.pill:hover { border-color: var(--primary); }
+.pill.selected { border-color: var(--primary-deep); background: var(--primary); color: #fff; font-weight: bold; }
+.pill.full { color: #c2b6b9; background: #f4eeef; cursor: not-allowed; }
+
+/* 選択グループ */
+.group { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 14px 0; }
+.group h3 { margin: 0 0 4px; font-size: .98rem; }
+.group .group-note { font-size: .76rem; color: #a08a8f; margin: 0 0 8px; }
+.group .group-desc { font-size: .84rem; color: var(--ink); margin: 0 0 6px; }
+.opt {
+  display: flex; align-items: center; gap: 10px; padding: 8px 6px;
+  border-radius: 10px; cursor: pointer;
+}
+.opt:hover { background: #fdf1f3; }
+.opt input { accent-color: var(--primary-deep); width: 18px; height: 18px; }
+.opt .opt-name { flex: 1; font-size: .92rem; }
+.opt .opt-note { display: block; font-size: .72rem; color: #a08a8f; }
+.opt .opt-desc { display: block; font-size: .78rem; color: var(--ink); }
+.opt .opt-photo {
+  width: 44px; height: 44px; flex: 0 0 auto; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line);
+}
+.opt .opt-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.note-accent { color: #d0455f !important; font-weight: bold !important; }
+.product-note { font-size: .85rem; background: #fff5f7; border-radius: 10px; padding: 8px 12px; }
+.opt .opt-price { font-size: .85rem; color: var(--primary-deep); white-space: nowrap; }
+.opt .qty {
+  width: 52px; text-align: center; border: 1px solid var(--line); border-radius: 8px; padding: 4px;
+}
+.opt-textfield { padding: 0 6px 8px 34px; }
+.opt-textfield input {
+  width: 100%; padding: 8px 12px; border: 2px solid var(--line); border-radius: 10px;
+  font-size: .92rem; font-family: inherit; color: var(--ink);
+}
+.opt-textfield input:focus { outline: none; border-color: var(--primary); }
+.req {
+  background: var(--primary-deep); color: #fff; font-size: .68rem;
+  border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+}
+
+/* カレンダー */
+.cal-header { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 10px 0 6px; font-weight: bold; }
+.cal-nav {
+  border: 2px solid var(--line); background: #fff; border-radius: 50%;
+  width: 34px; height: 34px; font-size: 1.1rem; cursor: pointer; color: var(--ink);
+}
+.cal-legend { display: flex; justify-content: center; gap: 14px; font-size: .74rem; margin-bottom: 8px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+.dot.open { background: var(--primary-deep); }
+.dot.few { background: var(--accent); }
+.dot.full { background: #c9c1c3; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-grid .dow { text-align: center; font-size: .74rem; color: #a08a8f; padding: 2px 0; }
+.cal-day {
+  background: #fff; border: 1.5px solid var(--line); border-radius: 10px;
+  min-height: 52px; text-align: center; padding: 4px 0; font-size: .85rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.cal-day.closed { background: transparent; border-color: transparent; color: #cbbfc2; }
+.cal-day .mark { font-size: .8rem; line-height: 1; }
+.cal-day.open .mark { color: var(--primary-deep); }
+.cal-day.few .mark { color: var(--accent); }
+.cal-day.full { color: #b7abae; }
+.cal-day.clickable { cursor: pointer; }
+.cal-day.clickable:hover { border-color: var(--primary); }
+.cal-day.selected { border-color: var(--primary-deep); background: var(--primary); color: #fff; }
+.cal-day.selected .mark { color: #fff; }
+#slot-area h3 { font-size: .95rem; margin: 16px 0 8px; }
+
+/* フォーム */
+.field { display: block; margin: 12px 0; font-size: .92rem; font-weight: bold; }
+.field input, .field textarea, .field select {
+  display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
+  border: 2px solid var(--line); border-radius: 12px; font-size: 1rem;
+  font-family: inherit; background: #fff; color: var(--ink);
+}
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--primary); }
+.field .help { font-weight: normal; font-size: .76rem; color: #a08a8f; margin: 2px 0 0; }
+.pay-note {
+  background: #fff5e8; border-radius: 12px; padding: 10px 14px; font-size: .88rem; margin: 16px 0;
+}
+
+/* ボタン */
+.btn-primary {
+  display: block; width: 100%; margin: 18px 0 0; padding: 14px;
+  background: var(--primary-deep); color: #fff; border: none; border-radius: 999px;
+  font-size: 1.05rem; font-weight: bold; cursor: pointer; font-family: inherit;
+}
+.btn-primary:disabled { background: #ddcfd3; cursor: not-allowed; }
+.btn-secondary {
+  display: block; width: 100%; padding: 12px; background: #fff; color: var(--ink);
+  border: 2px solid var(--line); border-radius: 999px; font-size: .95rem; cursor: pointer; font-family: inherit;
+}
+.btn-row { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 16px; }
+
+/* 確認・完了 */
+.confirm-title { text-align: center; margin-top: 24px; }
+.confirm-box { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; margin: 14px 0; }
+.confirm-box h3 { margin: 0 0 8px; font-size: .95rem; color: var(--primary-deep); }
+.confirm-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: .92rem; }
+.confirm-row .k { color: #a08a8f; flex-shrink: 0; }
+.confirm-row.total { border-top: 2px solid var(--line); margin-top: 8px; padding-top: 10px; font-weight: bold; font-size: 1.05rem; }
+.done-box { text-align: center; padding: 48px 0; }
+.done-emoji { font-size: 56px; }
+.error { color: #d0455f; font-size: .9rem; text-align: center; margin-top: 12px; }
+
+/* 金額バー */
+.price-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #fffdf9; border-top: 2px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px; font-size: .9rem;
+}
+.price-bar strong { font-size: 1.2rem; color: var(--primary-deep); }
+
+/* トースト（自動で外れたお知らせ） */
+.toast {
+  position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 18px;
+  font-size: .84rem; max-width: 90%; transition: opacity .4s; z-index: 10;
+}
+
+@media (max-width: 420px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .preview-canvas { width: 200px; height: 200px; }
+}

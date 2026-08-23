@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理画面｜オーダーケーキ予約</title>
+<link rel="stylesheet" href="../styles.css?v=1785073013">
+<link rel="stylesheet" href="admin.css?v=1785073013">
+</head>
+<body>
+<div id="app" class="admin">
+
+  <!-- ログイン -->
+  <main id="view-login" class="hidden">
+    <div class="login-box">
+      <h1>🎂 管理画面</h1>
+      <label class="field">メールアドレス
+        <input type="email" id="login-email" autocomplete="username">
+      </label>
+      <label class="field">パスワード
+        <input type="password" id="login-password" autocomplete="current-password">
+      </label>
+      <button type="button" class="btn-primary" id="btn-login">ログイン</button>
+      <p id="login-error" class="error hidden"></p>
+      <p class="small" style="margin-top:14px">
+        <a href="#" id="link-forgot">パスワードを忘れた方はこちら</a>
+      </p>
+      <p id="forgot-sent" class="small hidden">再設定メールを送りました。メール内のリンクから新しいパスワードを設定してください。</p>
+    </div>
+  </main>
+
+  <!-- 本体 -->
+  <main id="view-app" class="hidden">
+    <header class="admin-header no-print">
+      <h1 id="admin-shop-name"></h1>
+      <button type="button" class="link-btn" id="btn-logout">ログアウト</button>
+    </header>
+
+    <nav class="tabs no-print">
+      <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
+      <button type="button" class="tab" data-tab="kitchen">製造ケーキ一覧</button>
+      <button type="button" class="tab" data-tab="settings">設定</button>
+      <a class="tab tab-link" href="./products.html">商品 ↗</a>
+    </nav>
+
+    <div class="date-nav no-print" id="date-nav">
+      <button type="button" class="cal-nav" id="date-prev">‹</button>
+      <input type="date" id="date-input">
+      <button type="button" class="cal-nav" id="date-next">›</button>
+      <button type="button" class="pill" id="date-today">今日</button>
+    </div>
+
+    <!-- 受取リスト（店頭ビュー） -->
+    <section id="tab-pickup">
+      <div id="pickup-list"></div>
+    </section>
+
+    <!-- 厨房ビュー -->
+    <section id="tab-kitchen" class="hidden">
+      <div class="no-print" style="text-align:right; margin-bottom:8px;">
+        <button type="button" class="pill" id="btn-print">🖨 印刷</button>
+      </div>
+      <h2 class="print-title" id="kitchen-title"></h2>
+      <div id="kitchen-summary"></div>
+      <div id="kitchen-detail"></div>
+    </section>
+
+    <!-- 設定 -->
+    <section id="tab-settings" class="hidden">
+      <div class="confirm-box">
+        <h3>店舗情報</h3>
+        <label class="field">店名
+          <input type="text" id="t-name">
+        </label>
+        <label class="field">予約通知メール
+          <input type="email" id="t-email">
+        </label>
+        <div class="field">定休日
+          <div class="weekday-row" id="t-weekdays"></div>
+        </div>
+        <label class="field">基本の締切（受取日の何日前まで受け付けるか）
+          <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
+          <span class="help">商品ごとに変えたい場合は「商品」ページで上書きできます。</span>
+        </label>
+        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）
+          <input type="time" id="t-cutoff">
+        </label>
+        <div class="field">締切日数の数え方
+          <label class="radio-line"><input type="radio" name="deadline-mode" value="calendar">暦日どおり数える（定休日も1日と数える）</label>
+          <label class="radio-line"><input type="radio" name="deadline-mode" value="business">定休日は数えない（仕込みできる日だけで数える）</label>
+          <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「数えない」だと前の週の金曜が締切になります。定休日にも仕込みをするお店は「暦日どおり」のままでOK。</span>
+        </div>
+        <label class="field">キャンセルポリシー（予約確認画面に表示されます）
+          <textarea id="t-cancel" rows="3"></textarea>
+        </label>
+        <label class="field">特定商取引法に基づく表記
+          <textarea id="t-tokushoho" rows="4" placeholder="事業者名・所在地・連絡先など"></textarea>
+        </label>
+      </div>
+      <div class="confirm-box">
+        <h3>1日の上限（全体）</h3>
+        <p class="small">空欄にすると上限なしになります。</p>
+        <div id="rules-list"></div>
+      </div>
+      <div class="confirm-box">
+        <h3>商品ごとの設定</h3>
+        <p class="small">締切は商品ごとに変えられます（例：ホールケーキは5日前・焼き菓子は2日前）。</p>
+        <div id="product-settings-list"></div>
+      </div>
+      <div class="confirm-box">
+        <h3>商品ごとの上限</h3>
+        <p class="small">例：「全体は1日10台。ただしこのケーキは1日3台・同じ時間帯には2台まで」。時間帯上限は空欄でもOKです。</p>
+        <div class="override-add">
+          <select id="pr-product"></select>
+          <input type="number" id="pr-daily" min="0" placeholder="1日◯台" style="width:90px">
+          <input type="number" id="pr-slot" min="0" placeholder="時間帯◯台" style="width:100px">
+          <button type="button" class="pill" id="btn-pr-add">追加</button>
+        </div>
+        <div id="product-rules-list"></div>
+      </div>
+      <div class="confirm-box">
+        <h3>受取時間</h3>
+        <p class="small">枠は自由に追加できます（30分ごと・15分ごともOK）。上限が空欄の枠は台数無制限です。</p>
+        <div class="override-add">
+          <input type="time" id="slot-start" value="11:00">
+          <span>〜</span>
+          <input type="time" id="slot-end" value="17:00">
+          <select id="slot-interval">
+            <option value="60">1時間ごと</option>
+            <option value="30">30分ごと</option>
+            <option value="15">15分ごと</option>
+          </select>
+          <button type="button" class="pill" id="btn-slot-bulk">まとめて追加</button>
+        </div>
+        <div class="override-add">
+          <input type="time" id="slot-one">
+          <button type="button" class="pill" id="btn-slot-add">1枠だけ追加</button>
+        </div>
+        <div id="slots-list"></div>
+      </div>
+      <div class="confirm-box">
+        <h3>臨時休業・臨時営業</h3>
+        <div class="override-add">
+          <input type="date" id="ov-date">
+          <select id="ov-kind">
+            <option value="closed">臨時休業</option>
+            <option value="open">定休日だけど営業</option>
+          </select>
+          <button type="button" class="pill" id="btn-ov-add">追加</button>
+        </div>
+        <div id="overrides-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 画面下に固定される保存バー（設定タブでのみ表示） -->
+  <div id="save-bar" class="save-bar hidden no-print">
+    <span id="save-status">変更はありません</span>
+    <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="admin.js?v=1785073013"></script>
+</body>
+</html>

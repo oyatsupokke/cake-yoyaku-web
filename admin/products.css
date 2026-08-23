@@ -1,0 +1,120 @@
+/* 商品エディタ */
+.products-page { max-width: 720px; }
+.back-link { text-decoration: none; color: var(--primary-deep); }
+.prod-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.prod-tab {
+  border: 2px solid var(--line); background: #fff; border-radius: 12px;
+  padding: 8px 14px; cursor: pointer; font-size: .92rem; font-family: inherit; color: var(--ink);
+}
+.prod-tab.selected { background: var(--primary); border-color: var(--primary-deep); color: #fff; font-weight: bold; }
+.prod-tab.unpublished { border-style: dashed; opacity: .7; }
+.btn-row-3 { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.season-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+@media (max-width: 560px) { .season-grid { grid-template-columns: 1fr; } }
+
+.group-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fffdfd; }
+.group-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.group-head input[type="text"] { flex: 1; min-width: 120px; padding: 6px 10px; border: 2px solid var(--line); border-radius: 8px; font-family: inherit; }
+.opt-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 12px; margin-top: 10px; font-size: .88rem;
+  background: #fff; border: 1.5px solid var(--line); border-radius: 12px;
+}
+/* 選択肢の詳細欄は必ず1行まるごと使う（横に回り込ませない） */
+.opt-row > .opt-details {
+  flex: 0 0 100%; width: 100%;
+  margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line);
+}
+.opt-row .o-name { width: 240px; }
+/* グループ自身の説明・注意書きは、選択肢と混ざらないよう淡い背景で囲む */
+.gh-texts {
+  background: #fdf6f7; border-radius: 10px; padding: 4px 12px 12px; margin-top: 8px;
+}
+.opt-row input[type="text"] { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .88rem; }
+.opt-row input[type="number"] { width: 72px; padding: 5px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; }
+.opt-row .o-name { width: 170px; }
+.opt-row .o-prompt { width: 170px; }
+.opt-row .mini { font-size: .74rem; color: #a08a8f; }
+.opt-row .pill { padding: 5px 10px; font-size: .78rem; }
+.excl-panel { width: 100%; background: #fdf3f5; border-radius: 8px; padding: 8px 10px; margin-top: 4px; }
+.excl-panel .chip {
+  display: inline-block; border: 1.5px solid var(--line); border-radius: 999px;
+  padding: 3px 10px; margin: 3px 4px 0 0; cursor: pointer; font-size: .8rem; background: #fff;
+}
+.excl-panel .chip.on { background: var(--primary-deep); color: #fff; border-color: var(--primary-deep); }
+.sl-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.group-add-box {
+  border: 2px dashed var(--primary); border-radius: 12px;
+  padding: 12px 14px; margin-top: 18px; background: #fffafb;
+}
+.opt-row2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 0 8px 12px; font-size: .82rem; color: #a08a8f; }
+.opt-row2 input[type="text"] { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .84rem; }
+.q-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; font-size: .9rem; }
+.q-row .q-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.q-row input[type="text"] { padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; }
+.q-row select { padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; }
+.q-row .mini { font-size: .76rem; color: #a08a8f; }
+/* 説明・注意書きなどの縦積みフィールド（ラベル→入力欄を必ず縦に並べる） */
+.gh-texts, .opt-details { display: block; padding: 6px 0 4px; }
+.text-field { display: block; margin-top: 10px; }
+.text-field-label {
+  display: block; font-size: .78rem; color: #a08a8f; margin-bottom: 4px; line-height: 1.5;
+}
+.text-field textarea,
+.text-field input[type="text"] {
+  display: block; box-sizing: border-box; width: 100%; padding: 8px 10px;
+  border: 1.5px solid var(--line); border-radius: 10px; font-family: inherit;
+  font-size: .88rem; color: var(--ink); resize: vertical; background: #fff;
+}
+.text-field textarea:focus,
+.text-field input[type="text"]:focus { outline: none; border-color: var(--primary); }
+.opt-actions-row { margin-top: 10px; }
+
+/* 写真アップロード欄 */
+.photo-field { display: block; margin-top: 12px; }
+.photo-body { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.photo-thumb {
+  width: 90px; height: 90px; flex: 0 0 auto; border-radius: 12px; overflow: hidden;
+  border: 1.5px solid var(--line); background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb.empty { border-style: dashed; color: #c2b6b9; font-size: .74rem; }
+.photo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+.photo-pick { cursor: pointer; display: inline-block; }
+/* イラストは透過なので市松模様の上に表示する */
+.layer-thumb {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%),
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 7px 7px;
+}
+.layer-thumb img { object-fit: contain !important; }
+.layer-z { padding: 5px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; }
+
+.products-page { padding-bottom: 90px; }
+/* 共有リストの1項目 = 2段組み（1段目: 名前と操作 / 2段目: 提供期間） */
+.sl-item {
+  display: block; padding: 10px 0; font-size: .9rem;
+  border-bottom: 1px dashed var(--line);
+}
+.sl-item:last-child { border-bottom: none; }
+.sl-item-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sl-item-main input[type="text"] {
+  flex: 1 1 140px; min-width: 120px; padding: 6px 10px;
+  border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .9rem;
+}
+.sl-item-period { margin-top: 8px; }
+.sl-item-period .period-label { display: block; margin-bottom: 4px; }
+.sl-item-period .period-inputs {
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+}
+.sl-item-period input[type="date"] {
+  flex: 1 1 0; min-width: 0; padding: 5px 8px;
+  border: 1.5px solid var(--line); border-radius: 8px;
+  font-family: inherit; font-size: .82rem; color: var(--ink); background: #fff;
+}
+.sl-item .pill { padding: 5px 12px; font-size: .78rem; white-space: nowrap; flex: 0 0 auto; }
+.sl-item .mini { white-space: nowrap; }

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品の設定｜管理画面</title>
+<link rel="stylesheet" href="../styles.css?v=1785073013">
+<link rel="stylesheet" href="admin.css?v=1785073013">
+<link rel="stylesheet" href="products.css?v=1785073013">
+</head>
+<body>
+<div id="app" class="admin products-page">
+
+  <main id="view-login" class="hidden">
+    <div class="login-box">
+      <h1>🎂 管理画面</h1>
+      <p class="small">ログインが必要です。<a href="./index.html">ログイン画面へ</a></p>
+    </div>
+  </main>
+
+  <main id="view-app" class="hidden">
+    <header class="admin-header">
+      <h1><a href="./index.html" class="back-link">←</a> 商品の設定</h1>
+      <span>
+        <a class="link-btn" id="preview-link" href="../" target="_blank">お客様画面を見る ↗</a>
+        <button type="button" class="link-btn" id="btn-reload">再読み込み</button>
+      </span>
+    </header>
+
+    <div class="prod-tabs" id="prod-tabs"></div>
+    <div style="margin: 6px 0 16px;">
+      <button type="button" class="pill" id="btn-new-product">＋ 新しい商品を追加</button>
+    </div>
+
+    <!-- 商品エディタ -->
+    <div id="editor" class="hidden">
+
+      <div class="confirm-box">
+        <h3>基本情報</h3>
+        <label class="field">商品名<input type="text" id="p-name"></label>
+        <div id="p-photo"></div>
+        <div id="p-layer"></div>
+        <div class="text-field">
+          <span class="text-field-label">説明（お客様に表示されます）</span>
+          <textarea id="p-desc" rows="3"></textarea>
+        </div>
+        <div class="text-field">
+          <span class="text-field-label">注意書き</span>
+          <textarea id="p-note" rows="3"></textarea>
+          <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" id="p-note-accent">目立たせる（赤・太字）</label>
+        </div>
+        <label class="field">締切（受取日の何日前まで受け付けるか）
+          <input type="number" id="p-deadline" min="0" style="width:110px" placeholder="空欄=店の基本"> 日前
+          <span class="help">空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</span>
+        </label>
+        <div class="status-line">
+          <span class="text-field-label">公開状態</span>
+          <span id="p-publish-state" class="state-badge"></span>
+          <button type="button" class="pill" id="btn-p-publish"></button>
+        </div>
+        <div class="btn-row-3">
+          <button type="button" class="pill danger" id="btn-p-delete">この商品を削除</button>
+        </div>
+      </div>
+
+      <div class="confirm-box">
+        <h3>販売期間・受取できる日（季節商品の設定）</h3>
+        <p class="small">クリスマスなどの季節限定の商品の場合は、フォームを分けずにここで期間を設定します。空欄=制限なし（通常商品）。</p>
+        <div class="season-grid">
+          <label class="field">受付開始（この日時に自動で表示されます）
+            <input type="datetime-local" id="p-sale-start">
+          </label>
+          <label class="field">受付終了（この日時に自動で締め切ります）
+            <input type="datetime-local" id="p-sale-end">
+          </label>
+          <label class="field">受取できる期間（開始）
+            <input type="date" id="p-pickup-start">
+          </label>
+          <label class="field">受取できる期間（終了）
+            <input type="date" id="p-pickup-end">
+          </label>
+        </div>
+        <div class="field">受取できる曜日（何も選ばなければ定休日以外すべて）
+          <div class="weekday-row" id="p-weekdays"></div>
+        </div>
+        <p class="small" style="margin-top:10px">💡 定休日にクリスマス営業をしたい／期間の途中で1日お休みしたい場合は、<a href="./index.html">管理トップ→設定→「臨時休業・臨時営業」</a>で日付を登録してください（お店全体に効きます）。<strong>この商品だけ</strong>特定の日を休みたい場合は、下の「この商品だけ受け付けない日」を使います。</p>
+        <div class="field" style="margin-top:8px">この商品だけ受け付けない日
+          <div class="override-add">
+            <input type="date" id="p-stop-date">
+            <button type="button" class="pill" id="btn-p-stop-add">追加</button>
+          </div>
+          <div id="p-stops-list"></div>
+        </div>
+      </div>
+
+      <div class="confirm-box">
+        <h3>サイズと価格</h3>
+        <div id="variants-list"></div>
+        <div class="override-add">
+          <input type="text" id="v-label" placeholder="サイズ名（例: 12cm）" style="width:140px">
+          <input type="number" id="v-price" placeholder="価格（税込）" min="0" style="width:110px">
+          <button type="button" class="pill" id="btn-v-add">追加</button>
+        </div>
+      </div>
+
+      <div class="confirm-box">
+        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）</h3>
+        <div id="groups-list"></div>
+        <div class="group-add-box">
+          <strong>＋ 新しいグループを追加</strong>
+          <div class="override-add" style="margin-top:8px">
+            <input type="text" id="g-name" placeholder="グループ名（例: チョコがけ）" style="width:170px">
+            <select id="g-type">
+              <option value="single">1つ選ぶ</option>
+              <option value="multiple">複数選べる</option>
+            </select>
+            <label class="radio-line" style="margin:0"><input type="checkbox" id="g-required">必須</label>
+            <select id="g-shared">
+              <option value="">共有リストを使わない</option>
+            </select>
+            <button type="button" class="pill" id="btn-g-add">追加する</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="confirm-box">
+        <h3>ご記入欄（お客様への質問）</h3>
+        <p class="small">メッセージプレートなどの記入欄です。「表示条件」を設定すると、特定の選択肢を選んだお客様にだけ質問が出ます（例：ジェンダーリビール選択時だけ「性別」を聞く）。</p>
+        <div id="questions-list"></div>
+        <div class="group-add-box">
+          <strong>＋ 新しい質問を追加</strong>
+          <div class="override-add" style="margin-top:8px">
+            <input type="text" id="q-label" placeholder="質問文" style="width:230px">
+            <select id="q-type">
+              <option value="text">1行記入</option>
+              <option value="textarea">複数行記入</option>
+            </select>
+            <label class="radio-line" style="margin:0"><input type="checkbox" id="q-required">必須</label>
+            <button type="button" class="pill" id="btn-q-add">追加する</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 共有リスト管理 -->
+    <div class="confirm-box">
+      <h3>共有リスト（果物など・複数の商品で共通の選択肢）</h3>
+      <p class="small">ここを直すと、このリストを使っている全部の商品に反映されます。季節の果物の入れ替えはここ1箇所でOK。</p>
+      <div id="shared-lists"></div>
+      <div class="override-add">
+        <input type="text" id="sl-name" placeholder="新しいリスト名（例: 果物リスト）" style="width:200px">
+        <button type="button" class="pill" id="btn-sl-add">リスト追加</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 画面下に固定される保存バー -->
+  <div id="save-bar" class="save-bar hidden">
+    <span id="save-status">変更はありません</span>
+    <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="products.js?v=1785073013"></script>
+</body>
+</html>

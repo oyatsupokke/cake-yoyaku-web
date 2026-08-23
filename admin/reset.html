@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>パスワード再設定</title>
+<link rel="stylesheet" href="../styles.css?v=1785073013">
+<link rel="stylesheet" href="admin.css?v=1785073013">
+</head>
+<body>
+<div id="app" class="admin">
+  <main>
+    <div class="login-box">
+      <h1>🔑 パスワード再設定</h1>
+      <div id="reset-form">
+        <label class="field">新しいパスワード（8文字以上）
+          <input type="password" id="new-password" autocomplete="new-password">
+        </label>
+        <label class="field">新しいパスワード（確認）
+          <input type="password" id="new-password2" autocomplete="new-password">
+        </label>
+        <button type="button" class="btn-primary" id="btn-reset">設定する</button>
+        <p id="reset-error" class="error hidden"></p>
+      </div>
+      <div id="reset-done" class="hidden">
+        <p>✅ 新しいパスワードを設定しました。</p>
+        <p><a href="./index.html">ログイン画面へ</a></p>
+      </div>
+      <p id="reset-invalid" class="error hidden">リンクが無効か期限切れです。ログイン画面から再設定メールを送り直してください。<br><a href="./index.html">ログイン画面へ</a></p>
+    </div>
+  </main>
+</div>
+<script>
+// メールのリンクから来ると URL の #hash に一時トークン（type=recovery）が付いている
+const CONFIG = {
+  url: "https://gcsxptynaclgazhpqamz.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdjc3hwdHluYWNsZ2F6aHBxYW16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDY2NjAsImV4cCI6MjEwMDQ4MjY2MH0.VRsbfbja9xdQs4hs5DBHsOfpGB-DhnRxyeStNXAE8Ic",
+};
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.hash.slice(1));
+const token = params.get("access_token");
+if (!token || params.get("type") !== "recovery") {
+  $("reset-form").classList.add("hidden");
+  $("reset-invalid").classList.remove("hidden");
+}
+$("btn-reset").onclick = async () => {
+  const p1 = $("new-password").value, p2 = $("new-password2").value;
+  const err = $("reset-error");
+  err.classList.add("hidden");
+  if (p1.length < 8) { err.textContent = "8文字以上にしてください"; err.classList.remove("hidden"); return; }
+  if (p1 !== p2) { err.textContent = "2つのパスワードが一致しません"; err.classList.remove("hidden"); return; }
+  const res = await fetch(`${CONFIG.url}/auth/v1/user`, {
+    method: "PUT",
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ password: p1 }),
+  });
+  if (res.ok) {
+    $("reset-form").classList.add("hidden");
+    $("reset-done").classList.remove("hidden");
+  } else {
+    const b = await res.json().catch(() => ({}));
+    err.textContent = b.msg || b.error_description || "設定に失敗しました。リンクの期限切れの可能性があります";
+    err.classList.remove("hidden");
+  }
+};
+</script>
+</body>
+</html>

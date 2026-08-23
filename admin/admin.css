@@ -1,0 +1,119 @@
+/* 管理画面（店頭・厨房・設定）。現場=スマホ・タブレット前提の大きめUI */
+.admin { max-width: 640px; padding-bottom: 40px; }
+.login-box { max-width: 360px; margin: 80px auto; text-align: center; }
+.login-box h1 { font-size: 1.3rem; }
+.login-box .field { text-align: left; }
+
+.admin-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0 6px; }
+.admin-header h1 { font-size: 1.15rem; margin: 0; }
+.link-btn { background: none; border: none; color: #a08a8f; cursor: pointer; font-size: .8rem; font-family: inherit; }
+
+.tabs { display: flex; gap: 8px; margin: 8px 0 14px; }
+.tab {
+  flex: 1; padding: 10px; border: 2px solid var(--line); border-radius: 12px;
+  background: #fff; font-size: .95rem; font-weight: bold; cursor: pointer;
+  font-family: inherit; color: var(--ink);
+}
+.tab.selected { background: var(--primary); border-color: var(--primary-deep); color: #fff; }
+.tab-link { text-align: center; text-decoration: none; line-height: 1.4; }
+
+.date-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
+.date-nav input[type="date"] {
+  padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px;
+  font-size: 1rem; font-family: inherit; color: var(--ink); background: #fff;
+}
+
+/* 受取リスト */
+.order-card {
+  background: #fff; border: 1.5px solid var(--line); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.order-card.canceled { opacity: .5; }
+.order-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.order-time { font-weight: bold; font-size: 1.1rem; min-width: 56px; }
+.order-name { flex: 1; font-size: .95rem; }
+.order-name .order-product { display: block; font-size: .78rem; color: #a08a8f; }
+.order-total { font-size: .9rem; white-space: nowrap; }
+.status-badge {
+  font-size: .72rem; border-radius: 8px; padding: 2px 8px; white-space: nowrap; font-weight: bold;
+}
+.st-new { background: #ffe9ec; color: #d0455f; }
+.st-confirmed { background: #fff3d9; color: #b07d10; }
+.st-in_production { background: #e3f0ff; color: #2f6fbd; }
+.st-completed { background: #e6f6e8; color: #2e8b3d; }
+.st-canceled { background: #eee; color: #888; }
+.st-mailfail { background: #fff3d6; color: #a76a00; }
+.order-body { border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 10px; font-size: .88rem; }
+.order-body .confirm-row { padding: 2px 0; }
+.order-actions { display: flex; gap: 8px; margin-top: 10px; }
+.order-actions .pill { font-size: .85rem; padding: 7px 14px; }
+.pill.danger { border-color: #e8b7c0; color: #d0455f; }
+.empty-note { text-align: center; color: #a08a8f; padding: 40px 0; }
+
+/* 厨房ビュー */
+.print-title { font-size: 1.05rem; text-align: center; }
+.kitchen-table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; background: #fff; }
+.kitchen-table th, .kitchen-table td { border: 1px solid var(--line); padding: 8px 10px; font-size: .92rem; text-align: left; }
+.kitchen-table th { background: #fdf1f3; }
+.kitchen-table .qty-cell { text-align: center; font-weight: bold; font-size: 1.05rem; }
+.kcard { background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; font-size: .9rem; }
+.kcard .khead { display: flex; gap: 10px; font-weight: bold; }
+.kcard ul { margin: 6px 0 0; padding-left: 18px; }
+.kcard .plate { background: #fff8e6; border-radius: 8px; padding: 4px 8px; margin-top: 6px; display: inline-block; }
+
+/* 設定 */
+.rule-row, .ov-row, .prod-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px dashed var(--line); font-size: .92rem;
+}
+.rule-row input[type="number"] {
+  width: 70px; text-align: center; padding: 6px; border: 2px solid var(--line); border-radius: 8px; font-size: 1rem;
+}
+.rule-row .rule-name, .prod-row .prod-name { flex: 1; }
+.override-add { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.weekday-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.weekday-row label {
+  display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: .9rem;
+  border: 2px solid var(--line); border-radius: 10px; padding: 6px 10px; cursor: pointer; background: #fff;
+}
+.weekday-row label.on { background: var(--primary); color: #fff; border-color: var(--primary-deep); }
+.weekday-row input { display: none; }
+.radio-line { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: .9rem; margin-top: 6px; cursor: pointer; }
+.radio-line input { width: 18px; height: 18px; accent-color: var(--primary-deep); }
+
+/* 状態バッジ（今どうなっているか。押せるボタンとは見た目で区別する） */
+.state-badge {
+  display: inline-block; font-size: .78rem; font-weight: bold;
+  padding: 3px 10px; border-radius: 8px; white-space: nowrap;
+  background: #eee; color: #888;
+}
+.state-badge.on { background: #e6f6e8; color: #2e8b3d; }
+.status-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.status-line .text-field-label { margin: 0; }
+.override-add input, .override-add select {
+  padding: 8px; border: 2px solid var(--line); border-radius: 10px; font-family: inherit; font-size: .95rem;
+}
+
+/* 印刷（厨房帳票: A4・白黒） */
+@media print {
+  body { background: #fff; }
+  .no-print, .price-bar, .tabs, .admin-header, .date-nav { display: none !important; }
+  #tab-pickup, #tab-settings { display: none !important; }
+  #tab-kitchen { display: block !important; }
+  .admin { max-width: 100%; }
+  .kcard, .kitchen-table th, .kitchen-table td { border-color: #999; }
+}
+
+/* 画面下に固定される保存バー */
+.admin { padding-bottom: 90px; }
+.save-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+  background: #fffdf9; border-top: 2px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 20px; box-shadow: 0 -2px 10px rgba(0,0,0,.05);
+}
+.save-bar #save-status { font-size: .86rem; color: #a08a8f; }
+.save-bar.dirty { background: #fff6e9; border-top-color: var(--accent); }
+.save-bar.dirty #save-status { color: #b07d10; font-weight: bold; }
+.save-bar .btn-primary { width: auto; margin: 0; padding: 10px 28px; font-size: .95rem; }
+.save-bar .btn-primary:disabled { background: #ddcfd3; }

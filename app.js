@@ -7,8 +7,8 @@
  * ===================================================================== */
 
 const CONFIG = {
-  url: "https://gcsxptynaclgazhpqamz.supabase.co",
-  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdjc3hwdHluYWNsZ2F6aHBxYW16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDY2NjAsImV4cCI6MjEwMDQ4MjY2MH0.VRsbfbja9xdQs4hs5DBHsOfpGB-DhnRxyeStNXAE8Ic",
+  url: "https://teqqbcsxiknwttiftzel.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlcXFiY3N4aWtud3R0aWZ0emVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDU0ODEsImV4cCI6MjEwMDQ4MTQ4MX0.KpNEUy0s4k8XGJAImdDSVpEVFVfYBdyLWcaZQMYAxDw",
   // 本番はサブドメインから店舗を判定。開発中は ?shop= で指定（既定 pokke）
   shop: new URLSearchParams(location.search).get("shop") || "pokke",
 };

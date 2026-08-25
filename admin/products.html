@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1787646914">
-<link rel="stylesheet" href="admin.css?v=1787646914">
-<link rel="stylesheet" href="products.css?v=1787646914">
+<link rel="stylesheet" href="../styles.css?v=1787648386">
+<link rel="stylesheet" href="admin.css?v=1787648386">
+<link rel="stylesheet" href="products.css?v=1787648386">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -53,6 +53,11 @@
           <input type="number" id="p-deadline" min="0" style="width:110px" placeholder="空欄=店の基本"> 日前
           <span class="help">空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</span>
         </label>
+        <div class="field">この商品の上限（何台まで受けるか）
+          <span>1日 <input type="number" id="p-cap-daily" min="0" style="width:90px" placeholder="なし"> 台まで
+          ／ 同じ時間帯 <input type="number" id="p-cap-slot" min="0" style="width:90px" placeholder="なし"> 台まで</span>
+          <span class="help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。入力するとすぐ保存されます。</span>
+        </div>
         <div class="status-line">
           <span class="text-field-label">公開状態</span>
           <span id="p-publish-state" class="state-badge"></span>
@@ -164,6 +169,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="products.js?v=1787646914"></script>
+<script src="products.js?v=1787648386"></script>
 </body>
 </html>

@@ -414,61 +414,11 @@ async function unusedTenantSave() {
   toast("店舗情報を保存しました");
 };
 
-async function loadProductRules() {
-  const [rules, products] = await Promise.all([
-    api("GET", `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=eq.products&order=name` +
-               `&select=*,capacity_rule_products(product_id)`),
-    api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order&select=id,name`),
-  ]);
-  const pname = Object.fromEntries(products.map((p) => [p.id, p.name]));
-  // 追加フォームの商品プルダウン
-  const sel = $("pr-product");
-  sel.innerHTML = `<option value="">商品を選ぶ</option>` +
-    products.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
-  // 既存ルール一覧
-  const wrap = $("product-rules-list");
-  wrap.innerHTML = rules.length ? "" : `<p class="small">登録なし（全体上限だけが効いています）</p>`;
-  for (const r of rules) {
-    const names = r.capacity_rule_products.map((x) => pname[x.product_id] || "?").join("・");
-    const row = document.createElement("div");
-    row.className = "rule-row";
-    row.innerHTML = `
-      <span class="rule-name">${names}</span>
-      <span class="small">1日${r.daily_limit}台${r.slot_limit != null ? `・時間帯${r.slot_limit}台` : ""}</span>
-      <button type="button" class="pill danger">削除</button>`;
-    row.querySelector("button").onclick = async () => {
-      await api("DELETE", `/rest/v1/capacity_rule_products?rule_id=eq.${r.id}`);
-      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${r.id}`);
-      toast("削除しました");
-      loadProductRules();
-    };
-    wrap.appendChild(row);
-  }
-}
-$("btn-pr-add").onclick = async () => {
-  const pid = $("pr-product").value;
-  const daily = parseInt($("pr-daily").value, 10);
-  const slotRaw = $("pr-slot").value.trim();
-  const slot = slotRaw === "" ? null : parseInt(slotRaw, 10);
-  if (!pid) { toast("商品を選んでください"); return; }
-  if (isNaN(daily) || daily < 0) { toast("1日の台数を入れてください"); return; }
-  const pname = $("pr-product").selectedOptions[0].textContent;
-  const rule = await api("POST", "/rest/v1/capacity_rules", [{
-    tenant_id: state.tenantId, name: pname, scope: "products",
-    daily_limit: daily, slot_limit: slot,
-  }]);
-  await api("POST", "/rest/v1/capacity_rule_products", [{
-    rule_id: rule[0].id, product_id: pid, tenant_id: state.tenantId,
-  }]);
-  $("pr-daily").value = ""; $("pr-slot").value = "";
-  toast(`「${pname}」の上限を設定しました`);
-  loadProductRules();
-};
+// 「商品ごとの上限」は商品エディタ（products.html）の各商品ページへ移設（まりほ指摘 2026-08-25：分類が変）
 
 async function loadSettings() {
   state.fields = []; // 入力欄の登録をやり直す
   await loadTenantForm();
-  await loadProductRules();
   // 全体の上限ルール（商品指定でないもの）
   const rules = await api("GET",
     `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=neq.products&order=name`);

@@ -447,6 +447,7 @@ function renderEditor() {
     onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
   }));
 
+  loadCapacityRule(p);
   renderVariants(p);
   renderGroups(p);
   renderProductStops(p);
@@ -454,6 +455,65 @@ function renderEditor() {
   $("g-shared").innerHTML = `<option value="">共有リストを使わない</option>` +
     state.sharedLists.map((l) => `<option value="${l.id}">${l.name}を使う</option>`).join("");
 }
+
+/* ---------- この商品の上限（capacity_rules scope=products・入力したら即保存） ---------- */
+async function loadCapacityRule(p) {
+  state.capRule = null;
+  $("p-cap-daily").value = "";
+  $("p-cap-slot").value = "";
+  try {
+    const rules = await api("GET",
+      `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=eq.products&is_active=eq.true` +
+      `&select=*,capacity_rule_products!inner(product_id)&capacity_rule_products.product_id=eq.${p.id}`);
+    if (state.current?.id !== p.id) return;  // 読み込み中に別商品へ切り替えた場合は無視
+    state.capRule = rules[0] || null;
+    if (state.capRule) {
+      $("p-cap-daily").value = state.capRule.daily_limit ?? "";
+      $("p-cap-slot").value = state.capRule.slot_limit ?? "";
+    }
+  } catch { /* 読めなくても他の編集は続けられる */ }
+}
+
+async function saveCapacityRule() {
+  const p = state.current;
+  if (!p) return;
+  const dailyRaw = $("p-cap-daily").value.trim();
+  const slotRaw = $("p-cap-slot").value.trim();
+  const daily = dailyRaw === "" ? null : Math.max(0, parseInt(dailyRaw, 10) || 0);
+  const slot = slotRaw === "" ? null : Math.max(0, parseInt(slotRaw, 10) || 0);
+  try {
+    if (daily == null && slot == null) {
+      // 両方空欄=この商品の上限をなくす
+      if (state.capRule) {
+        await api("DELETE", `/rest/v1/capacity_rule_products?rule_id=eq.${state.capRule.id}`);
+        await api("DELETE", `/rest/v1/capacity_rules?id=eq.${state.capRule.id}`);
+        state.capRule = null;
+        toast(`「${p.name}」の上限をなくしました（全体上限のみ）`);
+      }
+      return;
+    }
+    if (state.capRule) {
+      await api("PATCH", `/rest/v1/capacity_rules?id=eq.${state.capRule.id}`,
+        { daily_limit: daily, slot_limit: slot, name: p.name });
+      state.capRule.daily_limit = daily;
+      state.capRule.slot_limit = slot;
+    } else {
+      const rule = await api("POST", "/rest/v1/capacity_rules", [{
+        tenant_id: state.tenantId, name: p.name, scope: "products",
+        daily_limit: daily, slot_limit: slot,
+      }]);
+      await api("POST", "/rest/v1/capacity_rule_products", [{
+        rule_id: rule[0].id, product_id: p.id, tenant_id: state.tenantId,
+      }]);
+      state.capRule = rule[0];
+    }
+    toast(`「${p.name}」の上限を保存しました`);
+  } catch (e) {
+    toast("上限を保存できませんでした：" + e.message);
+  }
+}
+$("p-cap-daily").onchange = saveCapacityRule;
+$("p-cap-slot").onchange = saveCapacityRule;
 
 /* ---------- 基本情報 ---------- */
 $("btn-save-all").onclick = saveAll;

@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1787631088">
-<link rel="stylesheet" href="admin.css?v=1787631088">
-<link rel="stylesheet" href="products.css?v=1787631088">
+<link rel="stylesheet" href="../styles.css?v=1787631537">
+<link rel="stylesheet" href="admin.css?v=1787631537">
+<link rel="stylesheet" href="products.css?v=1787631537">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -143,6 +143,14 @@
 
     </div>
 
+    <!-- お客様情報（フォームで必ず聞く項目） -->
+    <div class="confirm-box">
+      <h3>お客様情報（予約の最後に聞く項目）</h3>
+      <p class="small">お名前・お電話番号・メールアドレスは、ご連絡に必要なため常に必須です。ご住所だけ切り替えられます。</p>
+      <label class="radio-line"><input type="checkbox" id="cf-addr-enabled">ご住所（郵便番号＋住所）を聞く</label>
+      <label class="radio-line"><input type="checkbox" id="cf-addr-required">ご住所を必須にする</label>
+    </div>
+
     <!-- 共有リスト管理 -->
     <div class="confirm-box">
       <h3>共有リスト（果物など・複数の商品で共通の選択肢）</h3>
@@ -164,6 +172,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="products.js?v=1787631088"></script>
+<script src="products.js?v=1787631537"></script>
 </body>
 </html>

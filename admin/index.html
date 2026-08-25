@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1787632404">
-<link rel="stylesheet" href="admin.css?v=1787632404">
+<link rel="stylesheet" href="../styles.css?v=1787632847">
+<link rel="stylesheet" href="admin.css?v=1787632847">
 </head>
 <body>
 <div id="app" class="admin">
@@ -95,7 +95,12 @@
         <h3>予約フォームの設定</h3>
         <div class="field">お客様情報の入力欄
           <div class="cf-row">
-            <strong>お名前</strong>
+            <strong>お名前（姓・名）</strong>
+            <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
+            <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
+          </div>
+          <div class="cf-row">
+            <strong>フリガナ（セイ・メイ）</strong>
             <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
             <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
           </div>
@@ -186,6 +191,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="admin.js?v=1787632404"></script>
+<script src="admin.js?v=1787632847"></script>
 </body>
 </html>

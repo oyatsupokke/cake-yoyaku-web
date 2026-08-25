@@ -99,6 +99,8 @@ body {
 .note-accent { color: #d0455f !important; font-weight: bold !important; }
 .product-note { font-size: .85rem; background: #fff5f7; border-radius: 10px; padding: 8px 12px; }
 .opt .opt-price { font-size: .85rem; color: var(--primary-deep); white-space: nowrap; }
+.name-row { display: flex; gap: 10px; }
+.name-row input { flex: 1; min-width: 0; }
 .qty-stepper { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .qty-btn {
   width: 34px; height: 34px; border: 1.5px solid var(--primary-deep); border-radius: 50%;

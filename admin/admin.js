@@ -169,6 +169,7 @@ function fillOrderBody(el, o) {
   for (const a of o.order_answers) {
     if (a.answer_text || a.choice_label_snapshot) row(a.label_snapshot, a.answer_text || a.choice_label_snapshot);
   }
+  if (o.customer_kana) row("フリガナ", o.customer_kana);
   row("電話", `<a href="tel:${o.customer_phone}">${o.customer_phone}</a>`);
   row("メール", o.customer_email);
   row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オーダーケーキのご予約</title>
-<link rel="stylesheet" href="styles.css?v=1787632404">
+<link rel="stylesheet" href="styles.css?v=1787632847">
 </head>
 <body>
 <div id="app">
@@ -72,9 +72,18 @@
     <!-- 6. お客様情報 -->
     <section class="step hidden" id="sec-customer">
       <h2><span class="step-no">6</span>お客様情報</h2>
-      <label class="field">お名前（フルネーム）<span class="req">必須</span>
-        <input type="text" id="cust-name" autocomplete="name">
-      </label>
+      <div class="field">お名前<span class="req">必須</span>
+        <div class="name-row">
+          <input type="text" id="cust-sei" autocomplete="family-name" placeholder="姓">
+          <input type="text" id="cust-mei" autocomplete="given-name" placeholder="名">
+        </div>
+      </div>
+      <div class="field">フリガナ<span class="req">必須</span>
+        <div class="name-row">
+          <input type="text" id="cust-sei-kana" placeholder="セイ">
+          <input type="text" id="cust-mei-kana" placeholder="メイ">
+        </div>
+      </div>
       <label class="field">お電話番号<span class="req">必須</span>
         <input type="tel" id="cust-phone" autocomplete="tel">
       </label>
@@ -83,6 +92,7 @@
       </label>
       <label class="field hidden" id="field-postal">郵便番号<span class="req hidden" id="req-postal">必須</span>
         <input type="text" id="cust-postal" inputmode="numeric" autocomplete="postal-code" placeholder="448-0000">
+        <span class="help" id="postal-hint">7桁を入力すると住所が自動で入ります</span>
       </label>
       <label class="field hidden" id="field-address">ご住所<span class="req hidden" id="req-address">必須</span>
         <input type="text" id="cust-address" autocomplete="street-address" placeholder="愛知県刈谷市…">
@@ -128,6 +138,6 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="app.js?v=1787632404"></script>
+<script src="app.js?v=1787632847"></script>
 </body>
 </html>

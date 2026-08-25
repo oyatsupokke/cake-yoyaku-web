@@ -54,6 +54,35 @@ async function rpc(name, args) {
   return res.json();
 }
 
+/* ---------- 郵便番号→住所の自動入力（zipcloud） ---------- */
+function setupPostalLookup() {
+  const postal = $("cust-postal");
+  if (!postal) return;
+  let lastLooked = "";
+  postal.addEventListener("input", async () => {
+    const digits = postal.value.replace(/[^0-9]/g, "");
+    if (digits.length !== 7 || digits === lastLooked) return;
+    lastLooked = digits;
+    try {
+      const r = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
+      const j = await r.json();
+      const hit = j?.results?.[0];
+      if (!hit) { $("postal-hint").textContent = "該当する住所が見つかりませんでした。手入力をお願いします"; return; }
+      const auto = `${hit.address1}${hit.address2}${hit.address3}`;
+      const addr = $("cust-address");
+      // 手で入力済みの住所は消さない（自動入力より人の入力を優先）
+      if (!addr.value.trim() || addr.value === addr.dataset.autofilled) {
+        addr.value = auto;
+        addr.dataset.autofilled = auto;
+        $("postal-hint").textContent = "続けて番地・建物名をご記入ください";
+        addr.focus();
+        addr.setSelectionRange(addr.value.length, addr.value.length);
+      }
+    } catch { /* 検索できなくても手入力できるので何もしない */ }
+  });
+}
+setupPostalLookup();
+
 /* ---------- 計測（プレビュー効果の検証用・個人情報は送らない） ---------- */
 const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
@@ -585,7 +614,8 @@ function validate() {
     const a = s.answers.get(q.id);
     if (!a || (!a.choiceId && !(a.text || "").trim())) return `「${q.label}」にご記入ください`;
   }
-  if (!$("cust-name").value.trim()) return "お名前をご記入ください";
+  if (!$("cust-sei").value.trim() || !$("cust-mei").value.trim()) return "お名前（姓・名）をご記入ください";
+  if (!$("cust-sei-kana").value.trim() || !$("cust-mei-kana").value.trim()) return "フリガナ（セイ・メイ）をご記入ください";
   const addrReq = state.tenant.customer_form?.address;
   if (addrReq?.enabled && addrReq?.required && $("cust-postal")) {
     if (!$("cust-postal").value.trim()) return "郵便番号をご記入ください";
@@ -637,7 +667,8 @@ function renderConfirm() {
   }
   const [y, m, d] = s.date.split("-");
   row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);
-  row("お名前", $("cust-name").value.trim());
+  row("お名前", `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`);
+  row("フリガナ", `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`);
   row("お電話", $("cust-phone").value.trim());
   row("メール", $("cust-email").value.trim());
   if ($("cust-address") && $("cust-address").value.trim())
@@ -664,7 +695,8 @@ $("btn-submit").onclick = async () => {
         pickup_date: s.date,
         pickup_slot_id: s.slot.id,
         customer: {
-          name: $("cust-name").value.trim(),
+          name: `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`,
+          kana: `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`,
           phone: $("cust-phone").value.trim(),
           email: $("cust-email").value.trim(),
           postal_code: $("cust-postal") ? $("cust-postal").value.trim() || null : null,

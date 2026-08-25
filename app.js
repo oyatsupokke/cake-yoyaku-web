@@ -88,7 +88,7 @@ const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
   : String(Date.now()) + Math.random().toString(16).slice(2));
 function track(step, detail) {
-  if (!state.tenant) return;
+  if (!state.tenant || RESTORING) return;
   fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
     method: "POST",
     headers: {
@@ -104,6 +104,76 @@ function track(step, detail) {
     } }),
     keepalive: true,
   }).catch(() => {});   // 計測の失敗が注文の邪魔をしないこと
+}
+
+/* ---------- 入力途中の自動保存（更新しても続きから再開できる） ---------- */
+const SAVE_KEY = `cake_form_${CONFIG.shop}`;
+let RESTORING = false;
+
+function saveState() {
+  if (RESTORING || !state.tenant) return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      product_id: state.sel.product?.id ?? null,
+      variant_id: state.sel.variant?.id ?? null,
+      options: [...state.sel.options],
+      answers: [...state.sel.answers],
+      date: state.sel.date,
+      slot_id: state.sel.slot?.id ?? null,
+      customer: {
+        sei: $("cust-sei")?.value ?? "", mei: $("cust-mei")?.value ?? "",
+        seiKana: $("cust-sei-kana")?.value ?? "", meiKana: $("cust-mei-kana")?.value ?? "",
+        phone: $("cust-phone")?.value ?? "", email: $("cust-email")?.value ?? "",
+        postal: $("cust-postal")?.value ?? "", address: $("cust-address")?.value ?? "",
+      },
+    }));
+  } catch { /* ストレージが使えない環境では保存しないだけ */ }
+}
+let _saveTimer = null;
+document.addEventListener("input", () => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveState, 400); });
+
+function clearSavedState() { try { localStorage.removeItem(SAVE_KEY); } catch {} }
+
+async function restoreSaved() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
+  if (!saved || Date.now() - (saved.savedAt || 0) > 24 * 3600 * 1000) return;
+
+  RESTORING = true;   // 復元中は計測イベントと再保存を止める
+  try {
+    const c = saved.customer || {};
+    if ($("cust-sei")) {
+      $("cust-sei").value = c.sei || ""; $("cust-mei").value = c.mei || "";
+      $("cust-sei-kana").value = c.seiKana || ""; $("cust-mei-kana").value = c.meiKana || "";
+      $("cust-phone").value = c.phone || ""; $("cust-email").value = c.email || "";
+      if ($("cust-postal")) { $("cust-postal").value = c.postal || ""; $("cust-address").value = c.address || ""; }
+    }
+    const p = state.products.find((x) => x.id === saved.product_id);
+    if (!p) return;
+    selectProduct(p);
+    const v = p.product_variants.find((x) => x.id === saved.variant_id);
+    if (!v) return;
+    selectVariant(v);
+    // 選択肢: いまも存在するものだけ復元
+    const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
+    state.sel.options = new Map((saved.options || []).filter(([id]) => validIds.has(id)));
+    state.sel.answers = new Map(saved.answers || []);
+    renderGroups();
+    updatePreview();
+    updatePriceBar();
+    // 受取日: 過去日になっていたら日付だけ諦める（他は残す）
+    const todayKey = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    if (saved.date && saved.date >= todayKey) {
+      await selectDate(saved.date);
+      const slot = state.slots.find((x) => x.id === saved.slot_id);
+      if (slot && !state.slotFull?.[slot.id]) { state.sel.slot = slot; renderSlots(); }
+    }
+    renderQuestions();
+    toast("前回の入力内容を復元しました");
+  } finally {
+    RESTORING = false;
+  }
 }
 
 /* ---------- 初期ロード ---------- */
@@ -137,6 +207,7 @@ async function load() {
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
   ]);
   renderProducts();
+  await restoreSaved();
 }
 
 /* ---------- ユーティリティ ---------- */
@@ -195,7 +266,7 @@ function updatePriceBar() {
     $("price-summary").textContent =
       `${state.sel.product.name} ${state.sel.variant.size_label}`;
     $("price-total").textContent = yen(t) + "（税込）";
-  }
+  }  saveState();
 }
 
 /* ---------- 1. 商品 ---------- */
@@ -528,6 +599,7 @@ async function selectDate(key) {
     state.slotFull = Object.fromEntries(rows.map((r) => [r.slot_id, r.is_full]));
   } catch { state.slotFull = {}; }
   renderSlots();
+  saveState();
   $("slot-area").classList.remove("hidden");
   $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -541,7 +613,7 @@ function renderSlots() {
     el.className = "pill" + (state.sel.slot?.id === s.id ? " selected" : "") + (full ? " full" : "");
     el.textContent = s.label + (full ? "（満員）" : "");
     if (full) el.disabled = true;
-    else el.onclick = () => { state.sel.slot = s; renderSlots(); };
+    else el.onclick = () => { state.sel.slot = s; renderSlots(); saveState(); };
     wrap.appendChild(el);
   }
 }
@@ -731,6 +803,7 @@ $("btn-submit").onclick = async () => {
     $("done-pickup").textContent =
       `${y}年${+m}月${+d}日 ${s.slot.label} に${state.tenant.name}でお渡しします。確認のご連絡をお待ちください。`;
     $("view-confirm").classList.add("hidden");
+    clearSavedState();
     $("view-done").classList.remove("hidden");
     window.scrollTo({ top: 0 });
   } catch (e) {

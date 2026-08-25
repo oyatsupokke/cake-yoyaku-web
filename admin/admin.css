@@ -43,6 +43,15 @@
 .st-completed { background: #e6f6e8; color: #2e8b3d; }
 .st-canceled { background: #eee; color: #888; }
 .st-mailfail { background: #fff3d6; color: #a76a00; }
+.cf-row {
+  display: flex; align-items: center; gap: 18px; padding: 9px 2px;
+  border-bottom: 1px solid var(--line); font-size: .92rem;
+}
+.cf-row:last-child { border-bottom: none; }
+.cf-row strong { flex: 1; font-weight: 600; }
+.cf-check { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cf-check input:disabled { opacity: .45; }
+.cf-check:has(input:disabled) { color: #a9a9a9; }
 .order-body { border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 10px; font-size: .88rem; }
 .order-body .confirm-row { padding: 2px 0; }
 .order-actions { display: flex; gap: 8px; margin-top: 10px; }

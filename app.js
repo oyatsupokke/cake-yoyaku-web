@@ -332,8 +332,13 @@ function renderGroups() {
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
       const price = o.price_delta ? `+${yen(o.price_delta)}` : "無料";
+      // 枚数はステッパー（−/＋）で。数字入力欄だけだと枚数と気づけない（まりほ指摘 2026-08-24）
       const qtyUi = (o.max_quantity || 1) > 1 && selected
-        ? `<input type="number" class="qty" min="1" max="${o.max_quantity}" value="${sel.qty}">`
+        ? `<span class="qty-stepper" role="group" aria-label="枚数">
+             <button type="button" class="qty-btn qty-minus" aria-label="減らす">−</button>
+             <span class="qty-count">${sel.qty}<small>枚</small></span>
+             <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
+           </span>`
         : "";
       row.innerHTML = `
         <input type="${type}" name="g-${g.id}" ${selected ? "checked" : ""}>
@@ -343,15 +348,23 @@ function renderGroups() {
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
       input.onclick = (e) => { e.stopPropagation(); toggleOption(g, o, input); };
-      const qty = row.querySelector(".qty");
-      if (qty) {
-        qty.onclick = (e) => e.stopPropagation();
-        qty.onchange = () => {
-          const v = Math.max(1, Math.min(o.max_quantity, parseInt(qty.value || "1", 10)));
+      const stepper = row.querySelector(".qty-stepper");
+      if (stepper) {
+        stepper.onclick = (e) => e.stopPropagation();
+        const countEl = stepper.querySelector(".qty-count");
+        const step = (delta) => {
+          const cur = state.sel.options.get(o.id).qty;
+          const v = Math.max(1, Math.min(o.max_quantity, cur + delta));
           state.sel.options.get(o.id).qty = v;
-          qty.value = v;
+          countEl.innerHTML = `${v}<small>枚</small>`;
+          stepper.querySelector(".qty-minus").disabled = v <= 1;
+          stepper.querySelector(".qty-plus").disabled = v >= o.max_quantity;
           updatePriceBar();
         };
+        stepper.querySelector(".qty-minus").onclick = (e) => { e.stopPropagation(); step(-1); };
+        stepper.querySelector(".qty-plus").onclick = (e) => { e.stopPropagation(); step(1); };
+        stepper.querySelector(".qty-minus").disabled = sel.qty <= 1;
+        stepper.querySelector(".qty-plus").disabled = sel.qty >= o.max_quantity;
       }
       box.appendChild(row);
       // 記入欄付きオプション（例: ナンバークッキーの数字）: 選択中だけ入力欄を出す

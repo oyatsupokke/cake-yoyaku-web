@@ -85,7 +85,7 @@ async function load() {
   track("form_open");
   // お客様情報の項目設定（住所を聞くか・必須か）は店の設定に従う
   const addrCfg = state.tenant.customer_form?.address ?? { enabled: false, required: false };
-  if (addrCfg.enabled) {
+  if (addrCfg.enabled && $("field-postal")) {
     $("field-postal").classList.remove("hidden");
     $("field-address").classList.remove("hidden");
     if (addrCfg.required) {
@@ -587,7 +587,7 @@ function validate() {
   }
   if (!$("cust-name").value.trim()) return "お名前をご記入ください";
   const addrReq = state.tenant.customer_form?.address;
-  if (addrReq?.enabled && addrReq?.required) {
+  if (addrReq?.enabled && addrReq?.required && $("cust-postal")) {
     if (!$("cust-postal").value.trim()) return "郵便番号をご記入ください";
     if (!$("cust-address").value.trim()) return "ご住所をご記入ください";
   }
@@ -640,7 +640,7 @@ function renderConfirm() {
   row("お名前", $("cust-name").value.trim());
   row("お電話", $("cust-phone").value.trim());
   row("メール", $("cust-email").value.trim());
-  if ($("cust-address").value.trim())
+  if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
   row("お支払い", "店頭でのお支払い");
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(currentTotal())}</span></div>`);
@@ -667,8 +667,8 @@ $("btn-submit").onclick = async () => {
           name: $("cust-name").value.trim(),
           phone: $("cust-phone").value.trim(),
           email: $("cust-email").value.trim(),
-          postal_code: $("cust-postal").value.trim() || null,
-          address: $("cust-address").value.trim() || null,
+          postal_code: $("cust-postal") ? $("cust-postal").value.trim() || null : null,
+          address: $("cust-address") ? $("cust-address").value.trim() || null : null,
         },
         payment_method: "store",
         options: [...s.options].map(([option_id, v]) => ({

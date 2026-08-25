@@ -311,24 +311,6 @@ function buildPhotoField(opts) {
 }
 
 /* ---------- データロード ---------- */
-async function loadCustomerForm() {
-  const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=customer_form`))[0];
-  const cf = t.customer_form?.address ?? { enabled: false, required: false };
-  const en = $("cf-addr-enabled"), req = $("cf-addr-required");
-  en.checked = !!cf.enabled;
-  req.checked = !!cf.required;
-  req.disabled = !cf.enabled;
-  en.onchange = () => {
-    req.disabled = !en.checked;
-    if (!en.checked) req.checked = false;
-    markDirty();
-  };
-  req.onchange = markDirty;
-  regField("tenants", state.tenantId, "customer_form", en, {
-    get: () => ({ address: { enabled: en.checked, required: en.checked && req.checked } }),
-  });
-}
-
 async function loadAll(keepCurrent = true) {
   const [products, lists, questions] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
@@ -1008,7 +990,6 @@ function confirmLeave() {
     const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain`);
     $("preview-link").href = `../?shop=${t[0].subdomain}`;
     await loadAll(false);
-    await loadCustomerForm();
   } catch {
     showLogin();
   }

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1787631537">
-<link rel="stylesheet" href="admin.css?v=1787631537">
+<link rel="stylesheet" href="../styles.css?v=1787631824">
+<link rel="stylesheet" href="admin.css?v=1787631824">
 </head>
 <body>
 <div id="app" class="admin">
@@ -68,7 +68,7 @@
     <!-- 設定 -->
     <section id="tab-settings" class="hidden">
       <div class="confirm-box">
-        <h3>店舗情報</h3>
+        <h3>店舗の基本情報</h3>
         <label class="field">店名
           <input type="text" id="t-name">
         </label>
@@ -89,6 +89,14 @@
           <label class="radio-line"><input type="radio" name="deadline-mode" value="calendar">暦日どおり数える（定休日も1日と数える）</label>
           <label class="radio-line"><input type="radio" name="deadline-mode" value="business">定休日は数えない（仕込みできる日だけで数える）</label>
           <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「数えない」だと前の週の金曜が締切になります。定休日にも仕込みをするお店は「暦日どおり」のままでOK。</span>
+        </div>
+      </div>
+      <div class="confirm-box">
+        <h3>予約フォームの設定</h3>
+        <div class="field">お客様情報（予約の最後に聞く項目）
+          <label class="radio-line"><input type="checkbox" id="t-addr-enabled">ご住所（郵便番号＋住所）を聞く</label>
+          <label class="radio-line"><input type="checkbox" id="t-addr-required">ご住所を必須にする</label>
+          <span class="help">お名前・お電話番号・メールアドレスは、ご連絡に必要なため常に必須です。</span>
         </div>
         <label class="field">キャンセルポリシー（予約確認画面に表示されます）
           <textarea id="t-cancel" rows="3"></textarea>
@@ -161,6 +169,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="admin.js?v=1787631537"></script>
+<script src="admin.js?v=1787631824"></script>
 </body>
 </html>

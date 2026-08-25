@@ -333,6 +333,16 @@ async function loadTenantForm() {
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
   $("t-cancel").value = t.cancel_policy || "";
+  const cf = t.customer_form?.address ?? { enabled: false, required: false };
+  $("t-addr-enabled").checked = !!cf.enabled;
+  $("t-addr-required").checked = !!cf.required;
+  $("t-addr-required").disabled = !cf.enabled;
+  $("t-addr-enabled").onchange = () => {
+    $("t-addr-required").disabled = !$("t-addr-enabled").checked;
+    if (!$("t-addr-enabled").checked) $("t-addr-required").checked = false;
+    markDirty();
+  };
+  $("t-addr-required").onchange = markDirty;
   $("t-tokushoho").value = t.tokushoho?.text || "";
   const w = $("t-weekdays");
   w.innerHTML = "";
@@ -352,6 +362,10 @@ async function loadTenantForm() {
   regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
   regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
   regField("tenants", T, "cancel_policy", $("t-cancel"));
+  regField("tenants", T, "customer_form", $("t-addr-enabled"), {
+    get: () => ({ address: { enabled: $("t-addr-enabled").checked,
+                             required: $("t-addr-enabled").checked && $("t-addr-required").checked } }),
+  });
   regField("tenants", T, "tokushoho", $("t-tokushoho"),
     { get: () => ($("t-tokushoho").value.trim() ? { text: $("t-tokushoho").value.trim() } : null) });
   regField("tenants", T, "closed_weekdays", w, {

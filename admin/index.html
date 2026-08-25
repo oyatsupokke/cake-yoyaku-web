@@ -90,6 +90,11 @@
           <label class="radio-line"><input type="radio" name="deadline-mode" value="business">定休日は数えない（仕込みできる日だけで数える）</label>
           <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「数えない」だと前の週の金曜が締切になります。定休日にも仕込みをするお店は「暦日どおり」のままでOK。</span>
         </div>
+        <div class="field">お客様情報（予約フォームで聞く項目）
+          <label class="radio-line"><input type="checkbox" id="t-addr-enabled">ご住所（郵便番号＋住所）を聞く</label>
+          <label class="radio-line"><input type="checkbox" id="t-addr-required">ご住所を必須にする</label>
+          <span class="help">お名前・電話・メールは常に必須です。住所のみここで切り替えられます。</span>
+        </div>
         <label class="field">キャンセルポリシー（予約確認画面に表示されます）
           <textarea id="t-cancel" rows="3"></textarea>
         </label>

@@ -81,6 +81,12 @@
       <label class="field">メールアドレス<span class="req">必須</span>
         <input type="email" id="cust-email" autocomplete="email">
       </label>
+      <label class="field hidden" id="field-postal">郵便番号<span class="req hidden" id="req-postal">必須</span>
+        <input type="text" id="cust-postal" inputmode="numeric" autocomplete="postal-code" placeholder="448-0000">
+      </label>
+      <label class="field hidden" id="field-address">ご住所<span class="req hidden" id="req-address">必須</span>
+        <input type="text" id="cust-address" autocomplete="street-address" placeholder="愛知県刈谷市…">
+      </label>
       <div class="pay-note">お支払い方法：<strong>店頭でのお支払い</strong>（受取時にお支払いください）</div>
       <button type="button" class="btn-primary" id="btn-confirm">入力内容を確認する</button>
     </section>

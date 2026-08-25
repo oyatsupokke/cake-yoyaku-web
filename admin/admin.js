@@ -345,6 +345,14 @@ async function loadTenantForm() {
   };
   $("t-addr-required").onchange = markDirty;
   $("t-tokushoho").value = t.tokushoho?.text || "";
+  // お客様セルフ操作（変更・キャンセル）の期限設定
+  $("t-self-enabled").checked = t.self_manage_enabled !== false;
+  $("t-self-slot-days").value = t.self_slot_days ?? 1;
+  $("t-self-slot-time").value = (t.self_slot_time || "12:00").slice(0, 5);
+  $("t-self-content-days").value = t.self_content_days ?? 2;
+  $("t-self-content-time").value = (t.self_content_time || "12:00").slice(0, 5);
+  $("t-self-cancel-days").value = t.self_cancel_days ?? 1;
+  $("t-self-cancel-time").value = (t.self_cancel_time || "09:00").slice(0, 5);
   const w = $("t-weekdays");
   w.innerHTML = "";
   WEEKDAYS.forEach((name, i) => {
@@ -369,6 +377,13 @@ async function loadTenantForm() {
   });
   regField("tenants", T, "tokushoho", $("t-tokushoho"),
     { get: () => ($("t-tokushoho").value.trim() ? { text: $("t-tokushoho").value.trim() } : null) });
+  regField("tenants", T, "self_manage_enabled", $("t-self-enabled"));
+  regField("tenants", T, "self_slot_days", $("t-self-slot-days"), { number: true });
+  regField("tenants", T, "self_slot_time", $("t-self-slot-time"));
+  regField("tenants", T, "self_content_days", $("t-self-content-days"), { number: true });
+  regField("tenants", T, "self_content_time", $("t-self-content-time"));
+  regField("tenants", T, "self_cancel_days", $("t-self-cancel-days"), { number: true });
+  regField("tenants", T, "self_cancel_time", $("t-self-cancel-time"));
   regField("tenants", T, "closed_weekdays", w, {
     get: () => [...w.querySelectorAll("input")].map((c, i) => (c.checked ? i : -1)).filter((i) => i >= 0),
   });

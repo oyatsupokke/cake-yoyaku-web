@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>ご予約の確認・変更・キャンセル</title>
+<link rel="stylesheet" href="styles.css?v=1787646914">
+<style>
+  /* このページ専用の少しだけの追加スタイル */
+  .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f2e8dc; color: #7a5c3d; vertical-align: middle; margin-left: 8px; }
+  .status-chip.canceled { background: #f5d9d9; color: #a33; }
+  .action-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .action-list .btn-primary, .action-list .btn-secondary { width: 100%; }
+  .action-hint { font-size: 12px; color: #8a7a6a; margin: 2px 0 6px; text-align: center; }
+  .btn-danger { width: 100%; padding: 12px; border: 1px solid #d9a3a3; border-radius: 12px; background: #fff; color: #a33; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .locked-note { background: #faf3e8; border-radius: 12px; padding: 14px; font-size: 13px; color: #7a5c3d; margin-top: 12px; line-height: 1.7; }
+  .back-link { display: inline-block; margin-top: 16px; color: #8a7a6a; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="shop-header">
+    <h1 id="shop-name">読み込み中…</h1>
+    <p class="shop-sub">ご予約の確認・変更・キャンセル</p>
+  </header>
+
+  <!-- 読み込みエラー -->
+  <main id="view-error" class="hidden">
+    <div class="confirm-box">
+      <p id="error-message" class="small"></p>
+    </div>
+  </main>
+
+  <!-- 予約内容 -->
+  <main id="view-order" class="hidden">
+    <h2 class="confirm-title">ご予約内容<span id="status-chip" class="status-chip"></span></h2>
+    <div class="confirm-box" id="order-detail"></div>
+
+    <div id="action-area">
+      <div class="action-list" id="action-list"></div>
+      <div id="locked-note" class="locked-note hidden"></div>
+    </div>
+
+    <div class="confirm-box" id="policy-box" style="margin-top:16px;">
+      <h3>キャンセルについて</h3>
+      <p id="cancel-policy" class="small"></p>
+    </div>
+  </main>
+
+  <!-- 受取日時の変更 -->
+  <main id="view-slot" class="hidden">
+    <h2 class="confirm-title">受取日時の変更</h2>
+    <p class="small" id="slot-current" style="text-align:center;"></p>
+    <section class="step">
+      <div class="cal-header">
+        <button type="button" id="cal-prev" class="cal-nav">‹</button>
+        <span id="cal-title"></span>
+        <button type="button" id="cal-next" class="cal-nav">›</button>
+      </div>
+      <div class="cal-legend">
+        <span><i class="dot open"></i>受付中</span>
+        <span><i class="dot few"></i>残りわずか</span>
+        <span><i class="dot full"></i>締め切り</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div id="slot-area" class="hidden">
+        <h3>受取時間</h3>
+        <div class="pill-row" id="slot-pills"></div>
+      </div>
+    </section>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" id="btn-slot-back">戻る</button>
+      <button type="button" class="btn-primary" id="btn-slot-save" disabled>この日時に変更する</button>
+    </div>
+    <p id="slot-error" class="error hidden"></p>
+  </main>
+
+  <!-- キャンセル確認 -->
+  <main id="view-cancel" class="hidden">
+    <h2 class="confirm-title">ご予約のキャンセル</h2>
+    <div class="confirm-box" id="cancel-detail"></div>
+    <p class="preview-note">「キャンセルを確定する」を押すと、このご予約は取り消されます。この操作は元に戻せません。</p>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" id="btn-cancel-back">戻る</button>
+      <button type="button" class="btn-primary" id="btn-cancel-confirm" style="background:#c0392b;">キャンセルを確定する</button>
+    </div>
+    <p id="cancel-error" class="error hidden"></p>
+  </main>
+
+  <!-- 完了 -->
+  <main id="view-done" class="hidden">
+    <div class="done-box">
+      <div class="done-emoji" id="done-emoji">✅</div>
+      <h2 id="done-title"></h2>
+      <p id="done-text" class="small"></p>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="manage.js?v=1787646914"></script>
+</body>
+</html>

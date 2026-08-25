@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1787634683">
-<link rel="stylesheet" href="admin.css?v=1787634683">
+<link rel="stylesheet" href="../styles.css?v=1787646914">
+<link rel="stylesheet" href="admin.css?v=1787646914">
 </head>
 <body>
 <div id="app" class="admin">
@@ -126,6 +126,28 @@
         <label class="field">特定商取引法に基づく表記
           <textarea id="t-tokushoho" rows="4" placeholder="事業者名・所在地・連絡先など"></textarea>
         </label>
+        <div class="field">お客様ご自身での変更・キャンセル
+          <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
+          <div class="cf-row">
+            <strong>この機能を使う</strong>
+            <label class="cf-check"><input type="checkbox" id="t-self-enabled">有効にする</label>
+          </div>
+          <div class="cf-row">
+            <strong>受取日時の変更</strong>
+            <span>受取日の <input type="number" id="t-self-slot-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-slot-time" style="width:100px"> まで</span>
+          </div>
+          <div class="cf-row">
+            <strong>ご注文内容の変更</strong>
+            <span>受取日の <input type="number" id="t-self-content-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-content-time" style="width:100px"> まで</span>
+          </div>
+          <div class="cf-row">
+            <strong>キャンセル</strong>
+            <span>受取日の <input type="number" id="t-self-cancel-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-cancel-time" style="width:100px"> まで</span>
+          </div>
+        </div>
       </div>
       <div class="confirm-box">
         <h3>1日の上限（全体）</h3>
@@ -191,6 +213,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="admin.js?v=1787634683"></script>
+<script src="admin.js?v=1787646914"></script>
 </body>
 </html>

@@ -16,6 +16,12 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 
+/* ---------- 変更モード（?edit=<manage_token> で既存予約を読み込んで差し替え） ---------- */
+const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
+const EDIT_MODE = !!EDIT_TOKEN;
+let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
+const SUBMIT_LABEL = EDIT_MODE ? "この内容に変更する" : "この内容で注文する";
+
 const state = {
   tenant: null,
   products: [],
@@ -88,7 +94,7 @@ const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
   : String(Date.now()) + Math.random().toString(16).slice(2));
 function track(step, detail) {
-  if (!state.tenant || RESTORING) return;
+  if (!state.tenant || RESTORING || EDIT_MODE) return;  // 変更モードは新規のファネル計測を汚さない
   fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
     method: "POST",
     headers: {
@@ -111,7 +117,7 @@ const SAVE_KEY = `cake_form_${CONFIG.shop}`;
 let RESTORING = false;
 
 function saveState() {
-  if (RESTORING || !state.tenant) return;
+  if (RESTORING || EDIT_MODE || !state.tenant) return;  // 変更モードは自動保存を使わない（新規予約の下書きを壊さない）
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       savedAt: Date.now(),
@@ -207,7 +213,72 @@ async function load() {
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
   ]);
   renderProducts();
-  await restoreSaved();
+  if (EDIT_MODE) {
+    await enterEditMode();
+  } else {
+    await restoreSaved();
+  }
+}
+
+/* ---------- 変更モードの初期化：既存予約を読み込んでフォームに展開 ---------- */
+async function enterEditMode() {
+  let r = null;
+  try { r = await rpc("fn_manage_get_order", { p_token: EDIT_TOKEN }); } catch { /* 下で弾く */ }
+  if (!r?.ok || !r.allowed?.content) {
+    // 期限切れ・キャンセル済みなどは管理ページに戻して理由を表示させる
+    location.replace(`manage.html?t=${encodeURIComponent(EDIT_TOKEN)}`);
+    return;
+  }
+  EDIT_ORDER = r.order;
+  RESTORING = true;
+  try {
+    document.querySelector(".shop-sub").textContent = `ご予約内容の変更（No.${EDIT_ORDER.order_number}）`;
+    document.title = `${state.tenant.name}｜ご予約内容の変更`;
+    $("btn-submit").textContent = SUBMIT_LABEL;
+
+    const c = EDIT_ORDER.customer || {};
+    const [sei = "", mei = ""] = (c.name || "").split(/[ 　]+/);
+    const [seiK = "", meiK = ""] = (c.kana || "").split(/[ 　]+/);
+    $("cust-sei").value = sei; $("cust-mei").value = mei;
+    $("cust-sei-kana").value = seiK; $("cust-mei-kana").value = meiK;
+    $("cust-phone").value = c.phone || ""; $("cust-email").value = c.email || "";
+    if ($("cust-postal")) {
+      $("cust-postal").value = c.postal_code || "";
+      $("cust-address").value = c.address || "";
+    }
+
+    const p = state.products.find((x) => x.id === EDIT_ORDER.product_id);
+    if (!p) {
+      toast("このご予約の商品は現在お取り扱いがないため、この画面では変更できません。お店までご連絡ください");
+      return;
+    }
+    selectProduct(p);
+    const v = p.product_variants.find((x) => x.id === EDIT_ORDER.variant_id);
+    if (v) selectVariant(v);
+
+    const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
+    state.sel.options = new Map((EDIT_ORDER.options || [])
+      .filter((o) => o.option_id && validIds.has(o.option_id))
+      .map((o) => [o.option_id, { qty: o.quantity || 1, text: o.text || "" }]));
+    state.sel.answers = new Map((EDIT_ORDER.answers || [])
+      .filter((a) => a.question_id)
+      .map((a) => [a.question_id, { text: a.answer_text, choiceId: a.choice_id }]));
+    renderGroups();
+    updatePreview();
+    updatePriceBar();
+
+    // 受取日時：予約中の日時をそのまま展開（日を変えなければ締切に関係なく変更を確定できる）
+    const [ey, em] = EDIT_ORDER.pickup_date.split("-").map(Number);
+    state.calMonth = new Date(ey, em - 1, 1);
+    await loadCalendar();
+    await selectDate(EDIT_ORDER.pickup_date);
+    const slot = state.slots.find((x) => x.id === EDIT_ORDER.pickup_slot_id);
+    if (slot) { state.sel.slot = slot; renderSlots(); }
+    renderQuestions();
+    toast("いまのご予約内容を読み込みました。変更したいところを直してください");
+  } finally {
+    RESTORING = false;
+  }
 }
 
 /* ---------- ユーティリティ ---------- */
@@ -597,6 +668,10 @@ async function selectDate(key) {
       p_product: state.sel.product.id, p_variant: state.sel.variant.id,
     });
     state.slotFull = Object.fromEntries(rows.map((r) => [r.slot_id, r.is_full]));
+    // 変更モード：いま予約している枠は「満員」でも選べる（自分の分を除けば空くため。最終判定はサーバー）
+    if (EDIT_MODE && EDIT_ORDER && key === EDIT_ORDER.pickup_date) {
+      state.slotFull[EDIT_ORDER.pickup_slot_id] = false;
+    }
   } catch { state.slotFull = {}; }
   renderSlots();
   saveState();
@@ -788,8 +863,10 @@ $("btn-submit").onclick = async () => {
           })),
       },
     };
-    const r = await rpc("fn_place_order", payload);
-    if (!r.ok) throw new Error(r.message || "ご注文を受け付けられませんでした");
+    const r = EDIT_MODE
+      ? await rpc("fn_manage_replace", { p_token: EDIT_TOKEN, p: payload.p })
+      : await rpc("fn_place_order", payload);
+    if (!r.ok) throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）
     fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
@@ -797,13 +874,25 @@ $("btn-submit").onclick = async () => {
       headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}` },
     }).catch(() => {});
     track("order_placed", { option_count: s.options.size, amount: r.total_amount });
+    if (EDIT_MODE) {
+      $("view-done").querySelector("h2").textContent = "ご予約内容を変更しました";
+    }
     $("done-number").textContent = `No.${r.order_number}`;
     $("done-total").textContent = yen(r.total_amount);
     const [y, m, d] = s.date.split("-");
     $("done-pickup").textContent =
-      `${y}年${+m}月${+d}日 ${s.slot.label} に${state.tenant.name}でお渡しします。確認のご連絡をお待ちください。`;
+      `${y}年${+m}月${+d}日 ${s.slot.label} に${state.tenant.name}でお渡しします。` +
+      (EDIT_MODE ? "変更後の内容で確認メールをお送りします。" : "確認のご連絡をお待ちください。");
     $("view-confirm").classList.add("hidden");
-    clearSavedState();
+    if (!EDIT_MODE) clearSavedState();
+    // 変更・キャンセル用の専用リンク（確認メールにも同じものが載る）
+    if (r.manage_token && !$("done-manage-link")) {
+      const p2 = document.createElement("p");
+      p2.className = "small";
+      p2.id = "done-manage-link";
+      p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${r.manage_token}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
+      $("view-done").querySelector(".done-box").appendChild(p2);
+    }
     $("view-done").classList.remove("hidden");
     window.scrollTo({ top: 0 });
   } catch (e) {
@@ -811,7 +900,7 @@ $("btn-submit").onclick = async () => {
     $("submit-error").classList.remove("hidden");
   } finally {
     btn.disabled = false;
-    btn.textContent = "この内容で注文する";
+    btn.textContent = SUBMIT_LABEL;
   }
 };
 

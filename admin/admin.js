@@ -14,6 +14,11 @@ const CONFIG = {
 
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
+// DB由来の文字列は、顧客入力・店舗設定とも必ずエスケープしてからHTMLに入れる。
+// 管理画面のセッションはlocalStorageにあるため、stored XSSは店舗アカウント乗っ取りに直結する。
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[ch]);
 const STATUS = {
   new: "未確認", confirmed: "確認済", in_production: "製造中",
   completed: "受渡済", canceled: "キャンセル",
@@ -139,9 +144,9 @@ function renderPickup() {
     card.className = "order-card" + (o.status === "canceled" ? " canceled" : "");
     card.innerHTML = `
       <div class="order-head">
-        <span class="order-time">${o.pickup_slot_label}</span>
-        <span class="order-name">${o.customer_name} 様
-          <span class="order-product">No.${o.order_number}　${item.product_name_snapshot || ""} ${item.variant_label_snapshot || ""}</span>
+        <span class="order-time">${esc(o.pickup_slot_label)}</span>
+        <span class="order-name">${esc(o.customer_name)} 様
+          <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>
         <span class="order-total">${yen(o.total_amount)}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
@@ -158,7 +163,7 @@ function renderPickup() {
 }
 function fillOrderBody(el, o) {
   const rows = [];
-  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${k}</span><span>${v}</span></div>`);
+  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   for (const it of o.order_items) {
     for (const op of it.order_item_options) {
       row(op.group_name_snapshot,
@@ -170,7 +175,9 @@ function fillOrderBody(el, o) {
     if (a.answer_text || a.choice_label_snapshot) row(a.label_snapshot, a.answer_text || a.choice_label_snapshot);
   }
   if (o.customer_kana) row("フリガナ", o.customer_kana);
-  row("電話", `<a href="tel:${o.customer_phone}">${o.customer_phone}</a>`);
+  const phone = String(o.customer_phone ?? "");
+  const tel = phone.replace(/[^0-9+*#,;]/g, "");
+  rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
   row("メール", o.customer_email);
   row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);
   let actions = "";
@@ -195,7 +202,7 @@ function fillOrderBody(el, o) {
 async function resendMail(o) {
   try {
     await api("PATCH", `/rest/v1/order_emails?order_id=eq.${o.id}&status=neq.sent`,
-      { status: "pending", attempts: 0, last_error: null });
+      { status: "pending", attempts: 0, processing_at: null, last_error: null });
     await api("PATCH", `/rest/v1/orders?id=eq.${o.id}`, { mail_failed: false });
     await fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
       method: "POST",
@@ -229,7 +236,7 @@ function renderKitchen() {
   let total = 0;
   for (const [key, qty] of agg) {
     const [name, size] = key.split("｜");
-    sum += `<tr><td>${name}</td><td>${size}</td><td class="qty-cell">${qty}</td></tr>`;
+    sum += `<tr><td>${esc(name)}</td><td>${esc(size)}</td><td class="qty-cell">${esc(qty)}</td></tr>`;
     total += qty;
   }
   sum += `<tr><td colspan="2"><strong>合計</strong></td><td class="qty-cell">${total}</td></tr></table>`;
@@ -241,22 +248,22 @@ function renderKitchen() {
   for (const o of active) {
     const it = o.order_items[0] || {};
     const opts = (it.order_item_options || [])
-      .map((op) => `<li>${op.group_name_snapshot}: ${op.option_name_snapshot}` +
-        `${op.quantity > 1 ? ` ×${op.quantity}` : ""}${op.option_text ? `「${op.option_text}」` : ""}</li>`)
+      .map((op) => `<li>${esc(op.group_name_snapshot)}: ${esc(op.option_name_snapshot)}` +
+        `${op.quantity > 1 ? ` ×${esc(op.quantity)}` : ""}${op.option_text ? `「${esc(op.option_text)}」` : ""}</li>`)
       .join("");
     const plate = o.order_answers.find((a) => a.label_snapshot.includes("メッセージ"));
     const notes = o.order_answers
       .filter((a) => a !== plate && (a.answer_text || a.choice_label_snapshot))
-      .map((a) => `<li>${a.label_snapshot}: ${a.answer_text || a.choice_label_snapshot}</li>`)
+      .map((a) => `<li>${esc(a.label_snapshot)}: ${esc(a.answer_text || a.choice_label_snapshot)}</li>`)
       .join("");
     const card = document.createElement("div");
     card.className = "kcard";
     card.innerHTML = `
-      <div class="khead"><span>${o.pickup_slot_label}</span>
-        <span>No.${o.order_number} ${o.customer_name}様</span>
-        <span>${it.product_name_snapshot || ""} ${it.variant_label_snapshot || ""}</span></div>
+      <div class="khead"><span>${esc(o.pickup_slot_label)}</span>
+        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様</span>
+        <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       <ul>${opts}${notes}</ul>
-      ${plate?.answer_text ? `<span class="plate">プレート：「${plate.answer_text}」</span>` : ""}`;
+      ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
     wrap.appendChild(card);
   }
 }
@@ -427,7 +434,7 @@ async function loadSettings() {
   for (const r of rules) {
     const row = document.createElement("div");
     row.className = "rule-row";
-    row.innerHTML = `<span class="rule-name">${r.name}</span>
+    row.innerHTML = `<span class="rule-name">${esc(r.name)}</span>
       <input type="number" min="0" placeholder="なし" value="${r.daily_limit ?? ""}"> 台/日`;
     regField("capacity_rules", r.id, "daily_limit", row.querySelector("input"), { number: true });
     rw.appendChild(row);
@@ -448,7 +455,7 @@ async function loadSettings() {
   for (const ov of ovs) {
     const row = document.createElement("div");
     row.className = "ov-row";
-    row.innerHTML = `<span style="flex:1">${ov.date}　${ov.kind === "closed" ? "臨時休業" : "臨時営業"}</span>
+    row.innerHTML = `<span style="flex:1">${esc(ov.date)}　${ov.kind === "closed" ? "臨時休業" : "臨時営業"}</span>
       <button type="button" class="pill danger">削除</button>`;
     row.querySelector("button").onclick = async () => {
       await api("DELETE", `/rest/v1/date_overrides?id=eq.${ov.id}`);

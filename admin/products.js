@@ -12,6 +12,9 @@ const CONFIG = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlcXFiY3N4aWtud3R0aWZ0emVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDU0ODEsImV4cCI6MjEwMDQ4MTQ4MX0.KpNEUy0s4k8XGJAImdDSVpEVFVfYBdyLWcaZQMYAxDw",
 };
 const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[ch]);
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const state = { session: null, tenantId: null, products: [], sharedLists: [], current: null, fields: [] };
 
@@ -213,14 +216,14 @@ function buildLayerField(opts) {
   const box = document.createElement("div");
   box.className = "photo-field";
   box.innerHTML = `
-    <span class="text-field-label">${label}</span>
+    <span class="text-field-label">${esc(label)}</span>
     <div class="photo-body">
-      <div class="photo-thumb layer-thumb ${url ? "" : "empty"}">${url ? `<img src="${url}" alt="">` : "なし"}</div>
+      <div class="photo-thumb layer-thumb ${url ? "" : "empty"}">${url ? `<img src="${esc(url)}" alt="">` : "なし"}</div>
       <div class="photo-actions">
         <label class="pill photo-pick">イラストを選ぶ<input type="file" accept="image/png" hidden></label>
         <button type="button" class="pill danger photo-del" ${url ? "" : "hidden"}>削除</button>
-        ${showZ ? `<span class="mini">重ね順</span><input type="number" class="layer-z" value="${z ?? ""}" placeholder="20" style="width:70px">` : ""}
-        ${hint ? `<span class="mini photo-hint">${hint}</span>` : ""}
+        ${showZ ? `<span class="mini">重ね順</span><input type="number" class="layer-z" value="${esc(z)}" placeholder="20" style="width:70px">` : ""}
+        ${hint ? `<span class="mini photo-hint">${esc(hint)}</span>` : ""}
       </div>
     </div>`;
   const input = box.querySelector('input[type="file"]');
@@ -266,13 +269,13 @@ function buildPhotoField(opts) {
   const box = document.createElement("div");
   box.className = "photo-field";
   box.innerHTML = `
-    <span class="text-field-label">${label}</span>
+    <span class="text-field-label">${esc(label)}</span>
     <div class="photo-body">
-      <div class="photo-thumb ${url ? "" : "empty"}">${url ? `<img src="${url}" alt="">` : "写真なし"}</div>
+      <div class="photo-thumb ${url ? "" : "empty"}">${url ? `<img src="${esc(url)}" alt="">` : "写真なし"}</div>
       <div class="photo-actions">
         <label class="pill photo-pick">写真を選ぶ<input type="file" accept="image/*" hidden></label>
         <button type="button" class="pill danger photo-del" ${url ? "" : "hidden"}>削除</button>
-        ${hint ? `<span class="mini photo-hint">${hint}</span>` : ""}
+        ${hint ? `<span class="mini photo-hint">${esc(hint)}</span>` : ""}
       </div>
     </div>`;
   const input = box.querySelector('input[type="file"]');
@@ -453,7 +456,7 @@ function renderEditor() {
   renderProductStops(p);
   // 共有リストのプルダウン（グループ追加用）
   $("g-shared").innerHTML = `<option value="">共有リストを使わない</option>` +
-    state.sharedLists.map((l) => `<option value="${l.id}">${l.name}を使う</option>`).join("");
+    state.sharedLists.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}を使う</option>`).join("");
 }
 
 /* ---------- この商品の上限（capacity_rules scope=products・入力したら即保存） ---------- */
@@ -546,7 +549,7 @@ async function renderProductStops(p) {
   for (const s of stops) {
     const row = document.createElement("div");
     row.className = "sl-item";
-    row.innerHTML = `<span style="flex:1">${s.date} は受け付けない</span>
+    row.innerHTML = `<span style="flex:1">${esc(s.date)} は受け付けない</span>
       <button type="button" class="pill danger">解除</button>`;
     row.querySelector("button").onclick = async () => {
       await api("DELETE", `/rest/v1/availability_overrides?id=eq.${s.id}`);
@@ -577,8 +580,8 @@ function renderVariants(p) {
     const row = document.createElement("div");
     row.className = "opt-row";
     row.innerHTML = `
-      <input type="text" class="o-name" value="${v.size_label}" style="width:110px">
-      ¥<input type="number" class="v-price" min="0" value="${v.price}">
+      <input type="text" class="o-name" value="${esc(v.size_label)}" style="width:110px">
+      ¥<input type="number" class="v-price" min="0" value="${esc(v.price)}">
       <span class="state-badge ${v.is_available ? "on" : ""}">${v.is_available ? "提供中" : "停止中"}</span>
       <button type="button" class="pill v-toggle">${v.is_available ? "停止する" : "提供を再開する"}</button>
       <button type="button" class="pill danger v-del">削除</button>`;
@@ -625,11 +628,11 @@ function renderGroups(p) {
     const box = document.createElement("div");
     box.className = "group-box";
     const sharedNote = g.shared_list_id
-      ? `<span class="mini">📎 ${state.sharedLists.find((l) => l.id === g.shared_list_id)?.name || "共有リスト"}参照中（項目の追加・停止は下の共有リスト欄で）</span>`
+      ? `<span class="mini">📎 ${esc(state.sharedLists.find((l) => l.id === g.shared_list_id)?.name || "共有リスト")}参照中（項目の追加・停止は下の共有リスト欄で）</span>`
       : "";
     box.innerHTML = `
       <div class="group-head">
-        <input type="text" class="gh-name" value="${g.name}">
+        <input type="text" class="gh-name" value="${esc(g.name)}">
         <select class="gh-type">
           <option value="single" ${g.selection_type === "single" ? "selected" : ""}>1つ選ぶ</option>
           <option value="multiple" ${g.selection_type === "multiple" ? "selected" : ""}>複数選べる</option>
@@ -641,11 +644,11 @@ function renderGroups(p) {
       <div class="gh-texts">
         <div class="text-field">
           <span class="text-field-label">説明</span>
-          <textarea class="gh-desc" rows="3" placeholder="例: お好きな果物をお選びください">${g.description ?? ""}</textarea>
+          <textarea class="gh-desc" rows="3" placeholder="例: お好きな果物をお選びください">${esc(g.description)}</textarea>
         </div>
         <div class="text-field">
           <span class="text-field-label">注意書き</span>
-          <textarea class="gh-note" rows="3" placeholder="例: ※果物は季節により異なります">${g.note ?? ""}</textarea>
+          <textarea class="gh-note" rows="3" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
           <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label>
         </div>
       </div>
@@ -709,9 +712,9 @@ function renderOptionRow(p, g, o) {
   row.className = "opt-row";
   const isLinked = !!o.shared_list_item_id;
   row.innerHTML = `
-    <input type="text" class="o-name" value="${o.name ?? ""}" placeholder="${isLinked ? optDisplayName(o) + "（共有）" : "選択肢名"}" ${isLinked ? "disabled" : ""}>
-    +¥<input type="number" class="o-price" min="0" value="${o.price_delta}">
-    <span class="mini">個数上限</span><input type="number" class="o-maxq" min="1" placeholder="1" value="${o.max_quantity ?? ""}">
+    <input type="text" class="o-name" value="${esc(o.name)}" placeholder="${esc(isLinked ? optDisplayName(o) + "（共有）" : "選択肢名")}" ${isLinked ? "disabled" : ""}>
+    +¥<input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
+    <span class="mini">個数上限</span><input type="number" class="o-maxq" min="1" placeholder="1" value="${esc(o.max_quantity)}">
     <span class="state-badge ${o.is_available ? "on" : ""}">${o.is_available ? "提供中" : "停止中"}</span>
     <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
     <button type="button" class="pill o-excl">同時選択できないものを選ぶ</button>
@@ -719,16 +722,16 @@ function renderOptionRow(p, g, o) {
     <div class="opt-details">
       <div class="text-field">
         <span class="text-field-label">説明</span>
-        <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${o.description ?? ""}</textarea>
+        <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea>
       </div>
       <div class="text-field">
         <span class="text-field-label">注意書き</span>
-        <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${o.note ?? ""}</textarea>
+        <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
         <label class="radio-line" style="margin:4px 0 0; font-size:.78rem"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label>
       </div>
       <div class="text-field">
         <span class="text-field-label">お客さんに書いてもらう欄（使う場合だけ、お願い文を入力）</span>
-        <input type="text" class="o-prompt" value="${o.text_prompt ?? ""}" placeholder="例: ご希望の数字をご記入ください">
+        <input type="text" class="o-prompt" value="${esc(o.text_prompt)}" placeholder="例: ご希望の数字をご記入ください">
       </div>
       <div class="o-photo"></div>
       <div class="opt-actions-row">
@@ -781,7 +784,7 @@ function renderOptionRow(p, g, o) {
     if (existing) { existing.remove(); return; }
     const panel = document.createElement("div");
     panel.className = "excl-panel stops-panel";
-    panel.innerHTML = `<span class="mini">「${optDisplayName(o)}」をご用意できない日（受取日で選べなくなります）:</span>
+    panel.innerHTML = `<span class="mini">「${esc(optDisplayName(o))}」をご用意できない日（受取日で選べなくなります）:</span>
       <div class="override-add" style="margin-top:6px">
         <input type="date" class="st-date">
         <button type="button" class="pill st-add">追加</button>
@@ -795,7 +798,7 @@ function renderOptionRow(p, g, o) {
       for (const s of stops) {
         const r2 = document.createElement("div");
         r2.className = "sl-item";
-        r2.innerHTML = `<span style="flex:1">${s.date}</span><button type="button" class="pill danger">解除</button>`;
+        r2.innerHTML = `<span style="flex:1">${esc(s.date)}</span><button type="button" class="pill danger">解除</button>`;
         r2.querySelector("button").onclick = async () => {
           await api("DELETE", `/rest/v1/option_availability_overrides?id=eq.${s.id}`);
           renderStops();
@@ -821,7 +824,7 @@ function renderOptionRow(p, g, o) {
     if (existing) { existing.remove(); return; }
     const panel = document.createElement("div");
     panel.className = "excl-panel";
-    panel.innerHTML = `<span class="mini">「${optDisplayName(o)}」と一緒に選べないものをタップ（ピンク=一緒に選べない）:</span><br>`;
+    panel.innerHTML = `<span class="mini">「${esc(optDisplayName(o))}」と一緒に選べないものをタップ（ピンク=一緒に選べない）:</span><br>`;
     const others = p.option_groups.flatMap((gg) => gg.options.filter((oo) => oo.id !== o.id).map((oo) => ({ g: gg, o: oo })));
     for (const { g: gg, o: oo } of others) {
       const pairKey = (a, b) => (a < b ? [a, b] : [b, a]);
@@ -908,10 +911,10 @@ function renderQuestions() {
     const row = document.createElement("div");
     row.className = "q-row" + (q.is_active ? "" : " unpublished");
     const opts = choices.map((c) =>
-      `<option value="${c.id}" ${q.trigger_option_id === c.id ? "selected" : ""}>${c.label} を選んだときだけ</option>`).join("");
+      `<option value="${esc(c.id)}" ${q.trigger_option_id === c.id ? "selected" : ""}>${esc(c.label)} を選んだときだけ</option>`).join("");
     row.innerHTML = `
       <div class="q-head">
-        <input type="text" class="q-label" value="${q.label}" style="flex:1; min-width:200px">
+        <input type="text" class="q-label" value="${esc(q.label)}" style="flex:1; min-width:200px">
         <select class="q-type">
           <option value="text" ${q.input_type === "text" ? "selected" : ""}>1行記入</option>
           <option value="textarea" ${q.input_type === "textarea" ? "selected" : ""}>複数行記入</option>
@@ -920,7 +923,7 @@ function renderQuestions() {
       </div>
       <div class="q-head" style="margin-top:6px">
         <span class="mini">補足:</span>
-        <input type="text" class="q-help" value="${q.help_text ?? ""}" placeholder="例: 不要の場合は「不要」とご記入ください" style="flex:1; min-width:180px">
+        <input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="例: 不要の場合は「不要」とご記入ください" style="flex:1; min-width:180px">
       </div>
       <div class="q-head" style="margin-top:6px">
         <span class="mini">表示条件:</span>
@@ -964,7 +967,7 @@ function renderSharedLists() {
   for (const l of state.sharedLists) {
     const box = document.createElement("div");
     box.className = "sl-box";
-    box.innerHTML = `<strong>${l.name}</strong><div class="sl-items"></div>
+    box.innerHTML = `<strong>${esc(l.name)}</strong><div class="sl-items"></div>
       <div class="override-add">
         <input type="text" class="sl-new" placeholder="新しい項目（例: いちじく）" style="width:170px">
         <button type="button" class="pill sl-add">項目追加</button>
@@ -975,16 +978,16 @@ function renderSharedLists() {
       row.className = "sl-item";
       row.innerHTML = `
         <div class="sl-item-main">
-          <input type="text" class="it-name" value="${it.name}">
+          <input type="text" class="it-name" value="${esc(it.name)}">
           <span class="state-badge ${it.is_available ? "on" : ""}">${it.is_available ? "提供中" : "停止中"}</span>
           <button type="button" class="pill it-toggle">${it.is_available ? "停止する" : "提供を再開する"}</button>
         </div>
         <div class="sl-item-period">
           <span class="mini period-label">提供期間（空欄なら通年）</span>
           <span class="period-inputs">
-            <input type="date" class="it-from" value="${it.available_from ?? ""}">
+            <input type="date" class="it-from" value="${esc(it.available_from)}">
             <span class="mini">〜</span>
-            <input type="date" class="it-until" value="${it.available_until ?? ""}">
+            <input type="date" class="it-until" value="${esc(it.available_until)}">
           </span>
         </div>`;
       regField("shared_list_items", it.id, "name", row.querySelector(".it-name"));

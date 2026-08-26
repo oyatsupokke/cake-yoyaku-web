@@ -433,28 +433,7 @@ async function loadSettings() {
     rw.appendChild(row);
   }
 
-  // 商品ごとの設定（締切日数＋公開切替）
-  const prods2 = await api("GET",
-    `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
-    `&select=id,name,is_published,order_deadline_days`);
-  const psw = $("product-settings-list");
-  psw.innerHTML = "";
-  for (const p of prods2) {
-    const row = document.createElement("div");
-    row.className = "rule-row";
-    row.innerHTML = `
-      <span class="rule-name">${p.name}</span>
-      締切 <input type="number" min="0" placeholder="基本" value="${p.order_deadline_days ?? ""}"> 日前
-      <span class="state-badge ${p.is_published ? "on" : ""}">${p.is_published ? "公開中" : "非公開"}</span>
-      <button type="button" class="pill pub-btn">${p.is_published ? "非公開にする" : "公開する"}</button>`;
-    regField("products", p.id, "order_deadline_days", row.querySelector("input"), { number: true });
-    row.querySelector(".pub-btn").onclick = async () => {
-      await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { is_published: !p.is_published });
-      toast(`「${p.name}」を${!p.is_published ? "公開" : "非公開"}にしました`);
-      loadSettings();
-    };
-    psw.appendChild(row);
-  }
+  // 商品ごとの設定（締切・公開・上限）は商品エディタ（products.html）に集約（まりほ指摘 2026-08-25）
 
   // 受取時間枠
   await loadSlots();

@@ -81,6 +81,9 @@
 .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .photo-thumb.empty { border-style: dashed; color: #c2b6b9; font-size: .74rem; }
 .photo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+.photo-actions .mini { font-size: .74rem; color: #a08a8f; }
+/* 形式のヒント（透過PNG…）はボタンの下に小さく1行で出す（タイトルに見えないように） */
+.photo-actions .photo-hint { flex-basis: 100%; margin-top: 2px; }
 .photo-pick { cursor: pointer; display: inline-block; }
 /* イラストは透過なので市松模様の上に表示する */
 .layer-thumb {

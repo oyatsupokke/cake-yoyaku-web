@@ -220,7 +220,7 @@ function buildLayerField(opts) {
         <label class="pill photo-pick">イラストを選ぶ<input type="file" accept="image/png" hidden></label>
         <button type="button" class="pill danger photo-del" ${url ? "" : "hidden"}>削除</button>
         ${showZ ? `<span class="mini">重ね順</span><input type="number" class="layer-z" value="${z ?? ""}" placeholder="20" style="width:70px">` : ""}
-        ${hint ? `<span class="mini">${hint}</span>` : ""}
+        ${hint ? `<span class="mini photo-hint">${hint}</span>` : ""}
       </div>
     </div>`;
   const input = box.querySelector('input[type="file"]');
@@ -272,7 +272,7 @@ function buildPhotoField(opts) {
       <div class="photo-actions">
         <label class="pill photo-pick">写真を選ぶ<input type="file" accept="image/*" hidden></label>
         <button type="button" class="pill danger photo-del" ${url ? "" : "hidden"}>削除</button>
-        ${hint ? `<span class="mini">${hint}</span>` : ""}
+        ${hint ? `<span class="mini photo-hint">${hint}</span>` : ""}
       </div>
     </div>`;
   const input = box.querySelector('input[type="file"]');

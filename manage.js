@@ -143,9 +143,39 @@ function renderOrder() {
     note.classList.add("hidden");
   }
 
+  renderLineArea();
+
   $("policy-box").classList.toggle("hidden", !t.cancel_policy);
   $("cancel-policy").textContent = t.cancel_policy || "";
   show("view-order");
+}
+
+/* ---------- LINE通知（店側でONのときだけ表示。メールは変わらず届く） ---------- */
+
+function renderLineArea() {
+  const { order: o, tenant: t } = state.data;
+  const area = $("line-area");
+  const result = new URLSearchParams(location.search).get("line"); // linked / error（連携画面からの戻り）
+  if (!t.line_notify_enabled) { area.classList.add("hidden"); return; }
+
+  if (o.line_linked) {
+    area.innerHTML =
+      `<p class="line-linked">✓ LINE通知を設定済みです</p>` +
+      (result === "linked"
+        ? `<p class="small">設定が完了しました。ご予約の控えがLINEに届きます。</p>`
+        : `<p class="small">ご予約に関するお知らせがLINEにも届きます。</p>`);
+  } else if (o.status === "canceled" || o.status === "completed") {
+    area.classList.add("hidden");
+    return;
+  } else {
+    area.innerHTML =
+      (result === "error"
+        ? `<p class="error">LINE連携がうまくいきませんでした。お手数ですがもう一度お試しください。</p>`
+        : "") +
+      `<a class="line-btn" href="${CONFIG.url}/functions/v1/line-link?t=${encodeURIComponent(TOKEN)}">LINEで通知を受け取る</a>` +
+      `<p class="small">ご予約の控えやお知らせがLINEにも届きます（メールも変わらず届きます）</p>`;
+  }
+  area.classList.remove("hidden");
 }
 
 /* ---------- 受取日時の変更 ---------- */

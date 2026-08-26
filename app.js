@@ -893,6 +893,17 @@ $("btn-submit").onclick = async () => {
       p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${r.manage_token}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
+    // LINE通知の案内（店側でONのときだけ。メールは変わらず届く）
+    if (r.manage_token && state.tenant.line_notify_enabled && !$("done-line-link")) {
+      const div = document.createElement("div");
+      div.id = "done-line-link";
+      div.className = "line-invite";
+      div.innerHTML =
+        `<a class="line-btn" href="${CONFIG.url}/functions/v1/line-link?t=${r.manage_token}">` +
+        `LINEで通知を受け取る</a>` +
+        `<p class="small">ご予約の控えやお知らせがLINEにも届きます（メールも変わらず届きます）</p>`;
+      $("view-done").querySelector(".done-box").appendChild(div);
+    }
     $("view-done").classList.remove("hidden");
     window.scrollTo({ top: 0 });
   } catch (e) {

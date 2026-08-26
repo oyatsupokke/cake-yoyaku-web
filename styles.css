@@ -207,3 +207,14 @@ body {
   .cards { grid-template-columns: 1fr 1fr; }
   .preview-canvas { width: 200px; height: 200px; }
 }
+
+/* ---------- LINE通知（完了画面・マイページ共通） ---------- */
+.line-invite { margin: 18px 0 0; text-align: center; }
+.line-btn {
+  display: block; width: 100%; box-sizing: border-box; padding: 13px;
+  background: #06C755; color: #fff; border-radius: 999px;
+  font-size: 1rem; font-weight: bold; text-decoration: none; text-align: center;
+}
+.line-btn:active { opacity: .85; }
+.line-invite .small { margin-top: 6px; }
+.line-linked { color: #06925f; font-weight: bold; margin: 0; }

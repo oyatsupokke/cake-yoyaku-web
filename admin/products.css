@@ -121,3 +121,9 @@
 }
 .sl-item .pill { padding: 5px 12px; font-size: .78rem; white-space: nowrap; flex: 0 0 auto; }
 .sl-item .mini { white-space: nowrap; }
+
+/* スマホ幅：セレクトが画面からはみ出さないように（まりほ指摘 2026-08-26） */
+@media (max-width: 480px) {
+  select, input[type="text"], input[type="number"] { max-width: 100%; }
+  .q-trigger { max-width: 100% !important; }
+}

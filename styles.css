@@ -72,6 +72,7 @@ body {
 .pill {
   border: 2px solid var(--line); background: var(--card); border-radius: 999px;
   padding: 8px 18px; cursor: pointer; font-size: .95rem; transition: .15s;
+  white-space: nowrap;   /* 幅が足りないとき1文字ずつ縦に折れるのを防ぐ */
 }
 .pill:hover { border-color: var(--primary); }
 .pill.selected { border-color: var(--primary-deep); background: var(--primary); color: #fff; font-weight: bold; }
@@ -218,3 +219,23 @@ body {
 .line-btn:active { opacity: .85; }
 .line-invite .small { margin-top: 6px; }
 .line-linked { color: #06925f; font-weight: bold; margin: 0; }
+
+/* ---------- 代行登録モード（お店が電話予約を入力する画面） ---------- */
+.staff-banner {
+  background: #fff4e5; border: 1.5px solid #f0a24b; color: #8a5a1c;
+  border-radius: 12px; padding: 10px 14px; margin: 12px 16px 0;
+  font-size: .88rem; line-height: 1.7;
+}
+.staff-banner a { color: #c07422; font-weight: bold; }
+/* 通常は選べない日（締切・満枠・休業）：代行ではオレンジで選べる */
+.cal-day.staff-warn {
+  background: #fff8ef; border-color: #f0c48a; color: #c07422;
+}
+.cal-day.staff-warn .mark { color: #f0a24b; }
+.cal-day.staff-warn:hover { border-color: #f0a24b; }
+.cal-day.staff-warn.selected { background: #f0a24b; border-color: #d98c2b; color: #fff; }
+.cal-day.staff-warn.selected .mark { color: #fff; }
+.pill.full.staff-warn {
+  color: #c07422; background: #fff4e5; cursor: pointer;
+}
+.pill.full.staff-warn.selected { background: #f0a24b; color: #fff; }

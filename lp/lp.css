@@ -1,0 +1,150 @@
+/* サービス紹介LP（lp/index.html）専用
+   方針（2026-08-26まりほ指摘「AIっぽい」を受けて改稿）：
+   - 絵文字アイコン・均等カードグリッドをやめる
+   - 主役は本物のフォーム（iframeライブデモ）
+   - 手描き風の傾き・マーカー線で「人の手」の気配を足す */
+
+.lp-body { max-width: none; }
+.lp-body .lp-hero,
+.lp-section { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+/* 見出しのマーカー線（蛍光ペン風） */
+.mk {
+  background: linear-gradient(transparent 62%, #f9dce2 62%);
+  padding: 0 2px;
+}
+
+/* ---------- ヒーロー ---------- */
+.lp-hero {
+  text-align: center;
+  padding: 46px 20px 40px !important;
+}
+.lp-badge {
+  display: inline-block; background: #fff; border: 2px solid var(--primary);
+  color: var(--primary-deep); border-radius: 999px;
+  padding: 4px 16px; font-size: .85rem; font-weight: bold; margin: 0 0 14px;
+  transform: rotate(-1.2deg);
+}
+.lp-hero h1 { font-size: 1.65rem; line-height: 1.55; margin: 0 0 14px; letter-spacing: .04em; }
+.lp-lead { font-size: .98rem; margin: 0 0 26px; }
+
+/* ライブデモ（本物のフォームをスマホ枠で） */
+.lp-demo-wrap { margin: 6px auto 26px; }
+.lp-phone {
+  width: min(340px, 88vw); height: 600px; margin: 0 auto;
+  border: 10px solid #5b4a4e; border-radius: 38px; overflow: hidden;
+  background: #fff; box-shadow: 0 14px 34px rgba(91, 74, 78, .22);
+  transform: rotate(-0.6deg);
+}
+.lp-phone iframe { width: 100%; height: 100%; border: 0; display: block; }
+.lp-demo-note { font-size: .82rem; color: #8d777c; margin: 12px 0 0; line-height: 1.9; }
+.lp-demo-note strong { color: var(--primary-deep); }
+
+.lp-cta {
+  display: inline-block; background: var(--primary-deep); color: #fff;
+  border-radius: 999px; padding: 16px 44px; font-size: 1.1rem; font-weight: bold;
+  text-decoration: none; box-shadow: 0 4px 14px rgba(232, 154, 168, .45);
+  transition: transform .15s;
+}
+.lp-cta:hover { transform: translateY(-2px); }
+.lp-cta-note { font-size: .82rem; color: #a08a8f; margin-top: 10px; }
+
+/* ---------- セクション共通 ---------- */
+.lp-section { padding-top: 48px; padding-bottom: 10px; }
+.lp-section h2 {
+  text-align: center; font-size: 1.25rem; margin: 0 0 24px; letter-spacing: .04em;
+  line-height: 1.7;
+}
+
+/* ---------- 悩み：吹き出し ---------- */
+.lp-bubbles { max-width: 560px; margin: 0 auto; }
+.lp-bubble {
+  position: relative; background: #fff; border: 2px solid var(--line);
+  border-radius: 18px 20px 18px 4px;
+  padding: 14px 18px; margin: 14px 0; font-size: .92rem;
+}
+.lp-bubble:nth-child(odd) { transform: rotate(-0.5deg); }
+.lp-bubble:nth-child(even) { transform: rotate(0.5deg); border-radius: 20px 18px 4px 18px; }
+.lp-pains-close {
+  text-align: center; font-weight: bold; margin-top: 22px; font-size: .98rem;
+  color: var(--primary-deep);
+}
+
+/* ---------- できること ---------- */
+.lp-reason {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: #fff; border: 2px solid var(--line);
+  border-radius: 20px 16px 22px 16px;
+  padding: 20px 18px; margin: 14px 0;
+}
+.lp-reason:nth-child(odd) { transform: rotate(0.35deg); }
+.lp-reason:nth-child(even) { transform: rotate(-0.35deg); }
+.lp-reason-no {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50% 46% 52% 48%;
+  background: var(--primary); color: #fff; font-weight: bold; font-size: 1.2rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.lp-reason h3 { margin: 2px 0 8px; font-size: 1.02rem; }
+.lp-reason p { margin: 0; font-size: .9rem; }
+
+/* ---------- 機能（定義リスト） ---------- */
+.lp-feature-list { margin: 0; }
+.lp-feature-list > div {
+  background: #fff; border-left: 5px solid var(--primary);
+  border-radius: 0 14px 14px 0;
+  padding: 12px 16px; margin: 12px 0;
+}
+.lp-feature-list dt { font-weight: bold; font-size: .95rem; margin: 0 0 4px; }
+.lp-feature-list dd { margin: 0; font-size: .87rem; color: #6d5a5f; }
+
+/* ---------- ストーリー ---------- */
+.lp-story {
+  background: #fff5f7; border-radius: 28px 22px 26px 24px;
+  padding: 32px 26px 26px; margin-top: 48px;
+}
+.lp-story p { font-size: .93rem; line-height: 2; }
+.lp-story-link { font-weight: bold; }
+
+/* ---------- 料金 ---------- */
+.lp-price-box {
+  background: #fff; border: 3px solid var(--primary);
+  border-radius: 22px 18px 24px 18px;
+  padding: 24px; text-align: center; transform: rotate(-0.3deg);
+}
+.lp-price-main { margin: 0 0 12px; font-size: 1rem; }
+.lp-price-num { font-size: 2.4rem; font-weight: bold; color: var(--primary-deep); }
+.lp-price-points {
+  list-style: none; padding: 0; margin: 0; display: inline-block; text-align: left;
+}
+.lp-price-points li { margin: 7px 0; font-size: .92rem; padding-left: 1.4em; position: relative; }
+.lp-price-points li::before {
+  content: "✓"; position: absolute; left: 0; color: var(--primary-deep); font-weight: bold;
+}
+
+.lp-calc {
+  background: #fff; border: 2px dashed var(--line); border-radius: 16px;
+  padding: 18px; margin-top: 18px;
+}
+.lp-calc h3 { margin: 0 0 4px; font-size: .98rem; }
+.lp-calc-row { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0; font-size: .88rem; }
+.lp-calc-row input, .lp-calc-row select {
+  border: 2px solid var(--line); border-radius: 8px; padding: 6px 8px;
+  font-family: inherit; font-size: .95rem;
+}
+.lp-calc-result { font-size: .92rem; background: #fff5f7; border-radius: 10px; padding: 10px 14px; margin: 0; }
+
+/* ---------- FAQ ---------- */
+.lp-faq details {
+  background: #fff; border: 2px solid var(--line); border-radius: 12px;
+  padding: 12px 16px; margin: 10px 0;
+}
+.lp-faq summary { cursor: pointer; font-weight: bold; font-size: .92rem; }
+.lp-faq p { font-size: .88rem; margin: 10px 0 2px; }
+
+/* ---------- 最後のCTA ---------- */
+.lp-final-cta { text-align: center; padding-bottom: 40px; }
+
+.lp-footer {
+  text-align: center; border-top: 2px solid var(--line);
+  padding: 24px 16px 60px; margin-top: 30px;
+}

@@ -20,7 +20,18 @@ const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
 const EDIT_MODE = !!EDIT_TOKEN;
 let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
-const SUBMIT_LABEL = EDIT_MODE ? "この内容に変更する" : "この内容で注文する";
+
+/* ---------- 代行登録モード（?staff=1・管理画面ログイン中のみ） ----------
+ * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
+ * 警告つきで選べる（サーバー側も fn_staff_place_order で店のログインを検証）。
+ * メールアドレスは空欄OK＝空欄なら確認メールは送られない */
+const STAFF_MODE = !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
+function staffSession() {
+  try { return JSON.parse(localStorage.getItem("pokke_admin_session")); } catch { return null; }
+}
+
+const SUBMIT_LABEL = EDIT_MODE ? "この内容に変更する"
+  : STAFF_MODE ? "この内容で登録する" : "この内容で注文する";
 
 const state = {
   tenant: null,
@@ -60,6 +71,47 @@ async function rpc(name, args) {
   return res.json();
 }
 
+/* ---------- 代行登録の送信（管理画面のログイントークンで呼ぶ） ---------- */
+async function staffRpc(name, args) {
+  const s = staffSession();
+  if (!s?.access_token) throw new Error("管理画面にログインしてから、もう一度この画面を開いてください");
+  const call = (token) => fetch(`${CONFIG.url}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: CONFIG.anonKey, Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  let res = await call(s.access_token);
+  if (res.status === 401 && s.refresh_token) {
+    // トークン切れ→管理画面と同じ保存場所で更新（管理画面側もそのまま使い続けられる）
+    const r2 = await fetch(`${CONFIG.url}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: s.refresh_token }),
+    });
+    if (r2.ok) {
+      const ns = await r2.json();
+      localStorage.setItem("pokke_admin_session", JSON.stringify(ns));
+      res = await call(ns.access_token);
+    }
+  }
+  if (res.status === 401) throw new Error("ログインの有効期限が切れました。管理画面にログインし直してください");
+  if (!res.ok) throw new Error(`RPC ${name} ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function staffPlaceOrder(p) {
+  let r = await staffRpc("fn_staff_place_order", { p, p_force: false });
+  if (!r.ok && r.staff_confirm) {
+    const go = confirm(`${r.message}\n\nこのまま登録しますか？（登録した分も台数として数えられます）`);
+    if (!go) return r;
+    r = await staffRpc("fn_staff_place_order", { p, p_force: true });
+  }
+  return r;
+}
+
 /* ---------- 郵便番号→住所の自動入力（zipcloud） ---------- */
 function setupPostalLookup() {
   const postal = $("cust-postal");
@@ -94,7 +146,7 @@ const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
   : String(Date.now()) + Math.random().toString(16).slice(2));
 function track(step, detail) {
-  if (!state.tenant || RESTORING || EDIT_MODE) return;  // 変更モードは新規のファネル計測を汚さない
+  if (!state.tenant || RESTORING || EDIT_MODE || STAFF_MODE) return;  // 変更・代行モードは新規のファネル計測を汚さない
   fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
     method: "POST",
     headers: {
@@ -117,7 +169,7 @@ const SAVE_KEY = `cake_form_${CONFIG.shop}`;
 let RESTORING = false;
 
 function saveState() {
-  if (RESTORING || EDIT_MODE || !state.tenant) return;  // 変更モードは自動保存を使わない（新規予約の下書きを壊さない）
+  if (RESTORING || EDIT_MODE || STAFF_MODE || !state.tenant) return;  // 変更・代行モードは自動保存を使わない（お客様の下書きを壊さない）
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       savedAt: Date.now(),
@@ -215,9 +267,35 @@ async function load() {
   renderProducts();
   if (EDIT_MODE) {
     await enterEditMode();
+  } else if (STAFF_MODE) {
+    enterStaffMode();
   } else {
     await restoreSaved();
   }
+}
+
+/* ---------- 代行登録モードの初期化 ---------- */
+function enterStaffMode() {
+  document.querySelector(".shop-sub").textContent = "予約の代行登録（お店の入力用）";
+  document.title = `${state.tenant.name}｜予約の代行登録`;
+  const b = document.createElement("div");
+  b.className = "staff-banner";
+  if (staffSession()?.access_token) {
+    b.innerHTML = "📞 <strong>電話予約の代行登録モード</strong>：" +
+      "締切後・満枠・休業の日もオレンジ表示で選べます（登録前に確認が出ます）。" +
+      "メールアドレスは空欄OK。空欄の場合、確認メールは送られません。";
+  } else {
+    b.innerHTML = "⚠️ 代行登録には管理画面へのログインが必要です。" +
+      '<a href="admin/">ログイン画面をひらく</a>';
+  }
+  document.querySelector(".shop-header").insertAdjacentElement("afterend", b);
+  // 電話では聞いていないことが多い項目を任意に（フリガナ・メール）
+  $("cust-sei-kana").closest(".field")?.querySelector(".req")?.remove();
+  $("cust-email").closest(".field")?.querySelector(".req")?.remove();
+  // 確認画面の文言もお店向けに
+  document.querySelector("#view-confirm .confirm-title").textContent = "登録内容の確認";
+  document.querySelector("#view-confirm .preview-note").textContent =
+    "内容を確認のうえ「この内容で登録する」を押すと、予約として登録されます。";
 }
 
 /* ---------- 変更モードの初期化：既存予約を読み込んでフォームに展開 ---------- */
@@ -588,7 +666,7 @@ function toggleOption(g, o, input) {
   // 選択肢の「できない日」を反映してカレンダーを引き直す（表示中なら常に）
   if (state.sel.variant) {
     loadCalendar().then(() => {
-      if (state.sel.date) {
+      if (state.sel.date && !STAFF_MODE) {   // 代行登録は満枠・締切の日も選べるので外さない
         const st = state.avail[state.sel.date];
         if (st !== "open" && st !== "few") {
           state.sel.date = null;
@@ -641,15 +719,23 @@ function renderCalendar() {
   for (let i = 0; i < first.getDay(); i++) grid.appendChild(document.createElement("div"));
   const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const MARK = { open: "●", few: "▲", full: "×", closed: "" };
+  const todayKey = fmtDate(new Date());
   for (let day = 1; day <= days; day++) {
     const key = fmtDate(new Date(m.getFullYear(), m.getMonth(), day));
     const st = state.avail[key] || "closed";
+    // 代行登録：本来受付できない日（締切・満枠・休業）も今日以降なら警告つきで選べる
+    const staffPick = STAFF_MODE && (st === "full" || st === "closed") && key >= todayKey;
     const el = document.createElement("div");
     el.className = `cal-day ${st}` +
       ((st === "open" || st === "few") ? " clickable" : "") +
+      (staffPick ? " clickable staff-warn" : "") +
       (state.sel.date === key ? " selected" : "");
-    el.innerHTML = `<span>${day}</span><span class="mark">${MARK[st]}</span>`;
+    el.innerHTML = `<span>${day}</span><span class="mark">${staffPick ? "△" : MARK[st]}</span>`;
     if (st === "open" || st === "few") el.onclick = () => selectDate(key);
+    else if (staffPick) el.onclick = () => {
+      toast("この日は通常は受付できない日です（締切・満枠・休業のいずれか）。代行登録なので選べます");
+      selectDate(key);
+    };
     grid.appendChild(el);
   }
   // 前月ボタンは今月まで
@@ -685,10 +771,14 @@ function renderSlots() {
     const full = state.slotFull?.[s.id];
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "pill" + (state.sel.slot?.id === s.id ? " selected" : "") + (full ? " full" : "");
+    el.className = "pill" + (state.sel.slot?.id === s.id ? " selected" : "") + (full ? " full" : "")
+      + (full && STAFF_MODE ? " staff-warn" : "");
     el.textContent = s.label + (full ? "（満員）" : "");
-    if (full) el.disabled = true;
-    else el.onclick = () => { state.sel.slot = s; renderSlots(); saveState(); };
+    if (full && !STAFF_MODE) el.disabled = true;
+    else el.onclick = () => {
+      if (full) toast("この時間帯は満員です。代行登録なので選べます（登録前に確認が出ます）");
+      state.sel.slot = s; renderSlots(); saveState();
+    };
     wrap.appendChild(el);
   }
 }
@@ -762,15 +852,21 @@ function validate() {
     if (!a || (!a.choiceId && !(a.text || "").trim())) return `「${q.label}」にご記入ください`;
   }
   if (!$("cust-sei").value.trim() || !$("cust-mei").value.trim()) return "お名前（姓・名）をご記入ください";
-  if (!$("cust-sei-kana").value.trim() || !$("cust-mei-kana").value.trim()) return "フリガナ（セイ・メイ）をご記入ください";
+  if (!STAFF_MODE && (!$("cust-sei-kana").value.trim() || !$("cust-mei-kana").value.trim()))
+    return "フリガナ（セイ・メイ）をご記入ください";
   const addrReq = state.tenant.customer_form?.address;
-  if (addrReq?.enabled && addrReq?.required && $("cust-postal")) {
+  if (!STAFF_MODE && addrReq?.enabled && addrReq?.required && $("cust-postal")) {
     if (!$("cust-postal").value.trim()) return "郵便番号をご記入ください";
     if (!$("cust-address").value.trim()) return "ご住所をご記入ください";
   }
   if (!$("cust-phone").value.trim()) return "お電話番号をご記入ください";
   const email = $("cust-email").value.trim();
-  if (!email || !email.includes("@")) return "メールアドレスをご確認ください";
+  if (STAFF_MODE) {
+    // 代行登録はメール空欄OK。書いてあるなら形式だけ確認
+    if (email && !email.includes("@")) return "メールアドレスをご確認ください";
+  } else if (!email || !email.includes("@")) {
+    return "メールアドレスをご確認ください";
+  }
   return null;
 }
 
@@ -815,9 +911,11 @@ function renderConfirm() {
   const [y, m, d] = s.date.split("-");
   row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);
   row("お名前", `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`);
-  row("フリガナ", `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`);
+  const kana = `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`.trim();
+  if (kana || !STAFF_MODE) row("フリガナ", kana);
   row("お電話", $("cust-phone").value.trim());
-  row("メール", $("cust-email").value.trim());
+  row("メール", $("cust-email").value.trim() ||
+    (STAFF_MODE ? "（なし・確認メールは送られません）" : ""));
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
   row("お支払い", "店頭でのお支払い");
@@ -865,7 +963,9 @@ $("btn-submit").onclick = async () => {
     };
     const r = EDIT_MODE
       ? await rpc("fn_manage_replace", { p_token: EDIT_TOKEN, p: payload.p })
-      : await rpc("fn_place_order", payload);
+      : STAFF_MODE
+        ? await staffPlaceOrder(payload.p)
+        : await rpc("fn_place_order", payload);
     if (!r.ok) throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）
@@ -877,24 +977,39 @@ $("btn-submit").onclick = async () => {
     if (EDIT_MODE) {
       $("view-done").querySelector("h2").textContent = "ご予約内容を変更しました";
     }
+    if (STAFF_MODE) {
+      $("view-done").querySelector("h2").textContent = "予約を登録しました";
+      $("view-done").querySelector(".done-emoji").textContent = "📞";
+    }
     $("done-number").textContent = `No.${r.order_number}`;
     $("done-total").textContent = yen(r.total_amount);
     const [y, m, d] = s.date.split("-");
     $("done-pickup").textContent =
       `${y}年${+m}月${+d}日 ${s.slot.label} に${state.tenant.name}でお渡しします。` +
-      (EDIT_MODE ? "変更後の内容で確認メールをお送りします。" : "確認のご連絡をお待ちください。");
+      (EDIT_MODE ? "変更後の内容で確認メールをお送りします。"
+       : STAFF_MODE ? ($("cust-email").value.trim()
+           ? "「確認済」で登録し、お客様に確認メールをお送りします。"
+           : "「確認済」で登録しました（メール未記入のため確認メールは送られません）。")
+       : "確認のご連絡をお待ちください。");
     $("view-confirm").classList.add("hidden");
-    if (!EDIT_MODE) clearSavedState();
+    if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
+    if (STAFF_MODE && !$("done-staff-back")) {
+      const back = document.createElement("p");
+      back.id = "done-staff-back";
+      back.innerHTML = `<a href="admin/">← 管理画面に戻る</a>　` +
+        `<a href="?shop=${encodeURIComponent(CONFIG.shop)}&staff=1">続けてもう1件登録する</a>`;
+      $("view-done").querySelector(".done-box").appendChild(back);
+    }
     // 変更・キャンセル用の専用リンク（確認メールにも同じものが載る）
-    if (r.manage_token && !$("done-manage-link")) {
+    if (!STAFF_MODE && r.manage_token && !$("done-manage-link")) {
       const p2 = document.createElement("p");
       p2.className = "small";
       p2.id = "done-manage-link";
       p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${r.manage_token}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
-    // LINE通知の案内（店側でONのときだけ。メールは変わらず届く）
-    if (r.manage_token && state.tenant.line_notify_enabled && !$("done-line-link")) {
+    // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）
+    if (!STAFF_MODE && r.manage_token && state.tenant.line_notify_enabled && !$("done-line-link")) {
       const div = document.createElement("div");
       div.id = "done-line-link";
       div.className = "line-invite";

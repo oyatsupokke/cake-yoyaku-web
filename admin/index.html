@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1787708588">
-<link rel="stylesheet" href="admin.css?v=1787708588">
+<link rel="stylesheet" href="../styles.css?v=1787726690">
+<link rel="stylesheet" href="admin.css?v=1787726690">
 </head>
 <body>
 <div id="app" class="admin">
@@ -25,6 +25,9 @@
       <p class="small" style="margin-top:14px">
         <a href="#" id="link-forgot">パスワードを忘れた方はこちら</a>
       </p>
+      <p class="small">
+        <a href="../signup.html">はじめての方はこちら（新規登録・7日間無料）</a>
+      </p>
       <p id="forgot-sent" class="small hidden">再設定メールを送りました。メール内のリンクから新しいパスワードを設定してください。</p>
     </div>
   </main>
@@ -35,6 +38,9 @@
       <h1 id="admin-shop-name"></h1>
       <button type="button" class="link-btn" id="btn-logout">ログアウト</button>
     </header>
+
+    <!-- 課金状態（トライアル残・支払い未登録などがあるときだけ表示） -->
+    <div id="billing-banner" class="billing-banner no-print hidden"></div>
 
     <nav class="tabs no-print">
       <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
@@ -48,6 +54,7 @@
       <input type="date" id="date-input">
       <button type="button" class="cal-nav" id="date-next">›</button>
       <button type="button" class="pill" id="date-today">今日</button>
+      <button type="button" class="pill staff-order-btn" id="btn-staff-order">📞 電話予約を登録</button>
     </div>
 
     <!-- 受取リスト（店頭ビュー） -->
@@ -73,10 +80,10 @@
         <label class="field">店名
           <input type="text" id="t-name">
         </label>
-        <label class="field">予約通知メール
+        <label class="field">予約通知メール<button type="button" class="tip" data-tip="予約・変更・キャンセルのお知らせが届くメールアドレスです。ふだん見るアドレスにしてください。">？</button>
           <input type="email" id="t-email">
         </label>
-        <div class="field">定休日
+        <div class="field">定休日<button type="button" class="tip" data-tip="選んだ曜日は、お客様が受取日に選べなくなります。">？</button>
           <div class="weekday-row" id="t-weekdays"></div>
         </div>
       </div>
@@ -86,7 +93,7 @@
           <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
           <span class="help">商品ごとに変えたい場合は「商品」ページで上書きできます。</span>
         </label>
-        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）
+        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）<button type="button" class="tip" data-tip="例：3日前締切で20:00にすると、受取日の3日前の夜8時に受付が自動で閉まります。">？</button>
           <input type="time" id="t-cutoff">
         </label>
         <div class="field">締切日数の数え方
@@ -121,7 +128,7 @@
         <div id="slots-list"></div>
       </div>
       <div class="confirm-box">
-        <h3>臨時休業・臨時営業</h3>
+        <h3>臨時休業・臨時営業<button type="button" class="tip" data-tip="臨時休業＝その日は予約を受けません。「定休日だけど営業」＝定休日でも受け取れるようにします（クリスマスが定休日と重なる年などに）。">？</button></h3>
         <div class="override-add">
           <input type="date" id="ov-date">
           <select id="ov-kind">
@@ -157,7 +164,7 @@
             <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
           </div>
           <div class="cf-row">
-            <strong>ご住所（郵便番号＋住所）</strong>
+            <strong>ご住所（郵便番号＋住所）</strong><button type="button" class="tip" data-tip="「表示する」にすると予約フォームに郵便番号と住所の欄が出ます。郵便番号を入れると住所は自動で入ります。">？</button>
             <label class="cf-check"><input type="checkbox" id="t-addr-enabled">表示する</label>
             <label class="cf-check"><input type="checkbox" id="t-addr-required">回答必須</label>
           </div>
@@ -165,10 +172,10 @@
       </div>
       <div class="confirm-box">
         <h3>お客様への案内とセルフ操作</h3>
-        <label class="field">キャンセルポリシー（予約確認画面・確認メール・お客様の管理ページに表示されます）
+        <label class="field">キャンセルポリシー（予約確認画面・確認メール・お客様の管理ページに表示されます）<button type="button" class="tip" data-tip="書いた内容がそのまま表示されます。「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
           <textarea id="t-cancel" rows="3"></textarea>
         </label>
-        <label class="field">特定商取引法に基づく表記
+        <label class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで注文を受けるときに表示が必要な項目です。事業者名・所在地・電話番号などを書きます。">？</button>
           <textarea id="t-tokushoho" rows="4" placeholder="事業者名・所在地・連絡先など"></textarea>
         </label>
         <div class="field">お客様ご自身での変更・キャンセル
@@ -194,6 +201,13 @@
           </div>
         </div>
       </div>
+
+      <!-- ご契約・お支払い（自店=exemptのときはJSが隠す） -->
+      <div class="confirm-box" id="billing-settings-box">
+        <h3>ご契約・お支払い</h3>
+        <p class="small">カードの変更・請求書の確認・解約はこちらから（Stripeの安全なページが開きます）</p>
+        <button type="button" class="pill" id="btn-billing-portal-settings">お支払い管理をひらく</button>
+      </div>
     </section>
   </main>
 
@@ -205,6 +219,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="admin.js?v=1787716763"></script>
+<script src="tips.js?v=1787726690"></script>
+<script src="admin.js?v=1787726690"></script>
 </body>
 </html>

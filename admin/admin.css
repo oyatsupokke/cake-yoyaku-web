@@ -113,6 +113,14 @@
   .kcard, .kitchen-table th, .kitchen-table td { border-color: #999; }
 }
 
+/* 課金状態バナー（SaaS：トライアル・未払いなどがあるときだけ表示） */
+.billing-banner {
+  background: #fff6e9; border: 2px solid var(--accent);
+  border-radius: 12px; padding: 10px 14px; margin: 10px 0;
+  font-size: .9rem; line-height: 1.8;
+}
+.billing-banner .pill { margin-left: 6px; }
+
 /* 画面下に固定される保存バー */
 .admin { padding-bottom: 90px; }
 .save-bar {
@@ -126,3 +134,32 @@
 .save-bar.dirty #save-status { color: #b07d10; font-weight: bold; }
 .save-bar .btn-primary { width: auto; margin: 0; padding: 10px 28px; font-size: .95rem; }
 .save-bar .btn-primary:disabled { background: #ddcfd3; }
+
+/* 電話予約（代行登録）の目印と入口ボタン */
+.st-staff { background: #eef4ff; color: #3b6bb5; }
+.staff-order-btn { margin-left: auto; }
+
+/* 「？」ヘルプ：タップで説明が開く（スマホにはホバーが無いため） */
+.tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid #d8b7be; background: #fff; color: #b76e7d;
+  font-size: 12px; font-weight: bold; line-height: 1;
+  margin-left: 6px; cursor: pointer; vertical-align: middle; padding: 0;
+}
+.tip-pop {
+  background: #fdf6f0; border: 1px solid #e8cfc0; border-radius: 8px;
+  padding: 8px 12px; margin: 6px 0 2px; font-size: .82rem; font-weight: normal;
+  color: #6b564a; line-height: 1.7; max-width: 560px;
+}
+
+/* スマホ幅の調整：タブ・ボタンの文字が1文字ずつ折れてはみ出さないように（まりほ指摘 2026-08-26） */
+@media (max-width: 480px) {
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { flex: 1 0 auto; white-space: nowrap; font-size: .85rem; padding: 9px 8px; }
+  .date-nav { flex-wrap: wrap; }
+  .admin .pill { padding: 8px 12px; }
+  .staff-order-btn { margin-left: 0; }
+  .rule-row, .ov-row, .prod-row { flex-wrap: wrap; }
+  .rule-row input[type="number"] { width: 60px; }
+}

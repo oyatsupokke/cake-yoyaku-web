@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1787708588">
-<link rel="stylesheet" href="admin.css?v=1787708588">
-<link rel="stylesheet" href="products.css?v=1787708588">
+<link rel="stylesheet" href="../styles.css?v=1787726690">
+<link rel="stylesheet" href="admin.css?v=1787726690">
+<link rel="stylesheet" href="products.css?v=1787726690">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -45,7 +45,7 @@
           <textarea id="p-desc" rows="3"></textarea>
         </div>
         <div class="text-field">
-          <span class="text-field-label">注意書き</span>
+          <span class="text-field-label">注意書き</span><button type="button" class="tip" data-tip="アレルギーの案内などに。お客様の画面で商品説明の下に表示されます。「目立たせる」にチェックすると赤・太字になります。">？</button>
           <textarea id="p-note" rows="3"></textarea>
           <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" id="p-note-accent">目立たせる（赤・太字）</label>
         </div>
@@ -59,7 +59,7 @@
           <span class="help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。入力するとすぐ保存されます。</span>
         </div>
         <div class="status-line">
-          <span class="text-field-label">公開状態</span>
+          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
           <span id="p-publish-state" class="state-badge"></span>
           <button type="button" class="pill" id="btn-p-publish"></button>
         </div>
@@ -99,7 +99,7 @@
       </div>
 
       <div class="confirm-box">
-        <h3>サイズと価格</h3>
+        <h3>サイズと価格<button type="button" class="tip" data-tip="サイズ名（例：12cm・4号）と税込価格を追加します。お客様が選ぶと金額は自動で計算されます。">？</button></h3>
         <div id="variants-list"></div>
         <div class="override-add">
           <input type="text" id="v-label" placeholder="サイズ名（例: 12cm）" style="width:140px">
@@ -109,7 +109,7 @@
       </div>
 
       <div class="confirm-box">
-        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）</h3>
+        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）<button type="button" class="tip" data-tip="お客様に選んでもらう項目です。「1つ選ぶ」はどれか1つだけ、「複数選べる」はいくつでも。「必須」にすると選ばないと注文できません。選択肢には追加料金を付けられます。">？</button></h3>
         <div id="groups-list"></div>
         <div class="group-add-box">
           <strong>＋ 新しいグループを追加</strong>
@@ -169,6 +169,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="products.js?v=1787716763"></script>
+<script src="tips.js?v=1787726690"></script>
+<script src="products.js?v=1787726690"></script>
 </body>
 </html>

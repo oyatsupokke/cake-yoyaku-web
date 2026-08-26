@@ -97,13 +97,68 @@ async function showApp() {
   const tu = await api("GET", "/rest/v1/tenant_users?select=tenant_id");
   if (!tu.length) { toast("店舗が紐付いていません"); logout(); return; }
   state.tenantId = tu[0].tenant_id;
-  const t = await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=name`);
+  const t = await api("GET",
+    `/rest/v1/tenants?id=eq.${state.tenantId}&select=name,subdomain,billing_status,trial_ends_at`);
   state.tenantName = t[0]?.name || "";
+  state.subdomain = t[0]?.subdomain || "";
   $("admin-shop-name").textContent = `${state.tenantName}｜管理`;
+  // 電話予約の代行登録：お客様フォームを代行モードで開く（同じログインを使う）
+  const staffBtn = $("btn-staff-order");
+  if (staffBtn) staffBtn.onclick = () =>
+    window.open(`../?shop=${encodeURIComponent(state.subdomain)}&staff=1`, "_blank");
+  renderBillingBanner(t[0]);
   $("view-login").classList.add("hidden");
   $("view-app").classList.remove("hidden");
   setDate(new Date());
   loadSettings();
+}
+
+/* ---------- 課金状態バナー（SaaS） ---------- */
+async function callBillingFn(name) {
+  const res = await fetch(`${CONFIG.url}/functions/v1/${name}`, {
+    method: "POST",
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}` },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.url) throw new Error(json.error || "処理に失敗しました");
+  location.href = json.url;
+}
+function renderBillingBanner(t) {
+  const el = $("billing-banner");
+  if (!el || !t) return;
+  const status = t.billing_status || "exempt";
+  state.billingStatus = status;
+  // 設定タブの「ご契約・お支払い」：自店(exempt)と未登録(none)では隠す
+  const box = $("billing-settings-box");
+  if (box) {
+    box.classList.toggle("hidden", status === "exempt" || status === "none");
+    const pb = $("btn-billing-portal-settings");
+    if (pb) pb.onclick = () => callBillingFn("create-portal-session").catch((e) => toast(e.message));
+  }
+  const portalBtn = `<button type="button" class="pill" id="btn-billing-portal">お支払い管理</button>`;
+  let html = "";
+  if (status === "none") {
+    html = `⚠️ お支払い登録が未完了のため、予約フォームはまだ公開されていません。
+      <button type="button" class="pill" id="btn-billing-checkout">お支払い登録へ（7日間無料）</button>`;
+  } else if (status === "trialing") {
+    const days = t.trial_ends_at
+      ? Math.max(0, Math.ceil((new Date(t.trial_ends_at) - Date.now()) / 86400000)) : null;
+    html = `🎀 無料トライアル中${days !== null ? `（あと${days}日）` : ""}。期間が終わると月額課金が始まります。 ${portalBtn}`;
+  } else if (status === "past_due") {
+    html = `⚠️ お支払いに問題があります。カード情報をご確認ください。 ${portalBtn}`;
+  } else if (status === "canceled") {
+    html = `ご契約が終了しています（予約フォームは非公開）。再開するにはお支払い登録をしてください。
+      <button type="button" class="pill" id="btn-billing-checkout">お支払い登録へ</button>`;
+  } else {
+    el.classList.add("hidden"); // active / exempt はバナーなし
+    return;
+  }
+  el.innerHTML = html;
+  el.classList.remove("hidden");
+  const co = $("btn-billing-checkout");
+  if (co) co.onclick = () => callBillingFn("create-checkout-session").catch((e) => toast(e.message));
+  const po = $("btn-billing-portal");
+  if (po) po.onclick = () => callBillingFn("create-portal-session").catch((e) => toast(e.message));
 }
 
 /* ---------- 日付 ---------- */
@@ -150,6 +205,7 @@ function renderPickup() {
         </span>
         <span class="order-total">${yen(o.total_amount)}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
+        ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
       <div class="order-body hidden"></div>`;

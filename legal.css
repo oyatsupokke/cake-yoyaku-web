@@ -1,0 +1,13 @@
+/* 規約類ページ（terms / privacy / tokushoho）共通 */
+.legal { max-width: 720px; margin: 0 auto; padding: 0 16px 80px; }
+.legal h1 { font-size: 1.4rem; text-align: center; padding: 28px 0 4px; }
+.legal .updated { text-align: center; color: #a08a8f; font-size: .82rem; margin: 0 0 24px; }
+.legal h2 { font-size: 1.05rem; border-bottom: 2px solid var(--line); padding-bottom: 6px; margin-top: 32px; }
+.legal p, .legal li { font-size: .92rem; }
+.legal ol, .legal ul { padding-left: 22px; }
+.legal li { margin: 6px 0; }
+.legal table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.legal th, .legal td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+.legal th { background: #fff5f7; white-space: nowrap; width: 11em; }
+.legal .back { display: block; text-align: center; margin-top: 40px; }
+.todo { background: #fff6e9; border-radius: 6px; padding: 0 4px; font-weight: bold; }

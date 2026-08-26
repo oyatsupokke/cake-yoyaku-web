@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新規登録｜ケーキ予約システム</title>
+<link rel="stylesheet" href="styles.css?v=1787726690">
+<link rel="stylesheet" href="signup.css?v=1787726690">
+</head>
+<body>
+<div id="app">
+  <header class="shop-header">
+    <h1>🎂 ケーキ予約システム</h1>
+    <p class="shop-sub">新規登録（7日間無料でお試しいただけます）</p>
+  </header>
+
+  <!-- ステップ表示 -->
+  <ol class="signup-steps no-print" id="steps-bar">
+    <li data-step="account">お店の情報</li>
+    <li data-step="billing">お支払い登録</li>
+    <li data-step="done">利用開始</li>
+  </ol>
+
+  <!-- STEP 1: アカウント＋店舗情報 -->
+  <main id="view-account" class="hidden">
+    <div class="confirm-box">
+      <h3>お店の情報</h3>
+      <label class="field">店名 <span class="req">必須</span>
+        <input type="text" id="s-name" placeholder="例）おやつ屋pokke" autocomplete="organization">
+      </label>
+      <label class="field">店舗ID（予約ページのURLになります） <span class="req">必須</span>
+        <input type="text" id="s-subdomain" placeholder="例）pokke（英小文字・数字・ハイフン）"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+      </label>
+      <p class="small" id="subdomain-hint">お客様がアクセスするURL：<code>…?shop=<span id="subdomain-echo">○○○</span></code></p>
+      <p class="small hidden" id="subdomain-status"></p>
+      <label class="field">住所 <span class="req">必須</span>
+        <input type="text" id="s-address" placeholder="例）愛知県刈谷市○○町1-2-3" autocomplete="street-address">
+      </label>
+      <label class="field">電話番号
+        <input type="tel" id="s-phone" placeholder="例）0566-00-0000" autocomplete="tel">
+      </label>
+    </div>
+
+    <div class="confirm-box">
+      <h3>ログイン用アカウント</h3>
+      <label class="field">メールアドレス <span class="req">必須</span>
+        <input type="email" id="s-email" placeholder="例）info@example.com" autocomplete="username">
+      </label>
+      <p class="small">予約が入ったときの通知もこのアドレスに届きます（あとで変更できます）</p>
+      <label class="field">パスワード（8文字以上） <span class="req">必須</span>
+        <input type="password" id="s-password" autocomplete="new-password">
+      </label>
+    </div>
+
+    <div class="confirm-box">
+      <label class="agree-row">
+        <input type="checkbox" id="s-agree">
+        <span><a href="terms.html" target="_blank">利用規約</a>・<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span>
+      </label>
+      <p class="small"><a href="tokushoho.html" target="_blank">特定商取引法に基づく表記</a></p>
+    </div>
+
+    <div class="trial-note">
+      <p><strong>ご利用の流れ</strong></p>
+      <p>登録後、お支払い方法（クレジットカード）をご登録いただくと、その日から<strong>7日間無料</strong>でお使いいただけます。無料期間が終わると月額<strong>4,980円（税込）</strong>の課金が始まります。無料期間中に解約すれば料金はかかりません。</p>
+    </div>
+
+    <button type="button" class="btn-primary btn-wide" id="btn-signup">登録してお支払い登録へ進む</button>
+    <p id="signup-error" class="error hidden"></p>
+  </main>
+
+  <!-- メール確認待ち（Supabase側でメール確認が有効な場合のみ通る） -->
+  <main id="view-verify" class="hidden">
+    <div class="confirm-box center">
+      <h3>📮 確認メールを送りました</h3>
+      <p>メール内のリンクを開くと、このページに戻って続きに進めます。</p>
+    </div>
+  </main>
+
+  <!-- STEP 2: 支払い登録（Checkoutから戻ってきた・途中離脱した場合） -->
+  <main id="view-billing" class="hidden">
+    <div class="confirm-box center">
+      <h3>お支払い登録がまだ完了していません</h3>
+      <p>カードを登録すると7日間の無料トライアルが始まります。<br>無料期間中に解約すれば料金はかかりません。</p>
+      <button type="button" class="btn-primary btn-wide" id="btn-checkout">お支払い登録へ進む（7日間無料）</button>
+      <p id="billing-error" class="error hidden"></p>
+    </div>
+  </main>
+
+  <!-- STEP 3: 完了 -->
+  <main id="view-done" class="hidden">
+    <div class="confirm-box center">
+      <h3>🎉 登録が完了しました！</h3>
+      <p>7日間の無料トライアルが始まりました。<br>さっそく管理画面から商品と受取時間を設定しましょう。</p>
+      <a class="btn-primary btn-wide btn-link" href="admin/">管理画面をひらく</a>
+      <div class="onboarding">
+        <p><strong>はじめの3ステップ</strong></p>
+        <ol>
+          <li>「商品」からケーキを登録する（写真だけでもOK）</li>
+          <li>「設定」で受取時間帯と定休日を入れる</li>
+          <li>特定商取引法の表記とキャンセルポリシーを入れて公開！</li>
+        </ol>
+      </div>
+    </div>
+  </main>
+
+  <footer class="signup-footer small">
+    <p><a href="lp/">サービス紹介ページを見る</a></p>
+    <a href="admin/">すでにアカウントをお持ちの方はこちら（ログイン）</a>
+  </footer>
+</div>
+<div id="toast" class="hidden"></div>
+<script src="signup.js?v=1787726690"></script>
+</body>
+</html>

@@ -76,6 +76,30 @@ async function saveAll() {
   }
 }
 
+/* 未保存の入力を捨てずに再読み込みする（2026-08-29 追加）
+ * この画面は「まとめて保存」方式だが、停止/削除/追加/公開切替/タブ切替などのボタンは
+ * 押した瞬間にサーバーへ反映して画面を丸ごと再描画する。以前はそのとき、
+ * 保存バーを押していない入力欄が黙って捨てられていた
+ * （collectChanges が DOM から消えた欄を無視するため）。
+ * → 再描画の前に、溜まっている変更を必ず先に保存する。 */
+async function reloadAll() {
+  const changes = collectChanges();
+  if (changes.length) {
+    try {
+      for (const c of changes) {
+        await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, c.patch);
+      }
+      state.dirty = false;
+      toast(`入力を保存してから更新しました（${changes.length}件）`);
+    } catch (e) {
+      // 保存できないまま再描画すると入力が消える。ここで止めて画面をそのまま残す
+      toast("入力を保存できませんでした：" + e.message);
+      return;
+    }
+  }
+  await loadAll();
+}
+
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -237,7 +261,7 @@ function buildLayerField(opts) {
       await onChange({ url: newUrl });
       await deleteImageFile(url);
       toast("イラストを保存しました");
-      loadAll();
+      reloadAll();
     } catch (e) {
       toast(e.message);
       pick.textContent = "イラストを選ぶ";
@@ -253,7 +277,7 @@ function buildLayerField(opts) {
       await onChange({ url: null });
       await deleteImageFile(url);
       toast("イラストを削除しました");
-      loadAll();
+      reloadAll();
     } catch (err) {
       toast("削除できませんでした：" + err.message);
       btn.disabled = false;
@@ -289,7 +313,7 @@ function buildPhotoField(opts) {
       await onChange(newUrl);
       await deleteImageFile(url); // 差し替え時は古い画像を消す
       toast("写真を保存しました");
-      loadAll();
+      reloadAll();
     } catch (e) {
       toast(e.message);
       pick.textContent = "写真を選ぶ";
@@ -303,7 +327,7 @@ function buildPhotoField(opts) {
       await onChange(null);
       await deleteImageFile(url);
       toast("写真を削除しました");
-      loadAll();
+      reloadAll();
     } catch (err) {
       toast("削除できませんでした：" + err.message);
       btn.disabled = false;
@@ -364,9 +388,9 @@ $("btn-new-product").onclick = async () => {
   }]);
   toast(`「${name.trim()}」を追加しました（非公開の状態です）`);
   state.current = created[0];
-  await loadAll();
+  await reloadAll();
 };
-$("btn-reload").onclick = () => loadAll();
+$("btn-reload").onclick = () => reloadAll();
 
 /* ---------- 日時ヘルパー（JSTのdatetime-local ↔ ISO） ---------- */
 const isoToLocal = (iso) => {
@@ -524,7 +548,7 @@ $("btn-p-publish").onclick = async () => {
   const p = state.current;
   await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { is_published: !p.is_published });
   toast(p.is_published ? "非公開にしました" : "公開しました");
-  loadAll();
+  reloadAll();
 };
 $("btn-p-delete").onclick = async () => {
   const p = state.current;
@@ -589,7 +613,7 @@ function renderVariants(p) {
     regField("product_variants", v.id, "price", row.querySelector(".v-price"), { number: true });
     row.querySelector(".v-toggle").onclick = async () => {
       await api("PATCH", `/rest/v1/product_variants?id=eq.${v.id}`, { is_available: !v.is_available });
-      loadAll();
+      reloadAll();
     };
     row.querySelector(".v-del").onclick = async () => {
       try {
@@ -598,7 +622,7 @@ function renderVariants(p) {
       } catch {
         toast("予約で使用されているため削除できません（停止をお使いください）");
       }
-      loadAll();
+      reloadAll();
     };
     wrap.appendChild(row);
   }
@@ -614,7 +638,7 @@ $("btn-v-add").onclick = async () => {
   }]);
   $("v-label").value = ""; $("v-price").value = "";
   toast("サイズを追加しました");
-  loadAll();
+  reloadAll();
 };
 
 /* ---------- 選択グループと選択肢 ---------- */
@@ -675,7 +699,7 @@ function renderGroups(p) {
       } catch {
         toast("予約で使用されている選択肢があるため削除できません（各選択肢の停止をお使いください）");
       }
-      loadAll();
+      reloadAll();
     };
     box.querySelector(".ga-add")?.addEventListener("click", async () => {
       const name = box.querySelector(".ga-name").value.trim();
@@ -686,7 +710,7 @@ function renderGroups(p) {
         price_delta: isNaN(price) ? 0 : price, display_order: g.options.length,
       }]);
       toast("選択肢を追加しました");
-      loadAll();
+      reloadAll();
     });
     // グループの既定イラスト（何も選ばれていないときに重ねる絵）
     box.querySelector(".g-default-layer").appendChild(buildLayerField({
@@ -766,7 +790,7 @@ function renderOptionRow(p, g, o) {
   if (zEl) regField("options", o.id, "layer_z", zEl, { number: true });
   row.querySelector(".o-toggle").onclick = async () => {
     await api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { is_available: !o.is_available });
-    loadAll();
+    reloadAll();
   };
   row.querySelector(".o-del").onclick = async () => {
     try {
@@ -776,7 +800,7 @@ function renderOptionRow(p, g, o) {
     } catch {
       toast("予約で使用されているため削除できません（停止をお使いください）");
     }
-    loadAll();
+    reloadAll();
   };
   // 選択肢ごとの「できない日」（例: 犬ケーキ変更はまりほ不在日は不可）
   row.querySelector(".o-stops").onclick = async () => {
@@ -887,7 +911,7 @@ $("btn-g-add").onclick = async () => {
   }
   $("g-name").value = ""; $("g-required").checked = false;
   toast(`グループ「${name}」を追加しました`);
-  loadAll();
+  reloadAll();
 };
 
 /* ---------- ご記入欄（共通質問）エディタ ---------- */
@@ -942,7 +966,7 @@ function renderQuestions() {
     row.querySelector(".q-toggle").onclick = async () => {
       await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: !q.is_active });
       toast(q.is_active ? "質問を停止しました（フォームに出なくなります）" : "質問を再開しました");
-      loadAll();
+      reloadAll();
     };
     wrap.appendChild(row);
   }
@@ -957,7 +981,7 @@ $("btn-q-add").onclick = async () => {
   }]);
   $("q-label").value = ""; $("q-required").checked = false;
   toast(`質問「${label}」を追加しました`);
-  loadAll();
+  reloadAll();
 };
 
 /* ---------- 共有リスト ---------- */
@@ -996,7 +1020,7 @@ function renderSharedLists() {
       row.querySelector(".it-toggle").onclick = async () => {
         await api("PATCH", `/rest/v1/shared_list_items?id=eq.${it.id}`, { is_available: !it.is_available });
         toast(it.is_available ? "停止しました（全商品で非表示になります）" : "提供再開しました");
-        loadAll();
+        reloadAll();
       };
       itemsWrap.appendChild(row);
     }
@@ -1016,7 +1040,7 @@ function renderSharedLists() {
       }));
       if (rows.length) await api("POST", "/rest/v1/options", rows);
       toast(`「${name}」を追加しました（${rows.length}商品のグループに反映）`);
-      loadAll();
+      reloadAll();
     };
     wrap.appendChild(box);
   }
@@ -1027,7 +1051,7 @@ $("btn-sl-add").onclick = async () => {
   await api("POST", "/rest/v1/shared_lists", [{ tenant_id: state.tenantId, name }]);
   $("sl-name").value = "";
   toast(`リスト「${name}」を作りました`);
-  loadAll();
+  reloadAll();
 };
 
 /* ---------- 保存忘れ警告 ---------- */

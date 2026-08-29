@@ -408,6 +408,11 @@ async function loadTenantForm() {
   };
   $("t-addr-required").onchange = markDirty;
   $("t-tokushoho").value = t.tokushoho?.text || "";
+  // 未記入なら注意書きを出す（公開前チェック。お客様の確認画面に何も出ない状態を気づかせる）
+  const tokuWarn = () =>
+    $("tokushoho-warn").classList.toggle("hidden", $("t-tokushoho").value.trim() !== "");
+  $("t-tokushoho").addEventListener("input", tokuWarn);
+  tokuWarn();
   // お客様セルフ操作（変更・キャンセル）の期限設定
   $("t-self-enabled").checked = t.self_manage_enabled !== false;
   $("t-self-slot-days").value = t.self_slot_days ?? 1;
@@ -416,6 +421,9 @@ async function loadTenantForm() {
   $("t-self-content-time").value = (t.self_content_time || "12:00").slice(0, 5);
   $("t-self-cancel-days").value = t.self_cancel_days ?? 1;
   $("t-self-cancel-time").value = (t.self_cancel_time || "09:00").slice(0, 5);
+  // 受取前日のリマインド
+  $("t-reminder-enabled").checked = t.reminder_enabled === true;
+  $("t-reminder-time").value = (t.reminder_send_at || "18:00").slice(0, 5);
   const w = $("t-weekdays");
   w.innerHTML = "";
   WEEKDAYS.forEach((name, i) => {
@@ -447,6 +455,10 @@ async function loadTenantForm() {
   regField("tenants", T, "self_content_time", $("t-self-content-time"));
   regField("tenants", T, "self_cancel_days", $("t-self-cancel-days"), { number: true });
   regField("tenants", T, "self_cancel_time", $("t-self-cancel-time"));
+  regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
+  // 時刻はNOT NULL。空にされたら既定の18:00に戻す（空欄保存でエラーにしない）
+  regField("tenants", T, "reminder_send_at", $("t-reminder-time"),
+    { get: () => $("t-reminder-time").value.trim() || "18:00" });
   regField("tenants", T, "closed_weekdays", w, {
     get: () => [...w.querySelectorAll("input")].map((c, i) => (c.checked ? i : -1)).filter((i) => i >= 0),
   });

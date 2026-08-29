@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オーダーケーキのご予約</title>
-<link rel="stylesheet" href="styles.css?v=1787805448">
+<link rel="stylesheet" href="styles.css?v=1787977158">
 </head>
 <body>
 <div id="app">
@@ -111,6 +111,13 @@
       <h3>キャンセルについて</h3>
       <p id="cancel-policy" class="small"></p>
     </div>
+    <!-- 特定商取引法に基づく表記（店が設定していないときは表示しない） -->
+    <div class="confirm-box hidden" id="tokushoho-box">
+      <details class="legal-details">
+        <summary>特定商取引法に基づく表記</summary>
+        <p id="tokushoho-text" class="small"></p>
+      </details>
+    </div>
     <p class="preview-note">内容をご確認のうえ「この内容で注文する」を押すと、ご注文が確定します。</p>
     <div class="btn-row">
       <button type="button" class="btn-secondary" id="btn-back">修正する</button>
@@ -138,6 +145,6 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="app.js?v=1787805448"></script>
+<script src="app.js?v=1787977158"></script>
 </body>
 </html>

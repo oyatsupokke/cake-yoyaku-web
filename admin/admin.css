@@ -163,3 +163,6 @@
   .rule-row, .ov-row, .prod-row { flex-wrap: wrap; }
   .rule-row input[type="number"] { width: 60px; }
 }
+
+/* 未記入などの注意書き（設定タブ） */
+.small.warn { color: #c07422; background: #fff4e5; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }

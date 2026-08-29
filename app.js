@@ -922,6 +922,10 @@ function renderConfirm() {
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
+  // 特商法の表記。店が設定していれば確認画面に折りたたみで出す（未設定なら丸ごと非表示）
+  const toku = (state.tenant.tokushoho?.text || "").trim();
+  $("tokushoho-text").textContent = toku;
+  $("tokushoho-box").classList.toggle("hidden", !toku);
 }
 
 $("btn-submit").onclick = async () => {

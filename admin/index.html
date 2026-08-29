@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1787805448">
-<link rel="stylesheet" href="admin.css?v=1787805448">
+<link rel="stylesheet" href="../styles.css?v=1787977158">
+<link rel="stylesheet" href="admin.css?v=1787977158">
 </head>
 <body>
 <div id="app" class="admin">
@@ -178,6 +178,7 @@
         <label class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで注文を受けるときに表示が必要な項目です。事業者名・所在地・電話番号などを書きます。">？</button>
           <textarea id="t-tokushoho" rows="4" placeholder="事業者名・所在地・連絡先など"></textarea>
         </label>
+        <p class="small warn hidden" id="tokushoho-warn">⚠️ 未記入です。ネットで注文を受けるお店は表示が必要な項目です。記入すると、お客様のご注文確認画面に表示されます。</p>
         <div class="field">お客様ご自身での変更・キャンセル
           <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
           <div class="cf-row">
@@ -200,6 +201,17 @@
             <input type="time" id="t-self-cancel-time" style="width:100px"> まで</span>
           </div>
         </div>
+        <div class="field">受取前日のリマインド<button type="button" class="tip" data-tip="お受け取り日の前日に「明日はお受け取り日です」というお知らせを自動で送ります。メールで送られ、LINE連携をされたお客様にはLINEにも届きます。受け取り忘れを減らすための機能です。">？</button>
+          <p class="small">お受け取り日の前日に、ご予約内容のお知らせを自動で送ります（メール／LINE連携済みのお客様にはLINEにも）。</p>
+          <div class="cf-row">
+            <strong>この機能を使う</strong>
+            <label class="cf-check"><input type="checkbox" id="t-reminder-enabled">有効にする</label>
+          </div>
+          <div class="cf-row">
+            <strong>送る時刻</strong>
+            <span>受取日の前日 <input type="time" id="t-reminder-time" style="width:100px"> ごろ</span>
+          </div>
+        </div>
       </div>
 
       <!-- ご契約・お支払い（自店=exemptのときはJSが隠す） -->
@@ -219,7 +231,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1787805448"></script>
-<script src="admin.js?v=1787805448"></script>
+<script src="tips.js?v=1787977158"></script>
+<script src="admin.js?v=1787977158"></script>
 </body>
 </html>

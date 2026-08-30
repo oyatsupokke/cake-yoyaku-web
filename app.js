@@ -42,7 +42,7 @@ const state = {
     product: null,     // 商品オブジェクト
     variant: null,     // サイズオブジェクト
     options: new Map(),// option_id -> {qty, text}（textは記入欄付きオプション用）
-    answers: new Map(),// question_id -> {text, choiceId}
+    answers: new Map(),// question_id -> {text, choiceIds[]}（チェックボックスは複数入る）
     date: null,        // 'YYYY-MM-DD'
     slot: null,        // slotオブジェクト
   },
@@ -216,7 +216,7 @@ async function restoreSaved() {
     // 選択肢: いまも存在するものだけ復元
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
     state.sel.options = new Map((saved.options || []).filter(([id]) => validIds.has(id)));
-    state.sel.answers = new Map(saved.answers || []);
+    state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => [qid, normAnswer(a)]));
     renderGroups();
     updatePreview();
     updatePriceBar();
@@ -338,9 +338,14 @@ async function enterEditMode() {
     state.sel.options = new Map((EDIT_ORDER.options || [])
       .filter((o) => o.option_id && validIds.has(o.option_id))
       .map((o) => [o.option_id, { qty: o.quantity || 1, text: o.text || "" }]));
-    state.sel.answers = new Map((EDIT_ORDER.answers || [])
-      .filter((a) => a.question_id)
-      .map((a) => [a.question_id, { text: a.answer_text, choiceId: a.choice_id }]));
+    state.sel.answers = new Map();
+    for (const a of EDIT_ORDER.answers || []) {
+      if (!a.question_id) continue;
+      const cur = state.sel.answers.get(a.question_id) || { text: null, choiceIds: [] };
+      if (a.choice_id) cur.choiceIds.push(a.choice_id);
+      if (a.answer_text) cur.text = a.answer_text;
+      state.sel.answers.set(a.question_id, cur);
+    }
     renderGroups();
     updatePreview();
     updatePriceBar();
@@ -397,10 +402,11 @@ function currentTotal() {
     const f = findOption(id);
     if (f) total += f.o.price_delta * v.qty;
   }
-  for (const [qid, a] of state.sel.answers) {
-    if (a.choiceId) {
-      const q = state.questions.find((x) => x.id === qid);
-      const c = q?.common_question_choices.find((x) => x.id === a.choiceId);
+  for (const [qid, raw] of state.sel.answers) {
+    const q = state.questions.find((x) => x.id === qid);
+    if (!q) continue;
+    for (const cid of normAnswer(raw).choiceIds) {
+      const c = q.common_question_choices.find((x) => x.id === cid);
       if (c) total += c.price_delta;
     }
   }
@@ -626,8 +632,16 @@ function renderGroups() {
         stepper.querySelector(".qty-plus").disabled = sel.qty >= o.max_quantity;
       }
       box.appendChild(row);
-      // 記入欄付きオプション（例: ナンバークッキーの数字）: 選択中だけ入力欄を出す
-      if (selected && o.text_prompt) {
+      // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
+      const oq = selected ? state.questions.find((x) => qLive(x) && qOptionId(x) === o.id) : null;
+      if (oq) {
+        const wrapQ = document.createElement("div");
+        wrapQ.className = "opt-question";
+        wrapQ.onclick = (e) => e.stopPropagation();  // 選択肢の行の開閉に巻き込まれないように
+        wrapQ.appendChild(buildQuestionField(oq));
+        box.appendChild(wrapQ);
+      } else if (selected && o.text_prompt) {
+        // 移行前の店（options.text_prompt がまだ残っている）は従来どおりの記入欄を出す
         const tf = document.createElement("div");
         tf.className = "opt-textfield";
         tf.innerHTML = `<input type="text" placeholder="${o.text_prompt}" value="${sel.text || ""}">`;
@@ -785,50 +799,84 @@ function renderSlots() {
 $("cal-prev").onclick = () => { state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() - 1, 1); loadCalendar(); };
 $("cal-next").onclick = () => { state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() + 1, 1); loadCalendar(); };
 
-/* ---------- 5. 共通質問 ---------- */
-function visibleQuestions() {
+/* ---------- 5. 質問（共通の質問／選択肢の質問） ----------
+ * 覚える概念は「質問」1つ。置き場所が2つあるだけ（2026-08-30 作り直し）:
+ *   ・共通の質問   = option_id が null。どのケーキで聞くかは scope/対象商品で決まる
+ *   ・選択肢の質問 = option_id あり。その選択肢を選んだ人にだけ、選択肢のすぐ下に出す
+ * 旧・表示条件（trigger_option_id）は選択肢の質問と同じ意味なので同列に扱う。
+ */
+const qOptionId = (q) => q.option_id || q.trigger_option_id || null;
+const qLive = (q) => q.is_active !== false && (q.label || "").trim() !== "";
+const qChoices = (q) => (q.common_question_choices || [])
+  .filter((c) => c.is_available !== false)
+  .sort((a, b) => a.display_order - b.display_order);
+// 回答は1つの質問に複数入りうる（チェックボックス）。古い保存データの {choiceId} も受ける
+function normAnswer(a) {
+  return {
+    text: a?.text ?? null,
+    choiceIds: a?.choiceIds ? [...a.choiceIds] : (a?.choiceId ? [a.choiceId] : []),
+  };
+}
+function visibleQuestions() {  // 店全体の質問（選択肢の質問は選択肢の下に出すのでここには含めない）
   return state.questions.filter((q) =>
-    q.is_active !== false &&
+    qLive(q) && !qOptionId(q) &&
     (q.scope === "all" ||
-     q.common_question_products.some((x) => x.product_id === state.sel.product.id)) &&
-    // 表示条件: この選択肢を選んだときだけ表示（例: ジェンダーリビール→性別の質問）
-    (!q.trigger_option_id || state.sel.options.has(q.trigger_option_id)));
+     q.common_question_products.some((x) => x.product_id === state.sel.product.id)));
+}
+function optionQuestions() {   // いま選ばれている選択肢にぶら下がる質問
+  const out = [];
+  for (const id of state.sel.options.keys()) {
+    const q = state.questions.find((x) => qLive(x) && qOptionId(x) === id);
+    if (q) out.push(q);
+  }
+  return out;
+}
+const askedQuestions = () => [...visibleQuestions(), ...optionQuestions()];
+
+function answerInputsHtml(q) {
+  const cs = qChoices(q);
+  const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
+  if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
+  if (q.input_type === "select") {
+    return `<select><option value="">選択してください</option>` +
+      cs.map((c) => `<option value="${c.id}">${c.label}${plus(c)}</option>`).join("") + `</select>`;
+  }
+  if (q.input_type === "radio" || q.input_type === "checkbox") {
+    const t = q.input_type === "radio" ? "radio" : "checkbox";
+    return `<span class="pick-list">` + cs.map((c) =>
+      `<label class="pick"><input type="${t}" name="q-${q.id}" value="${c.id}">${c.label}${plus(c)}</label>`).join("") + `</span>`;
+  }
+  return `<input type="text">`;
+}
+/* 質問1つ分の入力欄を作る。共通の質問も選択肢の質問も同じ部品を使う */
+function buildQuestionField(q) {
+  const field = document.createElement("label");
+  field.className = "field";
+  field.innerHTML = `${q.label}${q.is_required ? '<span class="req">必須</span>' : ""}` +
+    (q.help_text ? `<span class="help">${q.help_text}</span>` : "") + answerInputsHtml(q);
+  const inputs = [...field.querySelectorAll("input,textarea,select")];
+  const saved = normAnswer(state.sel.answers.get(q.id));
+  const multi = q.input_type === "radio" || q.input_type === "checkbox";
+  if (multi) inputs.forEach((i) => { i.checked = saved.choiceIds.includes(i.value); });
+  else if (q.input_type === "select") inputs[0].value = saved.choiceIds[0] || "";
+  else inputs[0].value = saved.text || "";
+  const onChange = () => {
+    if (multi) {
+      state.sel.answers.set(q.id, { text: null, choiceIds: inputs.filter((i) => i.checked).map((i) => i.value) });
+    } else if (q.input_type === "select") {
+      state.sel.answers.set(q.id, { text: null, choiceIds: inputs[0].value ? [inputs[0].value] : [] });
+    } else {
+      state.sel.answers.set(q.id, { text: inputs[0].value, choiceIds: [] });
+    }
+    updatePriceBar();
+  };
+  inputs.forEach((i) => { i.oninput = onChange; i.onchange = onChange; });
+  return field;
 }
 function renderQuestions() {
   const wrap = $("question-list");
   wrap.innerHTML = "";
-  for (const q of visibleQuestions()) {
-    const field = document.createElement("label");
-    field.className = "field";
-    let inputHtml = "";
-    if (q.input_type === "textarea") {
-      inputHtml = `<textarea rows="3"></textarea>`;
-    } else if (q.input_type === "select") {
-      const opts = q.common_question_choices
-        .filter((c) => c.is_available)
-        .sort((a, b) => a.display_order - b.display_order)
-        .map((c) => `<option value="${c.id}">${c.label}${c.price_delta ? `（+${yen(c.price_delta)}）` : ""}</option>`)
-        .join("");
-      inputHtml = `<select><option value="">選択してください</option>${opts}</select>`;
-    } else {
-      inputHtml = `<input type="text">`;
-    }
-    field.innerHTML = `${q.label}${q.is_required ? '<span class="req">必須</span>' : ""}` +
-      (q.help_text ? `<span class="help">${q.help_text}</span>` : "") + inputHtml;
-    const input = field.querySelector("input,textarea,select");
-    // 再描画時に入力済みの内容を復元
-    const saved = state.sel.answers.get(q.id);
-    if (saved) input.value = (q.input_type === "select" ? saved.choiceId : saved.text) || "";
-    input.oninput = () => {
-      if (q.input_type === "select") {
-        state.sel.answers.set(q.id, { text: null, choiceId: input.value || null });
-      } else {
-        state.sel.answers.set(q.id, { text: input.value, choiceId: null });
-      }
-      updatePriceBar();
-    };
-    wrap.appendChild(field);
-  }
+  for (const q of visibleQuestions()) wrap.appendChild(buildQuestionField(q));
 }
 
 /* ---------- 6. 確認 → 注文 ---------- */
@@ -846,10 +894,10 @@ function validate() {
   }
   if (!s.date) return "受取日を選んでください";
   if (!s.slot) return "受取時間を選んでください";
-  for (const q of visibleQuestions()) {
+  for (const q of askedQuestions()) {
     if (!q.is_required) continue;
-    const a = s.answers.get(q.id);
-    if (!a || (!a.choiceId && !(a.text || "").trim())) return `「${q.label}」にご記入ください`;
+    const a = normAnswer(s.answers.get(q.id));
+    if (!a.choiceIds.length && !(a.text || "").trim()) return `「${q.label}」にご記入ください`;
   }
   if (!$("cust-sei").value.trim() || !$("cust-mei").value.trim()) return "お名前（姓・名）をご記入ください";
   if (!STAFF_MODE && (!$("cust-sei-kana").value.trim() || !$("cust-mei-kana").value.trim()))
@@ -898,13 +946,14 @@ function renderConfirm() {
     const text = (v.text || "").trim() ? `「${v.text.trim()}」` : "";
     row(f.g.name, `${optName(f.o)}${v.qty > 1 ? ` ×${v.qty}` : ""}${text}（${price}）`);
   }
-  for (const q of visibleQuestions()) {
-    const a = s.answers.get(q.id);
-    if (!a) continue;
+  for (const q of askedQuestions()) {
+    const a = normAnswer(s.answers.get(q.id));
     let v = a.text || "";
-    if (a.choiceId) {
-      const c = q.common_question_choices.find((x) => x.id === a.choiceId);
-      v = c ? c.label + (c.price_delta ? `（+${yen(c.price_delta)}）` : "") : "";
+    if (a.choiceIds.length) {
+      v = a.choiceIds.map((cid) => {
+        const c = q.common_question_choices.find((x) => x.id === cid);
+        return c ? c.label + (c.price_delta ? `（+${yen(c.price_delta)}）` : "") : "";
+      }).filter(Boolean).join("、");
     }
     if (v) row(q.label, v);
   }
@@ -955,14 +1004,21 @@ $("btn-submit").onclick = async () => {
         options: [...s.options].map(([option_id, v]) => ({
           option_id, quantity: v.qty, text: (v.text || "").trim() || null,
         })),
-        answers: [...s.answers]
-          .filter(([qid, a]) => (a.choiceId || (a.text || "").trim())
-            && visibleQuestions().some((q) => q.id === qid)) // 非表示になった質問の残骸は送らない
-          .map(([question_id, a]) => ({
-            question_id,
-            answer_text: a.text ? a.text.trim() : null,
-            choice_id: a.choiceId,
-          })),
+        // 非表示になった質問の残骸は送らない。チェックボックスは選んだ数だけ行を作る
+        answers: (() => {
+          const asked = new Set(askedQuestions().map((q) => q.id));
+          const out = [];
+          for (const [question_id, raw] of s.answers) {
+            if (!asked.has(question_id)) continue;
+            const a = normAnswer(raw);
+            if (a.choiceIds.length) {
+              for (const choice_id of a.choiceIds) out.push({ question_id, answer_text: null, choice_id });
+            } else if ((a.text || "").trim()) {
+              out.push({ question_id, answer_text: a.text.trim(), choice_id: null });
+            }
+          }
+          return out;
+        })(),
       },
     };
     const r = EDIT_MODE

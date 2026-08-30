@@ -1,5 +1,13 @@
-/* 商品エディタ */
-.products-page { max-width: 720px; }
+/* 商品エディタ
+ * 2026-08-30 作り直し（設計: kaihatsu/settings-ui-sekkei-2026-08-29.md）
+ *   ・グループ＝見出し帯／選択肢＝その内側、と見た目の重みを変えて入れ子を見せる
+ *   ・選択肢は普段たたむ。たたんだ行に「説明あり」等の印を出して中身を推測させない
+ *   ・説明文を足さずUIで分からせる：入力欄にフォーカスするとプレビューの対応箇所が光る
+ *   ・広い画面は2カラム（左に設定・右にプレビュー）。狭い画面は右下のボタンで全面表示
+ */
+/* #app 側の max-width:560px（styles.css）はIDセレクタで強いので、同じ強さで上書きする。
+   これまでこの指定が効かず、商品設定は560px幅のまま出ていた（2026-08-30 に発見） */
+#app.products-page { max-width: 720px; padding-bottom: 90px; }
 .back-link { text-decoration: none; color: var(--primary-deep); }
 .prod-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .prod-tab {
@@ -12,31 +20,119 @@
 .season-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 @media (max-width: 560px) { .season-grid { grid-template-columns: 1fr; } }
 
-.group-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fffdfd; }
-.group-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.group-head input[type="text"] { flex: 1; min-width: 120px; padding: 6px 10px; border: 2px solid var(--line); border-radius: 8px; font-family: inherit; }
-.opt-row {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  padding: 12px; margin-top: 10px; font-size: .88rem;
-  background: #fff; border: 1.5px solid var(--line); border-radius: 12px;
+/* ---- その場で直せる見出し：触れると分かる形にする（説明文の代わり） ---- */
+.inplace {
+  border: none; background: transparent; border-bottom: 1.5px dotted #cbb3b9; border-radius: 0;
+  padding: 3px 22px 2px 6px; cursor: text; font-family: inherit; color: var(--ink);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23c9a3ab' stroke-width='2' stroke-linecap='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>");
+  background-repeat: no-repeat; background-position: right 4px center;
 }
-/* 選択肢の詳細欄は必ず1行まるごと使う（横に回り込ませない） */
-.opt-row > .opt-details {
-  flex: 0 0 100%; width: 100%;
-  margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line);
+.inplace:hover { background-color: #fff; }
+.inplace:focus { background-color: #fff; border-bottom-style: solid; border-bottom-color: var(--primary-deep); outline: none; }
+
+/* ---- グループ（見出し帯＋中身） ---- */
+.grp { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin: 0 0 22px; background: #fff; }
+.grp-bar {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  background: #fdeff2; border-left: 6px solid var(--primary-deep); padding: 10px 14px;
 }
-.opt-row .o-name { width: 240px; }
-/* グループ自身の説明・注意書きは、選択肢と混ざらないよう淡い背景で囲む */
-.gh-texts {
-  background: #fdf6f7; border-radius: 10px; padding: 4px 12px 12px; margin-top: 8px;
+.grp-bar .gname { flex: 1; min-width: 150px; font-size: 1rem; font-weight: bold; }
+.grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }
+.tag { font-size: .72rem; background: #fff; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; color: #a08a8f; }
+.tag.hi { border-color: var(--primary-deep); color: var(--primary-deep); }
+.grp-body { padding: 13px 14px 15px; }
+.fb { display: flex; flex-direction: column; gap: 3px; margin: 0 0 11px; }
+.fb .k { font-size: .75rem; color: #a08a8f; }
+.fb textarea, .fb input[type="text"] {
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px;
+  font-family: inherit; font-size: .88rem; color: var(--ink); background: #fff; resize: vertical;
 }
-.opt-row input[type="text"] { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .88rem; }
-.opt-row input[type="number"] { width: 72px; padding: 5px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; }
-.opt-row .o-name { width: 170px; }
-.opt-row .o-prompt { width: 170px; }
-.opt-row .mini { font-size: .74rem; color: #a08a8f; }
-.opt-row .pill { padding: 5px 10px; font-size: .78rem; }
-.excl-panel { width: 100%; background: #fdf3f5; border-radius: 8px; padding: 8px 10px; margin-top: 4px; }
+.fb textarea:focus, .fb input[type="text"]:focus { outline: none; border-color: var(--primary-deep); }
+.meta { font-size: .78rem; color: #a08a8f; margin: 14px 0 9px; }
+.chk { font-size: .8rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; margin-top: 3px; }
+.chk input { width: 16px; height: 16px; accent-color: var(--primary-deep); }
+
+/* ---- 選択肢（グループの内側。枠を弱くして入れ子に見せる） ---- */
+.opt { border-left: 3px solid var(--line); border-radius: 0 9px 9px 0; background: #fdfbfb; padding: 9px 12px; margin: 0 0 8px; }
+.opt.open { background: #fff; border-left-color: var(--primary-deep); box-shadow: 0 0 0 1px var(--line); }
+.opt.stopped { opacity: .72; }
+.opt-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opt-line .oname { flex: 1; min-width: 140px; }
+.opt-line .lbl { font-size: .78rem; color: #a08a8f; }
+.opt-line input[type="number"] {
+  width: 78px; padding: 5px; border: 1.5px solid var(--line); border-radius: 8px;
+  text-align: center; font-family: inherit; font-variant-numeric: tabular-nums;
+}
+.opt-line input.maxq { width: 58px; }
+/* たたんでいても中身が分かる印（開かないと分からない状態にしない） */
+.marks { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+.mk { font-size: .7rem; border-radius: 99px; padding: 1px 8px; background: #fdeff2; color: var(--primary-deep); }
+.mk.off { background: #f6f1f2; color: #b3a2a6; }
+.more { margin-top: 11px; border-top: 1px dashed var(--line); padding-top: 11px; }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.sub { border-left: 3px solid var(--line); padding-left: 11px; display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+.sub input[type="text"], .sub select {
+  padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px;
+  font-family: inherit; font-size: .88rem; color: var(--ink); background: #fff;
+}
+.choice { display: flex; gap: 7px; align-items: center; }
+.choice input[type="text"] { flex: 1; min-width: 100px; }
+.choice input[type="number"] { width: 84px; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; font-family: inherit; }
+.ghost { border-style: dashed; color: #a08a8f; }
+
+/* ---- 共通の質問（店全体） ---- */
+.q { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin: 0 0 16px; background: #fff; }
+.q.stopped { opacity: .72; }
+.q-bar {
+  background: #fdeff2; border-left: 6px solid var(--primary-deep); padding: 9px 14px;
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+}
+.q-bar .qname { flex: 1; min-width: 200px; font-weight: bold; font-size: .95rem; }
+.q-body { padding: 13px 15px; }
+.qrow { display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 13px; }
+.qrow .k { flex: 0 0 132px; font-size: .8rem; color: #a08a8f; padding-top: 5px; }
+.qrow .v { flex: 1; min-width: 230px; }
+.qrow .v input[type="text"], .qrow .v select {
+  padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px;
+  font-family: inherit; font-size: .88rem; color: var(--ink); background: #fff; max-width: 100%;
+}
+.qrow .v > input[type="text"] { width: 100%; }
+.radio { display: flex; gap: 7px; align-items: center; font-size: .88rem; cursor: pointer; padding: 2px 0; }
+.radio input { width: 16px; height: 16px; accent-color: var(--primary-deep); }
+.cakes { display: flex; flex-wrap: wrap; gap: 6px; margin: 7px 0 0 22px; }
+.cakes label {
+  font-size: .82rem; border: 1.5px solid var(--line); border-radius: 99px; padding: 3px 11px;
+  background: #fff; cursor: pointer; display: flex; gap: 5px; align-items: center;
+}
+.cakes label.on { border-color: var(--primary-deep); background: #fdeff2; }
+.cakes input { width: 15px; height: 15px; accent-color: var(--primary-deep); }
+
+/* ---- お客様プレビュー ---- */
+.cust { background: var(--bg); border: 1px dashed var(--primary); border-radius: 12px; padding: 12px 14px; margin-top: 14px; }
+.cust .cap { font-size: .72rem; color: var(--primary-deep); margin: 0 0 9px; }
+.cust .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+.cust h4 { margin: 0 0 4px; font-size: .98rem; display: flex; align-items: center; gap: 6px; }
+.cust .req { font-size: .68rem; background: var(--primary-deep); color: #fff; border-radius: 99px; padding: 1px 8px; }
+.cust .desc { font-size: .84rem; margin: 0 0 6px; }
+.cust .cnote { font-size: .76rem; color: #a08a8f; margin: 0 0 8px; white-space: pre-line; }
+.cust .cnote.accent { color: #d0455f; font-weight: bold; }
+.cust .crow {
+  border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 11px; margin-top: 6px;
+  font-size: .86rem; display: flex; justify-content: space-between; gap: 10px;
+}
+.cust .crow.off { opacity: .5; text-decoration: line-through; }
+.cust .cfield { margin-top: 7px; font-size: .8rem; color: #a08a8f; }
+/* 横いっぱいにするのは記入欄とプルダウンだけ。
+   ラジオ・チェックボックスまで width:100% にすると丸が引き伸ばされて文字がズレる */
+.cust .cfield > input[type="text"], .cust .cfield > textarea, .cust .cfield > select { width: 100%; margin-top: 3px; }
+.cust label.pick { display: flex; gap: 7px; align-items: center; font-size: .86rem; padding: 4px 0; }
+.cust .pick input { width: auto; flex: 0 0 auto; margin: 0; }
+/* フォーカス中の欄に対応する箇所が光る＝説明文の代わり */
+.lit { background: #fff3d6 !important; box-shadow: 0 0 0 2px #e8b45c; border-radius: 6px; }
+@media (prefers-reduced-motion: no-preference) { .lit { transition: background .12s, box-shadow .12s; } }
+
+/* ---- 排他ペア・共有リスト・追加ボックス（従来から継続） ---- */
+.excl-panel { width: 100%; background: #fdf3f5; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
 .excl-panel .chip {
   display: inline-block; border: 1.5px solid var(--line); border-radius: 999px;
   padding: 3px 10px; margin: 3px 4px 0 0; cursor: pointer; font-size: .8rem; background: #fff;
@@ -47,19 +143,10 @@
   border: 2px dashed var(--primary); border-radius: 12px;
   padding: 12px 14px; margin-top: 18px; background: #fffafb;
 }
-.opt-row2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 0 8px 12px; font-size: .82rem; color: #a08a8f; }
-.opt-row2 input[type="text"] { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .84rem; }
-.q-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; font-size: .9rem; }
-.q-row .q-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.q-row input[type="text"] { padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; }
-.q-row select { padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; }
-.q-row .mini { font-size: .76rem; color: #a08a8f; }
+
 /* 説明・注意書きなどの縦積みフィールド（ラベル→入力欄を必ず縦に並べる） */
-.gh-texts, .opt-details { display: block; padding: 6px 0 4px; }
 .text-field { display: block; margin-top: 10px; }
-.text-field-label {
-  display: block; font-size: .78rem; color: #a08a8f; margin-bottom: 4px; line-height: 1.5;
-}
+.text-field-label { display: block; font-size: .78rem; color: #a08a8f; margin-bottom: 4px; line-height: 1.5; }
 .text-field textarea,
 .text-field input[type="text"] {
   display: block; box-sizing: border-box; width: 100%; padding: 8px 10px;
@@ -68,7 +155,6 @@
 }
 .text-field textarea:focus,
 .text-field input[type="text"]:focus { outline: none; border-color: var(--primary); }
-.opt-actions-row { margin-top: 10px; }
 
 /* 写真アップロード欄 */
 .photo-field { display: block; margin-top: 12px; }
@@ -82,7 +168,6 @@
 .photo-thumb.empty { border-style: dashed; color: #c2b6b9; font-size: .74rem; }
 .photo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
 .photo-actions .mini { font-size: .74rem; color: #a08a8f; }
-/* 形式のヒント（透過PNG…）はボタンの下に小さく1行で出す（タイトルに見えないように） */
 .photo-actions .photo-hint { flex-basis: 100%; margin-top: 2px; }
 .photo-pick { cursor: pointer; display: inline-block; }
 /* イラストは透過なので市松模様の上に表示する */
@@ -97,12 +182,8 @@
 .layer-thumb img { object-fit: contain !important; }
 .layer-z { padding: 5px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; }
 
-.products-page { padding-bottom: 90px; }
 /* 共有リストの1項目 = 2段組み（1段目: 名前と操作 / 2段目: 提供期間） */
-.sl-item {
-  display: block; padding: 10px 0; font-size: .9rem;
-  border-bottom: 1px dashed var(--line);
-}
+.sl-item { display: block; padding: 10px 0; font-size: .9rem; border-bottom: 1px dashed var(--line); }
 .sl-item:last-child { border-bottom: none; }
 .sl-item-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sl-item-main input[type="text"] {
@@ -111,9 +192,7 @@
 }
 .sl-item-period { margin-top: 8px; }
 .sl-item-period .period-label { display: block; margin-bottom: 4px; }
-.sl-item-period .period-inputs {
-  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
-}
+.sl-item-period .period-inputs { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
 .sl-item-period input[type="date"] {
   flex: 1 1 0; min-width: 0; padding: 5px 8px;
   border: 1.5px solid var(--line); border-radius: 8px;
@@ -121,9 +200,48 @@
 }
 .sl-item .pill { padding: 5px 12px; font-size: .78rem; white-space: nowrap; flex: 0 0 auto; }
 .sl-item .mini { white-space: nowrap; }
+.mini { font-size: .74rem; color: #a08a8f; }
 
-/* スマホ幅：セレクトが画面からはみ出さないように（まりほ指摘 2026-08-26） */
-@media (max-width: 480px) {
+/* iOSは入力欄の文字が16px未満だとタップ時にページを自動拡大し、
+   キーボードを閉じても戻らない（2026-08-30 実機で確認・styles.cssにも同じ対処） */
+@media (max-width: 919px) {
+  .admin input, .admin select, .admin textarea { font-size: 16px; }
   select, input[type="text"], input[type="number"] { max-width: 100%; }
-  .q-trigger { max-width: 100% !important; }
+}
+
+/* ---- 狭い画面：プレビューは見たいときに全面で出す ----
+ * 入力しながら常時プレビューを見ることはしない（上下で分け合うと両方小さくなるだけ）。
+ * 画面のどこにいても押せるボタンを1つ置き、閉じたら元の位置に戻る。 */
+#fab {
+  position: fixed; right: 14px; bottom: 74px; z-index: 60; display: none;
+  font-family: inherit; font-size: .85rem; padding: 10px 18px; border-radius: 99px;
+  border: none; cursor: pointer; background: var(--primary-deep); color: #fff;
+  box-shadow: 0 4px 14px rgba(160, 90, 110, .35);
+}
+#fab:focus-visible { outline: 3px solid #b06a7c; outline-offset: 2px; }
+@media (max-width: 919px) {
+  #fab { display: block; }
+  .cust { display: none; }
+  .cust.peeking {
+    display: block; position: fixed; inset: 0; z-index: 55; margin: 0; border: none; border-radius: 0;
+    background: var(--bg); overflow: auto; padding: 16px 16px 120px;
+    animation: sheetIn .16s ease-out;
+  }
+  .cust.peeking .cap { font-size: .9rem; margin-bottom: 12px; }
+  .cust.peeking .card { max-width: 520px; margin: 0 auto; }
+}
+/* transform で滑らせると、アニメーションが走らない状況（裏タブ・省電力）で
+   開始位置＝画面外のまま止まる。位置は動かさず、透明度だけにする */
+@keyframes sheetIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cust.peeking { animation: none; } }
+
+/* ---- 広い画面：左に設定・右にプレビューを貼り付け ---- */
+@media (min-width: 920px) {
+  #app.products-page { max-width: 1180px; }
+  .grp-body, .q-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
+  .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: 14px; }
+  .qrow .k { flex: 0 0 118px; }
+}
+@media (min-width: 1360px) {
+  .grp-body, .q-body { grid-template-columns: minmax(0, 1fr) 380px; }
 }

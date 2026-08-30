@@ -16,7 +16,12 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[ch]);
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-const state = { session: null, tenantId: null, products: [], sharedLists: [], current: null, fields: [] };
+const state = {
+  session: null, tenantId: null, products: [], sharedLists: [], questions: [], globalGroups: [],
+  current: null, fields: [],
+  // 選択肢の「詳しい設定」を開いているもの。普段はたたんでおく（画面が縦に延々と続かないように）
+  openOptions: new Set(),
+};
 
 /* ---------- 保存の仕組み ----------
  * 入力欄を「どのテーブルのどの項目か」と一緒に登録しておき、
@@ -339,15 +344,20 @@ function buildPhotoField(opts) {
 
 /* ---------- データロード ---------- */
 async function loadAll(keepCurrent = true) {
-  const [products, lists, questions] = await Promise.all([
+  // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
+  const [products, lists, questions, globalGroups] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
       `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
     api("GET", `/rest/v1/shared_lists?tenant_id=eq.${state.tenantId}&select=*,shared_list_items(*)`),
-    api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&order=display_order`),
+    api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&order=display_order` +
+      `&select=*,common_question_choices(*),common_question_products(product_id)`),
+    api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&product_id=is.null&order=display_order` +
+      `&select=*,options(*,shared_list_items(*))`),
   ]);
   state.products = products;
   state.sharedLists = lists;
   state.questions = questions;
+  state.globalGroups = globalGroups;
   if (keepCurrent && state.current) {
     state.current = products.find((p) => p.id === state.current.id) || products[0] || null;
   } else {
@@ -641,127 +651,436 @@ $("btn-v-add").onclick = async () => {
   reloadAll();
 };
 
+/* ---------- 質問（共通の質問／選択肢の質問）の共通部品 ----------
+ * 覚える概念は「質問」1つだけ。置き場所が2つあるだけにする（2026-08-30 作り直し）:
+ *   ・共通の質問   = common_questions.option_id が null（どのケーキで聞くかを選ぶ）
+ *   ・選択肢の質問 = option_id にその選択肢（選んだ人にだけ出るので条件は要らない）
+ * どちらも回答のしかたは同じ5形式、選択式なら回答の選択肢を持てる。
+ */
+const Q_TYPES = [
+  { v: "text", label: "入力欄（1行）" },
+  { v: "textarea", label: "入力欄（複数行）" },
+  { v: "select", label: "プルダウン" },
+  { v: "radio", label: "ラジオボタン（1つ選ぶ）" },
+  { v: "checkbox", label: "チェックボックス（複数選べる）" },
+];
+const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
+const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order);
+const typeOptions = (sel) => Q_TYPES.map((t) =>
+  `<option value="${t.v}" ${t.v === sel ? "selected" : ""}>${t.label}</option>`).join("");
+const questionOf = (optionId) => state.questions.find((q) => q.option_id === optionId) || null;
+
+/* ---------- フォーカスした欄に対応するプレビュー箇所を光らせる ----------
+ * 「お客様に見えます」というバッジや説明文の代わり（まりほ指摘：説明はUIでカバーできる）。
+ * プレビューは入力のたびに描き直すので、描き直したあとに必ず光を戻す。
+ */
+let activeLight = null;
+function applyLight() {
+  document.querySelectorAll(".lit").forEach((x) => x.classList.remove("lit"));
+  if (!activeLight) return;
+  const t = typeof activeLight === "function" ? activeLight() : activeLight;
+  if (t) t.classList.add("lit");
+}
+function linkLight(el, target) {
+  if (!el) return el;
+  el.addEventListener("focus", () => { activeLight = target; applyLight(); });
+  el.addEventListener("blur", () => { activeLight = null; applyLight(); });
+  return el;
+}
+
+/* お客様側の回答欄がどう見えるか（プレビュー用・操作はできない） */
+function answerFieldHtml(view) {
+  const cs = view.choices;
+  if (view.type === "textarea") return `<textarea rows="2" disabled></textarea>`;
+  if (view.type === "select") {
+    return `<select disabled>${cs.map((c) => `<option>${esc(c.label || "（未入力）")}</option>`).join("")}</select>`;
+  }
+  if (view.type === "radio" || view.type === "checkbox") {
+    const t = view.type === "radio" ? "radio" : "checkbox";
+    return cs.map((c) => `<label class="pick"><input type="${t}" disabled>${esc(c.label || "（未入力）")}</label>`).join("")
+      || `<span class="mini">回答の選択肢がまだありません</span>`;
+  }
+  return `<input type="text" disabled>`;
+}
+
+/* 質問エディタ（共通の質問・選択肢の質問で同じ部品を使う）
+ * 戻り値の要素の中で、ラベル/必須/形式/回答の選択肢を編集できる。
+ * ラベルと選択肢名は「まとめて保存」、形式の変更と選択肢の増減はその場で保存する。 */
+function buildQuestionFields(q, view, onPaint, opts = {}) {
+  const box = document.createElement("div");
+  box.className = "sub q-fields";
+  box.innerHTML = `
+    <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
+    <select class="q-type">${typeOptions(q.input_type)}</select>
+    <label class="chk"><input type="checkbox" class="q-req" ${q.is_required ? "checked" : ""}>必須にする</label>
+    <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}"></div>
+    ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に小さく出ます）">`}`;
+
+  const labelEl = box.querySelector(".q-label");
+  regField("common_questions", q.id, "label", labelEl);
+  labelEl.addEventListener("input", () => { view.label = labelEl.value; onPaint(); });
+  if (opts.lightLabel) linkLight(labelEl, opts.lightLabel);
+
+  const helpEl = box.querySelector(".q-help");
+  if (helpEl) regField("common_questions", q.id, "help_text", helpEl);
+
+  const reqEl = box.querySelector(".q-req");
+  regField("common_questions", q.id, "is_required", reqEl);
+  reqEl.addEventListener("change", () => { view.required = reqEl.checked; onPaint(); });
+
+  box.querySelector(".q-type").addEventListener("change", async (e) => {
+    const type = e.target.value;
+    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { input_type: type });
+    // 選択式に変えたのに回答の選択肢が1つも無いと、お客様は何も選べない
+    if (needsChoices(type) && !qChoices(q).length) {
+      await api("POST", "/rest/v1/common_question_choices", [{
+        tenant_id: state.tenantId, question_id: q.id, label: "", display_order: 0,
+      }]);
+    }
+    reloadAll();
+  });
+
+  const chWrap = box.querySelector(".q-choices");
+  for (const c of qChoices(q)) {
+    const row = document.createElement("div");
+    row.className = "choice";
+    row.innerHTML = `
+      <input type="text" class="c-label" value="${esc(c.label)}" placeholder="回答の選択肢">
+      <span class="lbl">+¥</span><input type="number" class="c-price" min="0" value="${esc(c.price_delta)}">
+      <button type="button" class="pill danger c-del">削除</button>`;
+    const cl = row.querySelector(".c-label");
+    regField("common_question_choices", c.id, "label", cl);
+    cl.addEventListener("input", () => {
+      const target = view.choices.find((x) => x.id === c.id);
+      if (target) target.label = cl.value;
+      onPaint();
+    });
+    regField("common_question_choices", c.id, "price_delta", row.querySelector(".c-price"),
+      { get: () => parseInt(row.querySelector(".c-price").value || "0", 10) || 0 });
+    row.querySelector(".c-del").onclick = async () => {
+      try {
+        await api("DELETE", `/rest/v1/common_question_choices?id=eq.${c.id}`);
+      } catch {
+        toast("すでに回答がある選択肢のため消せません");
+      }
+      reloadAll();
+    };
+    chWrap.appendChild(row);
+  }
+  if (needsChoices(q.input_type)) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "pill ghost";
+    add.textContent = "＋ 回答の選択肢を追加";
+    add.onclick = async () => {
+      await api("POST", "/rest/v1/common_question_choices", [{
+        tenant_id: state.tenantId, question_id: q.id, label: "",
+        display_order: qChoices(q).length,
+      }]);
+      reloadAll();
+    };
+    chWrap.appendChild(add);
+  }
+  return box;
+}
+
 /* ---------- 選択グループと選択肢 ---------- */
 const optDisplayName = (o) => o.name || o.shared_list_items?.name || "（共有リストの項目）";
+// この商品に出るグループ = その商品のグループ ＋「すべてのケーキに出す」グループ
+function groupsForProduct(p) {
+  return [...p.option_groups, ...state.globalGroups]
+    .sort((a, b) => (a.display_order - b.display_order) || (a.product_id ? -1 : 1));
+}
 function renderGroups(p) {
   const wrap = $("groups-list");
   wrap.innerHTML = "";
-  const groups = [...p.option_groups].sort((a, b) => a.display_order - b.display_order);
+  const groups = groupsForProduct(p);
   if (!groups.length) wrap.innerHTML = `<p class="small">グループがありません。下から追加してください。</p>`;
-  for (const g of groups) {
-    const box = document.createElement("div");
-    box.className = "group-box";
-    const sharedNote = g.shared_list_id
-      ? `<span class="mini">📎 ${esc(state.sharedLists.find((l) => l.id === g.shared_list_id)?.name || "共有リスト")}参照中（項目の追加・停止は下の共有リスト欄で）</span>`
-      : "";
-    box.innerHTML = `
-      <div class="group-head">
-        <input type="text" class="gh-name" value="${esc(g.name)}">
-        <select class="gh-type">
-          <option value="single" ${g.selection_type === "single" ? "selected" : ""}>1つ選ぶ</option>
-          <option value="multiple" ${g.selection_type === "multiple" ? "selected" : ""}>複数選べる</option>
-        </select>
-        <label class="radio-line" style="margin:0"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
-        <button type="button" class="pill danger gh-del">グループ削除</button>
-        ${sharedNote}
-      </div>
-      <div class="gh-texts">
-        <div class="text-field">
-          <span class="text-field-label">説明</span>
-          <textarea class="gh-desc" rows="3" placeholder="例: お好きな果物をお選びください">${esc(g.description)}</textarea>
-        </div>
-        <div class="text-field">
-          <span class="text-field-label">注意書き</span>
-          <textarea class="gh-note" rows="3" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
-          <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label>
-        </div>
-      </div>
+  for (const g of groups) wrap.appendChild(buildGroupBox(p, g));
+}
+
+function buildGroupBox(p, g) {
+  const box = document.createElement("div");
+  box.className = "grp";
+  const isGlobal = g.product_id === null;
+  const sharedNote = g.shared_list_id
+    ? `<span class="tag">📎 ${esc(state.sharedLists.find((l) => l.id === g.shared_list_id)?.name || "共有リスト")}</span>`
+    : "";
+  box.innerHTML = `
+    <div class="grp-bar">
+      <input type="text" class="gname inplace" value="${esc(g.name)}" aria-label="グループ名">
+      <select class="gh-type">
+        <option value="single" ${g.selection_type === "single" ? "selected" : ""}>1つ選ぶ</option>
+        <option value="multiple" ${g.selection_type === "multiple" ? "selected" : ""}>複数選べる</option>
+      </select>
+      <label class="chk"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
+      ${isGlobal ? `<span class="tag hi">すべてのケーキに出す</span>` : ""}
+      ${sharedNote}
+    </div>
+    <div class="grp-body">
+      <div class="grp-main">
+      <div class="fb"><span class="k">説明</span>
+        <textarea class="gh-desc" rows="2" placeholder="例: お好きな果物をお選びください">${esc(g.description)}</textarea></div>
+      <div class="fb"><span class="k">注意書き</span>
+        <textarea class="gh-note" rows="2" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
+        <label class="chk"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
       <div class="g-default-layer"></div>
+      <p class="meta">選択肢 ${g.options.length}件</p>
       <div class="g-options"></div>
       <div class="override-add g-add-row ${g.shared_list_id ? "hidden" : ""}">
         <input type="text" class="ga-name" placeholder="選択肢名" style="width:150px">
         <input type="number" class="ga-price" placeholder="+円" min="0" style="width:80px">
-        <button type="button" class="pill ga-add">選択肢追加</button>
-      </div>`;
-    regField("option_groups", g.id, "name", box.querySelector(".gh-name"));
-    regField("option_groups", g.id, "selection_type", box.querySelector(".gh-type"));
-    regField("option_groups", g.id, "is_required", box.querySelector(".gh-req"));
-    regField("option_groups", g.id, "description", box.querySelector(".gh-desc"));
-    regField("option_groups", g.id, "note", box.querySelector(".gh-note"));
-    regField("option_groups", g.id, "note_accent", box.querySelector(".gh-note-accent"));
-    box.querySelector(".gh-del").onclick = async () => {
-      if (!confirm(`グループ「${g.name}」を選択肢ごと削除しますか？`)) return;
-      try {
-        await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.in.(${g.options.map(o=>o.id).join(",")}),option_b.in.(${g.options.map(o=>o.id).join(",")}))`);
-        await api("DELETE", `/rest/v1/options?group_id=eq.${g.id}`);
-        await api("DELETE", `/rest/v1/option_groups?id=eq.${g.id}`);
-        toast("削除しました");
-      } catch {
-        toast("予約で使用されている選択肢があるため削除できません（各選択肢の停止をお使いください）");
-      }
-      reloadAll();
-    };
-    box.querySelector(".ga-add")?.addEventListener("click", async () => {
-      const name = box.querySelector(".ga-name").value.trim();
-      const price = parseInt(box.querySelector(".ga-price").value || "0", 10);
-      if (!name) { toast("選択肢名を入れてください"); return; }
-      await api("POST", "/rest/v1/options", [{
-        tenant_id: state.tenantId, group_id: g.id, name,
-        price_delta: isNaN(price) ? 0 : price, display_order: g.options.length,
-      }]);
-      toast("選択肢を追加しました");
-      reloadAll();
-    });
-    // グループの既定イラスト（何も選ばれていないときに重ねる絵）
-    box.querySelector(".g-default-layer").appendChild(buildLayerField({
-      url: g.default_layer_url,
-      z: g.default_layer_z,
-      label: "このグループで何も選ばれていないときのイラスト（任意）",
-      hint: "透過PNG・800×800px",
-      showZ: true,
-      onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
-        patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
-    }));
-
-    const optWrap = box.querySelector(".g-options");
-    for (const o of [...g.options].sort((a, b) => a.display_order - b.display_order)) {
-      optWrap.appendChild(renderOptionRow(p, g, o));
-    }
-    wrap.appendChild(box);
-  }
-}
-
-function renderOptionRow(p, g, o) {
-  const row = document.createElement("div");
-  row.className = "opt-row";
-  const isLinked = !!o.shared_list_item_id;
-  row.innerHTML = `
-    <input type="text" class="o-name" value="${esc(o.name)}" placeholder="${esc(isLinked ? optDisplayName(o) + "（共有）" : "選択肢名")}" ${isLinked ? "disabled" : ""}>
-    +¥<input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
-    <span class="mini">個数上限</span><input type="number" class="o-maxq" min="1" placeholder="1" value="${esc(o.max_quantity)}">
-    <span class="state-badge ${o.is_available ? "on" : ""}">${o.is_available ? "提供中" : "停止中"}</span>
-    <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
-    <button type="button" class="pill o-excl">同時選択できないものを選ぶ</button>
-    <button type="button" class="pill danger o-del">削除</button>
-    <div class="opt-details">
-      <div class="text-field">
-        <span class="text-field-label">説明</span>
-        <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea>
+        <button type="button" class="pill ga-add">＋ 選択肢を追加</button>
       </div>
-      <div class="text-field">
-        <span class="text-field-label">注意書き</span>
-        <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
-        <label class="radio-line" style="margin:4px 0 0; font-size:.78rem"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label>
+      <div class="acts">
+        <label class="chk"><input type="checkbox" class="gh-all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
+        <button type="button" class="pill danger gh-del">グループを削除</button>
       </div>
-      <div class="text-field">
-        <span class="text-field-label">お客さんに書いてもらう欄（使う場合だけ、お願い文を入力）</span>
-        <input type="text" class="o-prompt" value="${esc(o.text_prompt)}" placeholder="例: ご希望の数字をご記入ください">
       </div>
-      <div class="o-photo"></div>
-      <div class="opt-actions-row">
-        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
+      <div class="cust">
+        <p class="cap">プレビュー</p>
+        <div class="card">
+          <h4><span class="pv-name"></span><span class="req pv-req">必須</span></h4>
+          <p class="desc pv-desc"></p>
+          <p class="cnote pv-note"></p>
+          <div class="pv-opts"></div>
+        </div>
       </div>
     </div>`;
+
+  // 画面に出す値の写し。入力のたびにここを更新してプレビューを描き直す
+  const view = {
+    name: g.name, required: !!g.is_required, single: g.selection_type === "single",
+    desc: g.description || "", note: g.note || "", accent: !!g.note_accent,
+    opts: [...g.options].sort((a, b) => a.display_order - b.display_order).map((o) => {
+      const q = questionOf(o.id);
+      return {
+        id: o.id, name: optDisplayName(o), price: o.price_delta, available: o.is_available,
+        q: q ? {
+          label: q.label, type: q.input_type, required: q.is_required,
+          choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
+        } : null,
+      };
+    }),
+  };
+  const paint = () => {
+    box.querySelector(".pv-name").textContent = view.name || "（グループ名）";
+    box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
+    const d = box.querySelector(".pv-desc");
+    d.textContent = view.desc; d.classList.toggle("hidden", !view.desc.trim());
+    const n = box.querySelector(".pv-note");
+    n.textContent = view.note; n.classList.toggle("hidden", !view.note.trim());
+    n.classList.toggle("accent", view.accent);
+    box.querySelector(".pv-opts").innerHTML = view.opts.map((o) => `
+      <div class="crow ${o.available ? "" : "off"}">
+        <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
+        <span>${o.price ? "+¥" + o.price.toLocaleString("ja-JP") : "無料"}</span>
+      </div>
+      ${o.q ? `<div class="cfield">${esc(o.q.label || "（質問文）")}${answerFieldHtml(o.q)}</div>` : ""}`).join("");
+    applyLight();
+  };
+
+  const nameEl = box.querySelector(".gname");
+  regField("option_groups", g.id, "name", nameEl);
+  nameEl.addEventListener("input", () => { view.name = nameEl.value; paint(); });
+  linkLight(nameEl, () => box.querySelector(".pv-name"));
+
+  const typeEl = box.querySelector(".gh-type");
+  regField("option_groups", g.id, "selection_type", typeEl);
+  typeEl.addEventListener("change", () => { view.single = typeEl.value === "single"; paint(); });
+
+  const reqEl = box.querySelector(".gh-req");
+  regField("option_groups", g.id, "is_required", reqEl);
+  reqEl.addEventListener("change", () => { view.required = reqEl.checked; paint(); });
+
+  const descEl = box.querySelector(".gh-desc");
+  regField("option_groups", g.id, "description", descEl);
+  descEl.addEventListener("input", () => { view.desc = descEl.value; paint(); });
+  linkLight(descEl, () => box.querySelector(".pv-desc"));
+
+  const noteEl = box.querySelector(".gh-note");
+  regField("option_groups", g.id, "note", noteEl);
+  noteEl.addEventListener("input", () => { view.note = noteEl.value; paint(); });
+  linkLight(noteEl, () => box.querySelector(".pv-note"));
+
+  const accentEl = box.querySelector(".gh-note-accent");
+  regField("option_groups", g.id, "note_accent", accentEl);
+  accentEl.addEventListener("change", () => { view.accent = accentEl.checked; paint(); });
+
+  box.querySelector(".gh-all").onclick = async (e) => {
+    const on = e.target.checked;
+    if (!on && !confirm(`「${g.name}」を この商品（${p.name}）だけのグループに戻しますか？`)) {
+      e.target.checked = true; return;
+    }
+    await api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { product_id: on ? null : p.id });
+    toast(on ? "すべてのケーキに出すようにしました" : `${p.name} だけのグループにしました`);
+    reloadAll();
+  };
+
+  box.querySelector(".gh-del").onclick = async () => {
+    if (!confirm(`グループ「${g.name}」を選択肢ごと削除しますか？`)) return;
+    try {
+      const ids = g.options.map((o) => o.id).join(",");
+      if (ids) {
+        await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.in.(${ids}),option_b.in.(${ids}))`);
+        await api("DELETE", `/rest/v1/common_questions?option_id=in.(${ids})`);
+      }
+      await api("DELETE", `/rest/v1/options?group_id=eq.${g.id}`);
+      await api("DELETE", `/rest/v1/option_groups?id=eq.${g.id}`);
+      toast("削除しました");
+    } catch {
+      toast("予約で使用されている選択肢があるため削除できません（各選択肢の停止をお使いください）");
+    }
+    reloadAll();
+  };
+
+  box.querySelector(".ga-add")?.addEventListener("click", async () => {
+    const name = box.querySelector(".ga-name").value.trim();
+    const price = parseInt(box.querySelector(".ga-price").value || "0", 10);
+    if (!name) { toast("選択肢名を入れてください"); return; }
+    await api("POST", "/rest/v1/options", [{
+      tenant_id: state.tenantId, group_id: g.id, name,
+      price_delta: isNaN(price) ? 0 : price, display_order: g.options.length,
+    }]);
+    toast("選択肢を追加しました");
+    reloadAll();
+  });
+
+  // グループの既定イラスト（何も選ばれていないときに重ねる絵）
+  box.querySelector(".g-default-layer").appendChild(buildLayerField({
+    url: g.default_layer_url,
+    z: g.default_layer_z,
+    label: "このグループで何も選ばれていないときのイラスト（任意）",
+    hint: "透過PNG・800×800px",
+    showZ: true,
+    onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
+      patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
+  }));
+
+  const optWrap = box.querySelector(".g-options");
+  view.opts.forEach((ov, i) => {
+    const o = g.options.find((x) => x.id === ov.id);
+    optWrap.appendChild(buildOptionRow(p, g, o, view, ov, i, paint));
+  });
+
+  paint();
+  return box;
+}
+
+/* たたんだままでも中身が分かる印（開かないと分からない状態にしない） */
+function marksHtml(o, ov) {
+  const mk = (on, yes, no) => `<span class="mk ${on ? "" : "off"}">${on ? yes : no}</span>`;
+  return mk(!!(o.description || "").trim(), "説明あり", "説明なし")
+    + mk(!!(o.note || "").trim(), "注意書きあり", "注意書きなし")
+    + mk(!!ov.q, "質問あり", "質問なし")
+    + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし");
+}
+
+function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
+  const row = document.createElement("div");
+  const open = state.openOptions.has(o.id);
+  row.className = "opt" + (open ? " open" : "") + (o.is_available ? "" : " stopped");
+  const isLinked = !!o.shared_list_item_id;
+  const q = questionOf(o.id);
+  row.innerHTML = `
+    <div class="opt-line">
+      <input type="text" class="oname inplace" value="${esc(o.name)}" aria-label="選択肢名"
+        placeholder="${esc(isLinked ? optDisplayName(o) + "（共有リスト）" : "選択肢名")}" ${isLinked ? "disabled" : ""}>
+      <span class="lbl">+¥</span><input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
+      <span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" value="${esc(o.max_quantity)}">
+      <span class="state-badge ${o.is_available ? "on" : ""}">${o.is_available ? "提供中" : "停止中"}</span>
+      <button type="button" class="pill o-more" aria-expanded="${open}">詳しい設定 ${open ? "▴" : "▾"}</button>
+    </div>
+    <div class="marks">${marksHtml(o, ov)}</div>
+    <div class="more ${open ? "" : "hidden"}">
+      <div class="fb"><span class="k">説明</span>
+        <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea></div>
+      <div class="fb"><span class="k">注意書き</span>
+        <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
+        <label class="chk"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
+      <div class="fb">
+        <label class="chk"><input type="checkbox" class="o-qon" ${q ? "checked" : ""}>この選択肢を選んだ人にだけ質問する</label>
+        <div class="o-qbox"></div>
+      </div>
+      <div class="o-photo"></div>
+      <div class="acts">
+        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
+        <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
+        <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
+        <button type="button" class="pill danger o-del">削除</button>
+      </div>
+    </div>`;
+
+  const repaintMarks = () => { row.querySelector(".marks").innerHTML = marksHtml(o, ov); };
+  const rowLight = () => row.closest(".grp").querySelectorAll(".pv-opts .crow")[index];
+
+  const nameEl = row.querySelector(".oname");
+  if (!isLinked) {
+    regField("options", o.id, "name", nameEl);
+    nameEl.addEventListener("input", () => { ov.name = nameEl.value; paintGroup(); });
+  }
+  linkLight(nameEl, rowLight);
+
+  const priceEl = row.querySelector(".o-price");
+  regField("options", o.id, "price_delta", priceEl, { get: () => parseInt(priceEl.value || "0", 10) || 0 });
+  priceEl.addEventListener("input", () => { ov.price = parseInt(priceEl.value || "0", 10) || 0; paintGroup(); });
+  linkLight(priceEl, rowLight);
+
+  regField("options", o.id, "max_quantity", row.querySelector(".o-maxq"), { number: true });
+
+  const descEl = row.querySelector(".o-desc");
+  regField("options", o.id, "description", descEl);
+  descEl.addEventListener("input", () => { o.description = descEl.value; repaintMarks(); });
+
+  const noteEl = row.querySelector(".o-note");
+  regField("options", o.id, "note", noteEl);
+  noteEl.addEventListener("input", () => { o.note = noteEl.value; repaintMarks(); });
+  regField("options", o.id, "note_accent", row.querySelector(".o-note-accent"));
+
+  // 開け閉めは画面の中だけで完結させる（保存も再描画も走らせない＝入力中でも安全）
+  const moreBtn = row.querySelector(".o-more");
+  moreBtn.onclick = () => {
+    const open = !row.classList.contains("open");
+    row.classList.toggle("open", open);
+    row.querySelector(".more").classList.toggle("hidden", !open);
+    moreBtn.textContent = `詳しい設定 ${open ? "▴" : "▾"}`;
+    moreBtn.setAttribute("aria-expanded", String(open));
+    if (open) state.openOptions.add(o.id); else state.openOptions.delete(o.id);
+  };
+
+  /* 選択肢の質問（この選択肢を選んだ人にだけ聞く） */
+  const qWrap = row.querySelector(".o-qbox");
+  if (q) {
+    const qLight = () => {
+      const grp = row.closest(".grp");
+      const before = view.opts.slice(0, index).filter((x) => x.q).length;
+      return grp.querySelectorAll(".pv-opts .cfield")[before];
+    };
+    qWrap.appendChild(buildQuestionFields(q, ov.q, paintGroup, { hideHelp: false, lightLabel: qLight }));
+  }
+  row.querySelector(".o-qon").onchange = async (e) => {
+    if (e.target.checked) {
+      await api("POST", "/rest/v1/common_questions", [{
+        tenant_id: state.tenantId, label: "", input_type: "text",
+        is_required: true, option_id: o.id, display_order: 0,
+      }]);
+      state.openOptions.add(o.id);
+    } else {
+      if (!confirm("この選択肢の質問を削除しますか？（お客様に聞かなくなります）")) {
+        e.target.checked = true; return;
+      }
+      try {
+        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
+        await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+      } catch {
+        // すでに回答がある質問は消せない（過去の予約の記録が壊れるため）→ 止めるだけにする
+        await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: false });
+        toast("すでに回答がある質問のため、削除ではなく停止しました");
+      }
+    }
+    reloadAll();
+  };
+
   row.querySelector(".o-photo").appendChild(buildPhotoField({
     url: o.photo_url,
     kind: "options",
@@ -778,23 +1097,21 @@ function renderOptionRow(p, g, o) {
     onChange: (patch) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`,
       patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
   }));
-  if (!isLinked) regField("options", o.id, "name", row.querySelector(".o-name"));
-  regField("options", o.id, "price_delta", row.querySelector(".o-price"),
-    { get: () => parseInt(row.querySelector(".o-price").value || "0", 10) || 0 });
-  regField("options", o.id, "max_quantity", row.querySelector(".o-maxq"), { number: true });
-  regField("options", o.id, "text_prompt", row.querySelector(".o-prompt"));
-  regField("options", o.id, "description", row.querySelector(".o-desc"));
-  regField("options", o.id, "note", row.querySelector(".o-note"));
-  regField("options", o.id, "note_accent", row.querySelector(".o-note-accent"));
   const zEl = row.querySelector(".layer-z");
   if (zEl) regField("options", o.id, "layer_z", zEl, { number: true });
+
   row.querySelector(".o-toggle").onclick = async () => {
     await api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { is_available: !o.is_available });
     reloadAll();
   };
   row.querySelector(".o-del").onclick = async () => {
+    if (!confirm(`「${optDisplayName(o)}」を削除しますか？`)) return;
     try {
       await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.eq.${o.id},option_b.eq.${o.id})`);
+      if (q) {
+        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
+        await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+      }
       await api("DELETE", `/rest/v1/options?id=eq.${o.id}`);
       toast("削除しました");
     } catch {
@@ -802,6 +1119,7 @@ function renderOptionRow(p, g, o) {
     }
     reloadAll();
   };
+
   // 選択肢ごとの「できない日」（例: 犬ケーキ変更はまりほ不在日は不可）
   row.querySelector(".o-stops").onclick = async () => {
     const existing = row.querySelector(".stops-panel");
@@ -840,16 +1158,18 @@ function renderOptionRow(p, g, o) {
       toast(`${date} は「${optDisplayName(o)}」を受け付けません`);
       renderStops();
     };
-    row.appendChild(panel);
+    row.querySelector(".more").appendChild(panel);
     renderStops();
   };
+
   row.querySelector(".o-excl").onclick = () => {
-    const existing = row.querySelector(".excl-panel");
+    const existing = row.querySelector(".excl-panel:not(.stops-panel)");
     if (existing) { existing.remove(); return; }
     const panel = document.createElement("div");
     panel.className = "excl-panel";
     panel.innerHTML = `<span class="mini">「${esc(optDisplayName(o))}」と一緒に選べないものをタップ（ピンク=一緒に選べない）:</span><br>`;
-    const others = p.option_groups.flatMap((gg) => gg.options.filter((oo) => oo.id !== o.id).map((oo) => ({ g: gg, o: oo })));
+    const others = groupsForProduct(p)
+      .flatMap((gg) => gg.options.filter((oo) => oo.id !== o.id).map((oo) => ({ g: gg, o: oo })));
     for (const { g: gg, o: oo } of others) {
       const pairKey = (a, b) => (a < b ? [a, b] : [b, a]);
       const [pa, pb] = pairKey(o.id, oo.id);
@@ -882,7 +1202,7 @@ function renderOptionRow(p, g, o) {
       panel.appendChild(chip);
     }
     // ボタンのすぐ下に出す（離れた場所に出ると気づけないため）
-    row.insertBefore(panel, row.querySelector(".opt-details"));
+    row.querySelector(".more").appendChild(panel);
   };
   return row;
 }
@@ -893,10 +1213,11 @@ $("btn-g-add").onclick = async () => {
   const name = $("g-name").value.trim();
   if (!name) { toast("グループ名を入れてください"); return; }
   const sharedId = $("g-shared").value || null;
+  const all = $("g-all").checked;
   const created = await api("POST", "/rest/v1/option_groups", [{
-    tenant_id: state.tenantId, product_id: p.id, name,
+    tenant_id: state.tenantId, product_id: all ? null : p.id, name,
     selection_type: $("g-type").value, is_required: $("g-required").checked,
-    shared_list_id: sharedId, display_order: p.option_groups.length,
+    shared_list_id: sharedId, display_order: groupsForProduct(p).length,
   }]);
   // 共有リスト参照グループ: リストの全項目分のリンク行を自動作成
   if (sharedId) {
@@ -909,80 +1230,171 @@ $("btn-g-add").onclick = async () => {
       }));
     if (rows.length) await api("POST", "/rest/v1/options", rows);
   }
-  $("g-name").value = ""; $("g-required").checked = false;
+  $("g-name").value = ""; $("g-required").checked = false; $("g-all").checked = false;
   toast(`グループ「${name}」を追加しました`);
   reloadAll();
 };
 
-/* ---------- ご記入欄（共通質問）エディタ ---------- */
-function allOptionChoices() {
-  // 表示条件のプルダウン用: 全商品の全選択肢
-  const out = [];
-  for (const p of state.products) {
-    for (const g of p.option_groups) {
-      for (const o of [...g.options].sort((a, b) => a.display_order - b.display_order)) {
-        out.push({ id: o.id, label: `${p.name}｜${g.name}: ${optDisplayName(o)}` });
-      }
-    }
-  }
-  return out;
-}
+/* ---------- 共通の質問（店全体） ---------- */
 function renderQuestions() {
   const wrap = $("questions-list");
   wrap.innerHTML = "";
-  const choices = allOptionChoices();
-  for (const q of state.questions) {
-    const row = document.createElement("div");
-    row.className = "q-row" + (q.is_active ? "" : " unpublished");
-    const opts = choices.map((c) =>
-      `<option value="${esc(c.id)}" ${q.trigger_option_id === c.id ? "selected" : ""}>${esc(c.label)} を選んだときだけ</option>`).join("");
-    row.innerHTML = `
-      <div class="q-head">
-        <input type="text" class="q-label" value="${esc(q.label)}" style="flex:1; min-width:200px">
-        <select class="q-type">
-          <option value="text" ${q.input_type === "text" ? "selected" : ""}>1行記入</option>
-          <option value="textarea" ${q.input_type === "textarea" ? "selected" : ""}>複数行記入</option>
-        </select>
-        <label class="radio-line" style="margin:0"><input type="checkbox" class="q-req" ${q.is_required ? "checked" : ""}>必須</label>
-      </div>
-      <div class="q-head" style="margin-top:6px">
-        <span class="mini">補足:</span>
-        <input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="例: 不要の場合は「不要」とご記入ください" style="flex:1; min-width:180px">
-      </div>
-      <div class="q-head" style="margin-top:6px">
-        <span class="mini">表示条件:</span>
-        <select class="q-trigger" style="max-width:340px">
-          <option value="">いつも表示</option>
-          ${opts}
-        </select>
-        <span class="state-badge ${q.is_active ? "on" : ""}">${q.is_active ? "使用中" : "停止中"}</span>
-        <button type="button" class="pill q-toggle">${q.is_active ? "停止する" : "再開する"}</button>
-      </div>`;
-    regField("common_questions", q.id, "label", row.querySelector(".q-label"));
-    regField("common_questions", q.id, "input_type", row.querySelector(".q-type"));
-    regField("common_questions", q.id, "is_required", row.querySelector(".q-req"));
-    regField("common_questions", q.id, "help_text", row.querySelector(".q-help"));
-    regField("common_questions", q.id, "trigger_option_id", row.querySelector(".q-trigger"));
-    row.querySelector(".q-toggle").onclick = async () => {
-      await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: !q.is_active });
-      toast(q.is_active ? "質問を停止しました（フォームに出なくなります）" : "質問を再開しました");
-      reloadAll();
-    };
-    wrap.appendChild(row);
+  const common = state.questions.filter((q) => !q.option_id);
+  if (!common.length) {
+    wrap.innerHTML = `<p class="small">まだありません。どのケーキでも聞くこと（メッセージプレートなど）を追加してください。</p>`;
   }
+  for (const q of common) wrap.appendChild(buildQuestionBox(q));
 }
+
+function buildQuestionBox(q) {
+  const box = document.createElement("div");
+  box.className = "q" + (q.is_active ? "" : " stopped");
+  const picked = new Set((q.common_question_products || []).map((r) => r.product_id));
+  const isAll = q.scope !== "selected";
+  box.innerHTML = `
+    <div class="q-bar">
+      <input type="text" class="qname inplace" value="${esc(q.label)}" aria-label="質問文" placeholder="質問文">
+      <span class="state-badge ${q.is_active ? "on" : ""}">${q.is_active ? "使用中" : "停止中"}</span>
+      <button type="button" class="pill q-toggle">${q.is_active ? "停止する" : "再開する"}</button>
+      <button type="button" class="pill danger q-del">削除</button>
+    </div>
+    <div class="q-body">
+      <div class="q-main">
+      <div class="qrow"><div class="k">どのケーキで聞くか</div><div class="v">
+        <label class="radio"><input type="radio" name="sc-${q.id}" class="sc-all" ${isAll ? "checked" : ""}>すべてのケーキ</label>
+        <label class="radio"><input type="radio" name="sc-${q.id}" class="sc-some" ${isAll ? "" : "checked"}>選んだケーキだけ</label>
+        <div class="cakes ${isAll ? "hidden" : ""}">${state.products.map((p) =>
+          `<label class="${picked.has(p.id) ? "on" : ""}"><input type="checkbox" data-pid="${p.id}" ${picked.has(p.id) ? "checked" : ""}>${esc(p.name)}</label>`).join("")}</div>
+      </div></div>
+      <div class="qrow"><div class="k">質問の内容</div><div class="v q-fields-wrap"></div></div>
+      </div>
+      <div class="cust">
+        <p class="cap">プレビュー</p>
+        <div class="card">
+          <h4><span class="pv-label"></span><span class="req pv-req">必須</span></h4>
+          <div class="pv-body"></div>
+        </div>
+      </div>
+    </div>`;
+
+  const view = {
+    label: q.label, required: !!q.is_required, type: q.input_type,
+    choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
+  };
+  const paint = () => {
+    box.querySelector(".pv-label").textContent = view.label || "（質問文）";
+    box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
+    box.querySelector(".pv-body").innerHTML = answerFieldHtml(view);
+    applyLight();
+  };
+
+  // 見出しの質問文と、下の質問エディタのラベル欄は同じ項目。見出し側だけ出して重複させない
+  const fields = buildQuestionFields(q, view, paint, { lightLabel: () => box.querySelector(".pv-label") });
+  fields.querySelector(".q-label").remove();
+  box.querySelector(".q-fields-wrap").appendChild(fields);
+
+  const nameEl = box.querySelector(".qname");
+  regField("common_questions", q.id, "label", nameEl);
+  nameEl.addEventListener("input", () => { view.label = nameEl.value; paint(); });
+  linkLight(nameEl, () => box.querySelector(".pv-label"));
+
+  box.querySelector(".sc-all").onchange = async () => {
+    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { scope: "all" });
+    await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}`);
+    reloadAll();
+  };
+  box.querySelector(".sc-some").onchange = async () => {
+    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { scope: "selected" });
+    reloadAll();
+  };
+  box.querySelectorAll(".cakes input").forEach((cb) => {
+    cb.onchange = async () => {
+      const pid = cb.dataset.pid;
+      try {
+        if (cb.checked) {
+          await api("POST", "/rest/v1/common_question_products", [{
+            tenant_id: state.tenantId, question_id: q.id, product_id: pid,
+          }]);
+        } else {
+          await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}&product_id=eq.${pid}`);
+        }
+        cb.closest("label").classList.toggle("on", cb.checked);
+      } catch (e) {
+        cb.checked = !cb.checked;
+        toast("変更できませんでした：" + e.message);
+      }
+    };
+  });
+
+  box.querySelector(".q-toggle").onclick = async () => {
+    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: !q.is_active });
+    toast(q.is_active ? "質問を停止しました（フォームに出なくなります）" : "質問を再開しました");
+    reloadAll();
+  };
+  box.querySelector(".q-del").onclick = async () => {
+    if (!confirm(`質問「${q.label}」を削除しますか？`)) return;
+    try {
+      await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
+      await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}`);
+      await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+      toast("削除しました");
+    } catch {
+      await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: false });
+      toast("すでに回答がある質問のため、削除ではなく停止しました");
+    }
+    reloadAll();
+  };
+
+  paint();
+  return box;
+}
+
 $("btn-q-add").onclick = async () => {
-  const label = $("q-label").value.trim();
-  if (!label) { toast("質問文を入れてください"); return; }
   await api("POST", "/rest/v1/common_questions", [{
-    tenant_id: state.tenantId, label,
-    input_type: $("q-type").value, is_required: $("q-required").checked,
-    display_order: state.questions.length,
+    tenant_id: state.tenantId, label: "", input_type: "text", is_required: false,
+    scope: "all", display_order: state.questions.filter((q) => !q.option_id).length,
   }]);
-  $("q-label").value = ""; $("q-required").checked = false;
-  toast(`質問「${label}」を追加しました`);
+  toast("質問を追加しました（質問文を入れてください）");
   reloadAll();
 };
+
+/* ---------- プレビューの出し入れ（狭い画面） ----------
+ * 入力しながら常時見るのではなく、見たいときに全面で出す。
+ * 画面のどこにいても押せるボタンを1つ置き、プレビューまで探しに行かなくていいようにする。 */
+const narrowScreen = () => window.matchMedia("(max-width: 919px)").matches;
+function nearestPreview() {
+  const mid = window.innerHeight / 2;
+  let best = null, bestD = Infinity;
+  document.querySelectorAll(".grp, .q").forEach((sec) => {
+    const r = sec.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) return;
+    const d = Math.abs((r.top + r.bottom) / 2 - mid);
+    if (d < bestD) { bestD = d; best = sec; }
+  });
+  return (best || document.querySelector(".grp, .q"))?.querySelector(".cust") || null;
+}
+function closePreview() {
+  document.querySelectorAll(".cust.peeking").forEach((c) => c.classList.remove("peeking"));
+  document.body.style.overflow = "";
+  syncFab();
+}
+function openPreview() {
+  const c = nearestPreview();
+  if (!c) { toast("プレビューできるものがありません"); return; }
+  document.querySelectorAll(".cust.peeking").forEach((x) => x.classList.remove("peeking"));
+  c.classList.add("peeking");
+  document.body.style.overflow = "hidden"; // 後ろのページが一緒に動かないように
+  syncFab();
+}
+function syncFab() {
+  const on = !!document.querySelector(".cust.peeking");
+  $("fab").textContent = on ? "✕ 閉じる" : "プレビュー";
+  $("fab").setAttribute("aria-pressed", String(on));
+}
+$("fab").onclick = () => (document.querySelector(".cust.peeking") ? closePreview() : openPreview());
+window.addEventListener("resize", () => { if (!narrowScreen()) closePreview(); });
+syncFab();
+
 
 /* ---------- 共有リスト ---------- */
 function renderSharedLists() {

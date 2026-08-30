@@ -153,13 +153,27 @@ body {
 
 /* フォーム */
 .field { display: block; margin: 12px 0; font-size: .92rem; font-weight: bold; }
-.field input, .field textarea, .field select {
+/* 横いっぱいにするのは記入欄・プルダウンだけ。ラジオ／チェックボックスまで
+   width:100% にすると丸が引き伸ばされてラベルがズレる（2026-08-30 選択式の質問を足すため型で絞った） */
+.field input:not([type="radio"]):not([type="checkbox"]), .field textarea, .field select {
   display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
   border: 2px solid var(--line); border-radius: 12px; font-size: 1rem;
   font-family: inherit; background: #fff; color: var(--ink);
 }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--primary); }
 .field .help { font-weight: normal; font-size: .76rem; color: #a08a8f; margin: 2px 0 0; }
+/* 選択式の質問（ラジオ・チェックボックス） */
+.pick-list { display: block; margin-top: 6px; }
+label.pick {
+  display: flex; gap: 10px; align-items: center; font-weight: normal; font-size: .95rem;
+  padding: 9px 12px; margin-top: 6px; background: #fff;
+  border: 2px solid var(--line); border-radius: 12px; cursor: pointer;
+}
+label.pick input { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--primary-deep); }
+label.pick:has(input:checked) { border-color: var(--primary-deep); background: #fff8fa; }
+/* 選択肢を選んだ人にだけ出る質問（選択肢のすぐ下にぶら下げる） */
+.opt-question { margin: 2px 0 10px 12px; padding-left: 12px; border-left: 3px solid var(--line); }
+.opt-question .field { margin: 6px 0; }
 .pay-note {
   background: #fff5e8; border-radius: 12px; padding: 10px 14px; font-size: .88rem; margin: 16px 0;
 }

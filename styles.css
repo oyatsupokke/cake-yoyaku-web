@@ -253,3 +253,11 @@ body {
 .legal-details > summary::before { content: "▸ "; }
 .legal-details[open] > summary::before { content: "▾ "; }
 .legal-details > summary + p { margin-top: 8px; }
+
+/* iOSは入力欄の文字が16px未満だと、タップした瞬間にページを自動拡大する。
+   しかもキーボードを閉じても拡大は戻らない（まりほ実機指摘 2026-08-30）。
+   お客様のフォームは .field で1remなので元から問題なし。管理画面だけが小さかった。
+   狭い画面のときだけ16pxに引き上げる（PCでは今までの見た目のまま）。 */
+@media (max-width: 919px) {
+  .admin input, .admin select, .admin textarea { font-size: 16px !important; }
+}

@@ -166,3 +166,36 @@
 
 /* 未記入などの注意書き（設定タブ） */
 .small.warn { color: #c07422; background: #fff4e5; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+
+/* ---------- 予約フォームの見た目（設定タブ） ----------
+   雰囲気は文字だけでは伝わらないので、見本の「あAa」を実際のフォント・角丸で出す */
+.theme-presets { display: grid; gap: 8px; margin-top: 8px; }
+.theme-preset {
+  display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 4px 12px;
+  border: 1.5px solid #e8dcd6; border-radius: 10px; padding: 10px 14px;
+  cursor: pointer; font-weight: normal; background: #fff;
+}
+.theme-preset:has(input:checked) { border-color: #b76e7d; background: #fdf7f8; }
+.theme-preset input { width: 18px; height: 18px; margin: 0; grid-row: span 2; accent-color: #b76e7d; }
+.theme-swatch {
+  grid-row: span 2; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  width: 56px; height: 42px; background: #faf8f6; border: 1px solid #e6e0db; color: #3c3538;
+}
+.theme-swatch b { font-weight: 600; font-size: 1.05rem; }
+.tp-classic { border-radius: 2px; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+.tp-soft { border-radius: 14px; font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", sans-serif; }
+.tp-modern { border-radius: 4px; font-family: "Hiragino Sans", Arial, sans-serif; font-weight: 700; }
+.theme-preset-name { align-self: end; font-weight: bold; font-size: .92rem; }
+.theme-preset-desc { align-self: start; font-size: .78rem; color: #9a8b84; line-height: 1.6; }
+
+.theme-color-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.admin .theme-color-row input[type="color"] {
+  width: 46px; height: 34px; padding: 2px; border: 1.5px solid #e8dcd6; border-radius: 8px;
+  background: #fff; cursor: pointer; flex: 0 0 auto;
+}
+.theme-color-presets { display: flex; gap: 7px; flex-wrap: wrap; }
+.theme-color-chip {
+  width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1.5px #e8dcd6; cursor: pointer; padding: 0;
+}
+.theme-color-chip.on { box-shadow: 0 0 0 2px #5b4a4e; }

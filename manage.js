@@ -318,7 +318,7 @@ $("btn-slot-save").onclick = async () => {
     });
     if (!r.ok) throw new Error(r.message || "変更できませんでした");
     kickMailWorker();
-    $("done-emoji").textContent = "✅";
+    $("done-emoji").dataset.icon = "check";
     $("done-title").textContent = "受取日時を変更しました";
     $("done-text").textContent =
       `新しい受取日時：${fmtPickup(state.sel.date, state.sel.slot.label)}\n確認メールをお送りしますのでご確認ください。`;
@@ -358,7 +358,7 @@ $("btn-cancel-confirm").onclick = async () => {
     const r = await rpc("fn_manage_cancel", { p_token: TOKEN });
     if (!r.ok) throw new Error(r.message || "キャンセルできませんでした");
     kickMailWorker();
-    $("done-emoji").textContent = "🥀";
+    $("done-emoji").dataset.icon = "cancel";
     $("done-title").textContent = "ご予約をキャンセルしました";
     $("done-text").textContent = "確認メールをお送りしますのでご確認ください。またのご利用をお待ちしております。";
     show("view-done");
@@ -384,6 +384,7 @@ async function load() {
     const r = await rpc("fn_manage_get_order", { p_token: TOKEN });
     if (!r.ok) throw new Error(r.message || "ご予約が見つかりません");
     state.data = r;
+    applyShopTheme(r.tenant?.theme);
     renderOrder();
   } catch (e) {
     $("shop-name").textContent = "ご予約の管理";

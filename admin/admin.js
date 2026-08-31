@@ -388,6 +388,34 @@ window.addEventListener("beforeunload", (e) => {
 
 /* ---------- 設定 ---------- */
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/* テーマカラーの見本。色ピッカーは店主には扱いにくいので、押すだけで決まる並びも出す。
+   どれも白文字が読める濃さに寄せてある */
+const THEME_COLORS = [
+  "#a76b76", "#8c3b4a", "#b5654a", "#7c5a3c",
+  "#5c6b45", "#2f6f5e", "#41627e", "#5b5570",
+];
+function renderThemeColorPresets() {
+  const wrap = $("t-theme-color-presets");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  const sync = () => {
+    const cur = $("t-theme-color").value.toLowerCase();
+    [...wrap.children].forEach((b) => b.classList.toggle("on", b.dataset.color === cur));
+  };
+  for (const c of THEME_COLORS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "theme-color-chip";
+    b.dataset.color = c;
+    b.style.background = c;
+    b.title = c;
+    b.onclick = () => { $("t-theme-color").value = c; sync(); markDirty(); };
+    wrap.appendChild(b);
+  }
+  $("t-theme-color").oninput = sync;
+  sync();
+}
 async function loadTenantForm() {
   const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
   $("t-name").value = t.name || "";
@@ -407,6 +435,18 @@ async function loadTenantForm() {
     markDirty();
   };
   $("t-addr-required").onchange = markDirty;
+  // 予約フォームの見た目（雰囲気の型＋基準色1つ）。既定は classic
+  const theme = t.theme || {};
+  const preset = ["classic", "soft", "modern"].includes(theme.preset) ? theme.preset : "classic";
+  [...document.querySelectorAll('input[name="theme-preset"]')].forEach((r) => {
+    r.checked = r.value === preset;
+    r.onchange = markDirty;
+  });
+  $("t-theme-color").value = /^#[0-9a-fA-F]{6}$/.test(theme.color || "") ? theme.color : "#a76b76";
+  renderThemeColorPresets();
+  // 自分の店のフォームを開く（?shop= を付けないと既定の店のフォームが開いてしまう）
+  $("btn-preview-form").onclick = () =>
+    window.open(`../?shop=${encodeURIComponent(state.subdomain)}`, "_blank");
   $("t-tokushoho").value = t.tokushoho?.text || "";
   // 未記入なら注意書きを出す（公開前チェック。お客様の確認画面に何も出ない状態を気づかせる）
   const tokuWarn = () =>
@@ -445,6 +485,12 @@ async function loadTenantForm() {
   regField("tenants", T, "customer_form", $("t-addr-enabled"), {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,
                              required: $("t-addr-enabled").checked && $("t-addr-required").checked } }),
+  });
+  regField("tenants", T, "theme", $("t-theme-color"), {
+    get: () => ({
+      preset: document.querySelector('input[name="theme-preset"]:checked')?.value || "classic",
+      color: $("t-theme-color").value,
+    }),
   });
   regField("tenants", T, "tokushoho", $("t-tokushoho"),
     { get: () => ($("t-tokushoho").value.trim() ? { text: $("t-tokushoho").value.trim() } : null) });

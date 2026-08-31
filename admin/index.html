@@ -88,6 +88,41 @@
         </div>
       </div>
       <div class="confirm-box">
+        <h3>予約フォームの見た目<button type="button" class="tip" data-tip="お客様が見る予約フォームの雰囲気と色です。どちらもいつでも変えられます。">？</button></h3>
+        <p class="small">お店の雰囲気に合わせて選べます。機能はどれを選んでも同じです。</p>
+        <div class="field">雰囲気
+          <div class="theme-presets" id="t-theme-presets">
+            <label class="theme-preset">
+              <input type="radio" name="theme-preset" value="classic">
+              <span class="theme-swatch tp-classic"><b>あ</b>Aa</span>
+              <span class="theme-preset-name">クラシック</span>
+              <span class="theme-preset-desc">見出しは明朝、角は立てる。正統派の洋菓子店に</span>
+            </label>
+            <label class="theme-preset">
+              <input type="radio" name="theme-preset" value="soft">
+              <span class="theme-swatch tp-soft"><b>あ</b>Aa</span>
+              <span class="theme-preset-name">やわらかい</span>
+              <span class="theme-preset-desc">丸ゴシック、角丸は大きめ。街の小さなケーキ屋に</span>
+            </label>
+            <label class="theme-preset">
+              <input type="radio" name="theme-preset" value="modern">
+              <span class="theme-swatch tp-modern"><b>あ</b>Aa</span>
+              <span class="theme-preset-name">モダン</span>
+              <span class="theme-preset-desc">太めのゴシック、角丸は控えめ。チョコレート専門店に</span>
+            </label>
+          </div>
+        </div>
+        <div class="field">テーマカラー<button type="button" class="tip" data-tip="ボタン・選んだところ・価格に使われる色です。濃いめの色を選ぶと文字が読みやすくなります。淡い面や下地の色は、この1色から自動で作られます。">？</button>
+          <div class="theme-color-row">
+            <input type="color" id="t-theme-color" value="#a76b76">
+            <div class="theme-color-presets" id="t-theme-color-presets"></div>
+          </div>
+          <span class="help">迷ったら、お店のロゴや看板に使っている色に近いものを選んでください。</span>
+        </div>
+        <button type="button" class="pill" id="btn-preview-form">保存した見た目を予約フォームで見る</button>
+        <p class="small">この設定は、お客様が見る予約フォームとご予約の管理ページに反映されます。</p>
+      </div>
+      <div class="confirm-box">
         <h3>受付の締切</h3>
         <label class="field">基本の締切（受取日の何日前まで受け付けるか）
           <input type="number" id="t-deadline" min="0" style="width:90px"> 日前

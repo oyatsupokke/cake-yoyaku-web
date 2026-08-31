@@ -1,0 +1,184 @@
+/* =====================================================================
+ * 予約フォーム／お客様の管理ページの見た目（index.html・manage.html だけが読む）
+ *
+ * 方針：土台には「お店の性格」を一切書かない。
+ *   ケーキ予約システムは複数の洋菓子店が使う。土台を飾ると、それは必ず
+ *   作った人の趣味になり、よそのお店では浮く。飾りではなく余白・罫・字間の
+ *   精度で持たせて、店名・写真・色が主役になるようにする。
+ *   お店の個性は theme（雰囲気の型＋基準色1つ）だけで出す。→ theme.js
+ *
+ * styles.css は LP・規約ページ・管理画面も読むので、そちらは触らない。
+ * このファイルは予約フォーム系だけが読むので、:root ごと上書きしてよい。
+ * ===================================================================== */
+
+:root {
+  --ink: #3c3538;
+  --ink-weak: #918681;
+  --bg: #faf8f6;
+  --card: #ffffff;
+  --line: #e6e0db;
+  --accent: #b8873c;
+
+  /* theme.js が上書きする。JSが動かなくても成立する値を置いておく */
+  --primary-deep: #a76b76;
+  --primary: #e4c4c9;
+  --tint: #fbf6f6;
+
+  --radius: 8px;    /* プリセットが決める */
+  --track: .04em;   /* 字間 */
+}
+
+body { background: var(--bg); color: var(--ink); letter-spacing: var(--track); }
+.preview-note, .small, .card .card-desc, .group .group-note,
+.opt .opt-note, .cal-grid .dow, .field .help { color: var(--ink-weak); }
+
+/* ---------- 店名まわり：飾らず、細い罫で見出しであることだけ示す ---------- */
+.shop-header { padding: 40px 0 10px; }
+.shop-header h1 { font-size: 1.5rem; letter-spacing: .18em; font-weight: 500; }
+.shop-sub { color: var(--ink-weak); font-size: .74rem; letter-spacing: .28em; margin-top: 13px; }
+.shop-sub::before, .shop-sub::after {
+  content: ""; display: inline-block; width: 24px; height: 1px;
+  background: var(--line); vertical-align: middle; margin: 0 12px 4px;
+}
+
+/* ---------- ステップ：塗りつぶしの丸バッジをやめ、通し番号＋細罫に ---------- */
+.step { margin: 36px 0; }
+.step h2 {
+  font-size: 1rem; letter-spacing: .12em; font-weight: 600;
+  border-bottom: 1px solid var(--line); padding-bottom: 11px; gap: 11px; align-items: baseline;
+}
+.step-no {
+  background: none; color: var(--primary-deep); width: auto; height: auto; border-radius: 0;
+  font-family: Georgia, "Times New Roman", serif; font-size: .8rem; letter-spacing: .12em;
+}
+.step-no::before { content: "0"; }
+.step-no::after { content: " ／"; color: var(--line); }
+
+/* ---------- 絵文字をやめ、線画にする ----------
+   🍰は「そのお店のケーキ」ではなく、端末が持っている他人の絵。
+   どの店にも属さない線画に置き換える（写真が登録されていればそちらが出る）。 */
+:root {
+  --icon-cake: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 46' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 41V23c0-3 3-5 8-5h32c5 0 8 2 8 5v18'/%3E%3Cpath d='M4 41h56'/%3E%3Cpath d='M8 28c3 0 3 3 6 3s3-3 6-3 3 3 6 3 3-3 6-3 3 3 6 3 3-3 6-3 3 3 6 3 3-3 6-3'/%3E%3Cpath d='M32 18V10'/%3E%3Ccircle cx='32' cy='6.5' r='2.8'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='24' cy='24' r='20'/%3E%3Cpath d='M15 24.5l6.5 6.5L33 18.5'/%3E%3C/svg%3E");
+  --icon-cancel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='24' cy='24' r='20'/%3E%3Cpath d='M17.5 17.5l13 13M30.5 17.5l-13 13'/%3E%3C/svg%3E");
+}
+.card-emoji, .preview-placeholder, .done-emoji { font-size: 0; line-height: 0; }
+.card-emoji::before, .preview-placeholder::before, .done-emoji::before {
+  content: ""; display: block; margin: 0 auto; background: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+}
+.card-emoji { color: var(--primary-deep); }
+.card-emoji::before { width: 52px; height: 38px;
+  -webkit-mask-image: var(--icon-cake); mask-image: var(--icon-cake); }
+.preview-placeholder { color: var(--line); }
+.preview-placeholder::before { width: 118px; height: 85px;
+  -webkit-mask-image: var(--icon-cake); mask-image: var(--icon-cake); }
+.done-emoji { color: var(--primary-deep); }
+.done-emoji::before { width: 54px; height: 54px;
+  -webkit-mask-image: var(--icon-check); mask-image: var(--icon-check); }
+.done-emoji[data-icon="cancel"] { color: var(--ink-weak); }
+.done-emoji[data-icon="cancel"]::before {
+  -webkit-mask-image: var(--icon-cancel); mask-image: var(--icon-cancel); }
+
+/* ---------- プレビュー：点線（＝未完成の記号）をやめ、白い台紙に置く ---------- */
+.preview-canvas { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.preview-caption {
+  margin-top: 12px; font-size: .78rem; font-weight: 500;
+  letter-spacing: .2em; color: var(--ink-weak);
+}
+
+/* ---------- 商品：影で浮かせず、同じ紙の上に並べる ---------- */
+.cards { gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 12px 16px; }
+.card:hover { border-color: #cfc6c0; }
+.card.selected {
+  border-color: var(--primary-deep); background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--primary-deep);
+}
+.card .card-photo { border-radius: calc(var(--radius) - 2px); }
+.card .card-name { font-size: .94rem; letter-spacing: .05em; margin-top: 10px; }
+.card .card-desc { margin-top: 6px; }
+.card .card-price { color: var(--ink); font-size: .8rem; letter-spacing: .05em; margin-top: 8px; }
+
+/* ---------- 選択肢 ---------- */
+.pill { border: 1px solid var(--line); border-radius: var(--radius); font-size: .9rem; padding: 9px 16px; }
+.pill:hover { border-color: #cfc6c0; }
+.pill.selected {
+  background: var(--primary-deep); border-color: var(--primary-deep); color: #fff; font-weight: 500;
+}
+.group { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 12px; }
+.group h3 { font-size: .94rem; letter-spacing: .08em; }
+.opt:hover { background: var(--tint); }
+.opt input, label.pick input { accent-color: var(--primary-deep); }
+.opt .opt-price { color: var(--ink-weak); font-size: .82rem; }
+.opt .opt-photo { border-radius: calc(var(--radius) - 3px); }
+.opt-textfield input { border: 1px solid var(--line); border-radius: var(--radius); }
+.opt-textfield input:focus { border-color: var(--primary-deep); }
+label.pick { border: 1px solid var(--line); border-radius: var(--radius); }
+label.pick:has(input:checked) { border-color: var(--primary-deep); background: var(--tint); }
+.product-note { background: var(--tint); border-radius: var(--radius); }
+.qty-btn { border: 1px solid var(--primary-deep); }
+.req {
+  background: none; color: var(--primary-deep); border: 1px solid var(--primary-deep);
+  border-radius: 2px; font-size: .62rem; letter-spacing: .08em; padding: 1px 5px; font-weight: 500;
+}
+
+/* ---------- カレンダー ---------- */
+.cal-nav { border: 1px solid var(--line); }
+.cal-day { border: 1px solid var(--line); border-radius: calc(var(--radius) - 2px); }
+.cal-day.clickable:hover { border-color: var(--primary-deep); }
+.cal-day.selected { background: var(--primary-deep); border-color: var(--primary-deep); }
+.dot.open { background: var(--primary-deep); }
+
+/* ---------- 入力・ボタン ---------- */
+.field { letter-spacing: .07em; font-size: .88rem; }
+.field input:not([type="radio"]):not([type="checkbox"]), .field textarea, .field select {
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.field input:focus, .field textarea:focus { border-color: var(--primary-deep); }
+.btn-primary {
+  background: var(--primary-deep); border-radius: var(--radius);
+  letter-spacing: .18em; font-size: 1rem; font-weight: 600; padding: 16px;
+}
+.btn-secondary { border: 1px solid var(--line); border-radius: var(--radius); letter-spacing: .12em; }
+.pay-note { background: #f5f1ea; border-radius: var(--radius); font-size: .84rem; color: var(--ink); }
+.confirm-box { border: 1px solid var(--line); border-radius: var(--radius); }
+.confirm-box h3 { color: var(--ink); letter-spacing: .08em; }
+.confirm-row .k { color: var(--ink-weak); }
+.price-bar { background: #fffdfb; border-top: 1px solid var(--line); letter-spacing: .05em; }
+.price-bar strong { font-family: Georgia, serif; color: var(--ink); }
+.legal-details > summary { color: var(--primary-deep); }
+
+/* =====================================================================
+ * プリセット：ここだけが「お店の雰囲気」を決める（theme.js が付ける）
+ * ===================================================================== */
+
+/* クラシック：見出しは明朝、角を立てる、字間広め。正統派の洋菓子店・和洋菓子店。
+   既定値。どの店に着せても浮きにくいものを既定にしている。 */
+html.t-classic { --radius: 2px; --track: .03em; }
+html.t-classic body { font-family: "Hiragino Sans", "Yu Gothic", sans-serif; }
+html.t-classic h1, html.t-classic h2, html.t-classic h3,
+html.t-classic .card-name, html.t-classic .confirm-title,
+html.t-classic .btn-primary, html.t-classic .preview-caption {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif; font-weight: 600;
+}
+
+/* やわらかい：丸ゴシック、角丸大きめ、ボタンは丸く。街の小さなケーキ屋・子ども向け。 */
+html.t-soft { --radius: 14px; --track: .02em; }
+html.t-soft body {
+  font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", "Yu Gothic", sans-serif;
+}
+html.t-soft .shop-header h1 { letter-spacing: .1em; }
+html.t-soft .step h2 { letter-spacing: .06em; }
+html.t-soft .btn-primary { border-radius: 999px; letter-spacing: .1em; }
+html.t-soft .pill { border-radius: 999px; }
+
+/* モダン：角丸を絞り、文字を太く、コントラストを上げる。チョコレート専門店・都市型。 */
+html.t-modern { --radius: 4px; --track: .01em; --ink: #23201f; --line: #e2e0dd; --bg: #f7f6f4; }
+html.t-modern body { font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif; }
+html.t-modern .shop-header h1 { font-weight: 700; letter-spacing: .06em; }
+html.t-modern .step h2 { font-weight: 700; letter-spacing: .04em; }
+html.t-modern .card-name { font-weight: 700; }
+html.t-modern .btn-primary { letter-spacing: .1em; font-weight: 700; }

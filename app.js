@@ -252,9 +252,7 @@ async function load() {
   }
   document.title = `${state.tenant.name}｜オーダーケーキのご予約`;
   $("shop-name").textContent = state.tenant.name;
-  if (state.tenant.theme?.primary) {
-    document.documentElement.style.setProperty("--primary", state.tenant.theme.primary);
-  }
+  applyShopTheme(state.tenant.theme);
 
   const T = state.tenant.id;
   [state.products, state.questions, state.slots] = await Promise.all([
@@ -425,7 +423,6 @@ function updatePriceBar() {
 }
 
 /* ---------- 1. 商品 ---------- */
-const EMOJI = { "生クリームデコレーション": "🍰", "フルーツタルト": "🥧", "チョコレートケーキ": "🍫", "バスクチーズケーキ": "🧀" };
 function renderProducts() {
   const wrap = $("product-cards");
   wrap.innerHTML = "";
@@ -435,7 +432,7 @@ function renderProducts() {
     el.className = "card" + (state.sel.product?.id === p.id ? " selected" : "");
     const visual = p.photo_url
       ? `<div class="card-photo"><img src="${p.photo_url}" alt="${p.name}" loading="lazy"></div>`
-      : `<div class="card-emoji">${EMOJI[p.name] || "🎂"}</div>`;
+      : `<div class="card-emoji" aria-hidden="true"></div>`;
     el.innerHTML = `
       ${visual}
       <div class="card-name">${p.name}</div>
@@ -514,7 +511,7 @@ async function updatePreview() {
   if (p?.photo_url) {
     box.innerHTML = `<img src="${p.photo_url}" alt="${p.name}">`;
   } else {
-    box.innerHTML = `<span class="preview-placeholder">${p ? (EMOJI[p.name] || "🎂") : "🎂"}</span>`;
+    box.innerHTML = `<span class="preview-placeholder" aria-hidden="true"></span>`;
   }
 }
 
@@ -1039,7 +1036,7 @@ $("btn-submit").onclick = async () => {
     }
     if (STAFF_MODE) {
       $("view-done").querySelector("h2").textContent = "予約を登録しました";
-      $("view-done").querySelector(".done-emoji").textContent = "📞";
+      $("view-done").querySelector(".done-emoji").dataset.icon = "check";
     }
     $("done-number").textContent = `No.${r.order_number}`;
     $("done-total").textContent = yen(r.total_amount);

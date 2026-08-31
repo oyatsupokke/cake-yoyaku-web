@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex">
 <title>ご予約の確認・変更・キャンセル</title>
 <link rel="stylesheet" href="styles.css?v=1788093369">
+<link rel="stylesheet" href="form.css?v=1788093369">
 <style>
   /* このページ専用の少しだけの追加スタイル */
   .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f2e8dc; color: #7a5c3d; vertical-align: middle; margin-left: 8px; }
@@ -94,7 +95,7 @@
   <!-- 完了 -->
   <main id="view-done" class="hidden">
     <div class="done-box">
-      <div class="done-emoji" id="done-emoji">✅</div>
+      <div class="done-emoji" id="done-emoji" data-icon="check" aria-hidden="true"></div>
       <h2 id="done-title"></h2>
       <p id="done-text" class="small"></p>
     </div>
@@ -102,6 +103,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
+<script src="theme.js?v=1788093369"></script>
 <script src="manage.js?v=1788093369"></script>
 </body>
 </html>

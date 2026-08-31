@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オーダーケーキのご予約</title>
 <link rel="stylesheet" href="styles.css?v=1788093369">
+<link rel="stylesheet" href="form.css?v=1788093369">
 </head>
 <body>
 <div id="app">
@@ -19,7 +20,7 @@
     <!-- デザインイメージ（プレビュー） -->
     <section class="preview-box" id="preview-box">
       <div class="preview-canvas" id="preview-canvas">
-        <span class="preview-placeholder">🎂</span>
+        <span class="preview-placeholder" aria-hidden="true"></span>
       </div>
       <p class="preview-caption">デザインイメージ</p>
       <p class="preview-note">※実際の商品は、フルーツの大きさ・配置・仕入れ状況などにより異なります。</p>
@@ -129,7 +130,7 @@
   <!-- 完了画面 -->
   <main id="view-done" class="hidden">
     <div class="done-box">
-      <div class="done-emoji">🎉</div>
+      <div class="done-emoji" data-icon="check" aria-hidden="true"></div>
       <h2>ご注文ありがとうございます！</h2>
       <p>ご注文番号：<strong id="done-number"></strong></p>
       <p>合計金額：<strong id="done-total"></strong>（店頭でのお支払い）</p>
@@ -145,6 +146,7 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
+<script src="theme.js?v=1788093369"></script>
 <script src="app.js?v=1788093369"></script>
 </body>
 </html>

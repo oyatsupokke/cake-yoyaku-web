@@ -1,5 +1,7 @@
 /* 管理画面（店頭・厨房・設定）。現場=スマホ・タブレット前提の大きめUI */
-.admin { max-width: 640px; padding-bottom: 40px; }
+/* #app 側の max-width:560px（styles.css）はIDセレクタで強く、この指定は効いていなかった。
+   同じ強さで上書きする（2026-08-31 発見。大きいモニタでも560px幅のまま出ていた） */
+#app.admin { max-width: 640px; padding-bottom: 40px; }
 .login-box { max-width: 360px; margin: 80px auto; text-align: center; }
 .login-box h1 { font-size: 1.3rem; }
 .login-box .field { text-align: left; }
@@ -122,7 +124,7 @@
 .billing-banner .pill { margin-left: 6px; }
 
 /* 画面下に固定される保存バー */
-.admin { padding-bottom: 90px; }
+#app.admin { padding-bottom: 90px; }
 .save-bar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
   background: #fffdf9; border-top: 2px solid var(--line);
@@ -166,3 +168,22 @@
 
 /* 未記入などの注意書き（設定タブ） */
 .small.warn { color: #c07422; background: #fff4e5; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+
+
+/* ---- 広い画面：メニューを左の縦並びにして、本文に横幅を渡す ----
+ * 4項目しかないので畳まない（隠すと押す手間が増えるだけ）。
+ * 狭い画面は従来どおり上の横並びのまま＝店頭で片手で押せる形を変えない。
+ * PC版とスマホ版を別々に作らず、1つのHTMLが幅で並び替わる形にしている。 */
+@media (min-width: 920px) {
+  #app.admin { max-width: 1100px; }
+  .admin-body {
+    display: grid; grid-template-columns: 200px minmax(0, 1fr);
+    gap: 26px; align-items: start;
+  }
+  .tabs { flex-direction: column; gap: 6px; margin: 0; position: sticky; top: 14px; }
+  .tab { flex: none; text-align: left; padding: 11px 14px; }
+  .admin-main { min-width: 0; }
+}
+@media print {
+  .admin-body { display: block; }
+}

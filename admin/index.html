@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788093369">
-<link rel="stylesheet" href="admin.css?v=1788093369">
+<link rel="stylesheet" href="../styles.css?v=1788160661">
+<link rel="stylesheet" href="admin.css?v=1788160661">
 </head>
 <body>
 <div id="app" class="admin">
@@ -42,12 +42,15 @@
     <!-- 課金状態（トライアル残・支払い未登録などがあるときだけ表示） -->
     <div id="billing-banner" class="billing-banner no-print hidden"></div>
 
+    <!-- 広い画面ではこのメニューが左の縦並びになる（狭い画面では従来どおり上の横並び） -->
+    <div class="admin-body">
     <nav class="tabs no-print">
       <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
       <button type="button" class="tab" data-tab="kitchen">製造ケーキ一覧</button>
       <button type="button" class="tab" data-tab="settings">設定</button>
       <a class="tab tab-link" href="./products.html">商品 ↗</a>
     </nav>
+    <div class="admin-main">
 
     <div class="date-nav no-print" id="date-nav">
       <button type="button" class="cal-nav" id="date-prev">‹</button>
@@ -221,6 +224,9 @@
         <button type="button" class="pill" id="btn-billing-portal-settings">お支払い管理をひらく</button>
       </div>
     </section>
+
+    </div><!-- /.admin-main -->
+    </div><!-- /.admin-body -->
   </main>
 
   <!-- 画面下に固定される保存バー（設定タブでのみ表示） -->
@@ -231,7 +237,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788093369"></script>
-<script src="admin.js?v=1788093369"></script>
+<script src="tips.js?v=1788160661"></script>
+<script src="admin.js?v=1788160661"></script>
 </body>
 </html>

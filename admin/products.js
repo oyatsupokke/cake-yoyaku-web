@@ -909,16 +909,20 @@ function buildGroupBox(p, g) {
 
   box.querySelector(".gh-all").onclick = async (e) => {
     const on = e.target.checked;
-    if (!on && !confirm(`「${g.name}」を この商品（${p.name}）だけのグループに戻しますか？`)) {
-      e.target.checked = true; return;
-    }
+    const others = Math.max(0, state.products.length - 1);
+    const ask = on
+      ? `「${g.name}」を すべてのケーキに出しますか？\n（${p.name} 以外の ${others}個のケーキにも出るようになります）`
+      : `「${g.name}」を この商品（${p.name}）だけのグループに戻しますか？\n（他の ${others}個のケーキからは出なくなります）`;
+    if (!confirm(ask)) { e.target.checked = !on; return; }
     await api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { product_id: on ? null : p.id });
     toast(on ? "すべてのケーキに出すようにしました" : `${p.name} だけのグループにしました`);
     reloadAll();
   };
 
   box.querySelector(".gh-del").onclick = async () => {
-    if (!confirm(`グループ「${g.name}」を選択肢ごと削除しますか？`)) return;
+    const scope = isGlobal
+      ? `\n（すべてのケーキに出しているグループです。${state.products.length}個のケーキ全部から消えます）` : "";
+    if (!confirm(`グループ「${g.name}」を選択肢ごと削除しますか？${scope}`)) return;
     try {
       const ids = g.options.map((o) => o.id).join(",");
       if (ids) {
@@ -1213,9 +1217,10 @@ $("btn-g-add").onclick = async () => {
   const name = $("g-name").value.trim();
   if (!name) { toast("グループ名を入れてください"); return; }
   const sharedId = $("g-shared").value || null;
-  const all = $("g-all").checked;
+  // 追加は必ず「このケーキだけ」。全ケーキに出すかは、作ったあとグループの中で決める
+  // （商品タブに立ったまま全商品に出るものを作れると、立ち位置と結果が食い違って混乱する）
   const created = await api("POST", "/rest/v1/option_groups", [{
-    tenant_id: state.tenantId, product_id: all ? null : p.id, name,
+    tenant_id: state.tenantId, product_id: p.id, name,
     selection_type: $("g-type").value, is_required: $("g-required").checked,
     shared_list_id: sharedId, display_order: groupsForProduct(p).length,
   }]);
@@ -1230,7 +1235,7 @@ $("btn-g-add").onclick = async () => {
       }));
     if (rows.length) await api("POST", "/rest/v1/options", rows);
   }
-  $("g-name").value = ""; $("g-required").checked = false; $("g-all").checked = false;
+  $("g-name").value = ""; $("g-required").checked = false;
   toast(`グループ「${name}」を追加しました`);
   reloadAll();
 };

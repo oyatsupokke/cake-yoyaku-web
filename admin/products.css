@@ -52,6 +52,16 @@
 .chk { font-size: .8rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; margin-top: 3px; }
 .chk input { width: 16px; height: 16px; accent-color: var(--primary-deep); }
 
+/* ⚠️ お客様フォームの styles.css と同じクラス名（.opt / .card）を使っているため、
+   向こうの指定が管理画面にも漏れてくる。同じ強さ以上で明示的に打ち消す。
+   （2026-08-31 まりほ指摘：「詳しい設定」を開くと詳細欄が右へ押しつぶされる。
+     原因は .opt{display:flex} が効いて .opt-line / .marks / .more が横並びになっていたこと。
+     プレビューのカードも .card{text-align:center} を拾って中央寄せになっていた） */
+.products-page .opt { display: block; cursor: default; }
+.products-page .opt:hover { background: #fdfbfb; }
+.products-page .opt.open, .products-page .opt.open:hover { background: #fff; }
+.products-page .cust .card { cursor: default; text-align: left; transition: none; }
+
 /* ---- 選択肢（グループの内側。枠を弱くして入れ子に見せる） ---- */
 .opt { border-left: 3px solid var(--line); border-radius: 0 9px 9px 0; background: #fdfbfb; padding: 9px 12px; margin: 0 0 8px; }
 .opt.open { background: #fff; border-left-color: var(--primary-deep); box-shadow: 0 0 0 1px var(--line); }

@@ -111,8 +111,42 @@
   border-radius: 22px 18px 24px 18px;
   padding: 24px; text-align: center; transform: rotate(-0.3deg);
 }
-.lp-price-main { margin: 0 0 12px; font-size: 1rem; }
-.lp-price-num { font-size: 2.4rem; font-weight: bold; color: var(--primary-deep); }
+.lp-price-lead { margin: 0 0 16px; font-size: .93rem; line-height: 1.9; }
+
+/* プランは3枚の均等カードにせず、縦に並べた「品書き」として見せる */
+.lp-plans { list-style: none; padding: 0; margin: 0 0 20px; text-align: left; }
+.lp-plan { padding: 12px 4px; border-bottom: 2px dotted var(--line); }
+.lp-plan:last-child { border-bottom: 0; }
+.lp-plan-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap;
+}
+.lp-plan-name { font-size: .98rem; font-weight: bold; }
+.lp-plan-price { font-size: .82rem; color: #8d777c; white-space: nowrap; }
+.lp-plan-price strong { font-size: 1.5rem; color: var(--primary-deep); margin-right: 1px; }
+.lp-plan-unit { margin-left: 2px; }
+.lp-plan-note { display: block; font-size: .84rem; color: #8d777c; margin-top: 4px; line-height: 1.8; }
+.lp-plan-note strong { color: var(--primary-deep); }
+
+/* おすすめ（年払い）だけ、手描きの丸で囲ったような見た目にする */
+.lp-plan-best {
+  background: #fff5f7; border: 2px solid var(--primary); border-bottom: 2px solid var(--primary);
+  border-radius: 18px 14px 20px 12px;
+  padding: 12px 14px 14px; margin: 8px 0 2px;
+  transform: rotate(-0.5deg);
+}
+.lp-plan-best .lp-plan-price strong { font-size: 1.8rem; }
+.lp-plan-badge {
+  display: inline-block; background: var(--primary-deep); color: #fff;
+  border-radius: 999px; padding: 2px 12px; font-size: .74rem; font-weight: bold;
+  margin: 0 0 6px;
+}
+
+.lp-price-caution {
+  font-size: .82rem; color: #8d777c; line-height: 1.9; text-align: left;
+  margin: 16px 0 0; padding-top: 14px; border-top: 2px dotted var(--line);
+}
+
 .lp-price-points {
   list-style: none; padding: 0; margin: 0; display: inline-block; text-align: left;
 }

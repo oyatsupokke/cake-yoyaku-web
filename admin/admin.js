@@ -98,8 +98,11 @@ async function showApp() {
   if (!tu.length) { toast("店舗が紐付いていません"); logout(); return; }
   state.tenantId = tu[0].tenant_id;
   const t = await api("GET",
-    `/rest/v1/tenants?id=eq.${state.tenantId}&select=name,subdomain,billing_status,trial_ends_at`);
+    `/rest/v1/tenants?id=eq.${state.tenantId}&select=name,subdomain,billing_status,trial_ends_at,theme`);
   state.tenantName = t[0]?.name || "";
+  // 管理画面の基調色は店の色（見出し・選んだタブ・保存ボタン）。無ければ admin.css の既定色
+  const accent = t[0]?.theme?.accent || t[0]?.theme?.primary;
+  if (accent) document.documentElement.style.setProperty("--accent", accent);
   state.subdomain = t[0]?.subdomain || "";
   $("admin-shop-name").textContent = `${state.tenantName}｜管理`;
   // 電話予約の代行登録：お客様フォームを代行モードで開く（同じログインを使う）

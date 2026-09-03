@@ -1,4 +1,18 @@
 /* 管理画面（店頭・厨房・設定）。現場=スマホ・タブレット前提の大きめUI */
+/* 管理画面の地色。styles.css の素（お客様フォーム用・無地）とは別に、紙のような温かい地と
+   店の基調色（admin.js が tenants.theme から入れる。無ければ淡い臙脂）を持つ。
+   2026-09-03 まりほ「白黒すぎる」→ 素の無地を管理画面にまで当てないための指定 */
+:root {
+  --accent: #c98a94;
+  --bg: #faf7f3;
+  --ink: #3b3335;
+  --boxbg: #ffffff;
+  --box: #e8dfda;
+  --line: #e8dfda;
+  --mute: #8d8083;
+  --r: 10px;
+  --r-lg: 14px;
+}
 /* #app 側の max-width:560px（styles.css）はIDセレクタで強く、この指定は効いていなかった。
    同じ強さで上書きする（2026-08-31 発見。大きいモニタでも560px幅のまま出ていた） */
 #app.admin { max-width: 640px; padding-bottom: 40px; }

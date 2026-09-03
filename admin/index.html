@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788093369">
-<link rel="stylesheet" href="admin.css?v=1788093369">
+<link rel="stylesheet" href="../styles.css?v=1788422503">
+<link rel="stylesheet" href="admin.css?v=1788422503">
 </head>
 <body>
 <div id="app" class="admin">
@@ -36,25 +36,34 @@
   <main id="view-app" class="hidden">
     <header class="admin-header no-print">
       <h1 id="admin-shop-name"></h1>
-      <button type="button" class="link-btn" id="btn-logout">ログアウト</button>
+      <!-- 狭い画面だけ出る：押すとメニューが開く。三本線だけ（ページ名を添えるとボタンに見えない＝まりほ指摘 2026-09-03） -->
+      <button type="button" class="menu-btn" id="menu-btn" aria-label="メニュー" aria-expanded="false" aria-controls="admin-tabs">☰</button>
     </header>
 
     <!-- 課金状態（トライアル残・支払い未登録などがあるときだけ表示） -->
     <div id="billing-banner" class="billing-banner no-print hidden"></div>
 
-    <nav class="tabs no-print">
+    <!-- 広い画面ではこのメニューが左の縦並び。狭い画面では畳んでおき、上の ☰ で開く（まりほ判断 2026-09-03） -->
+    <div class="admin-body" id="admin-body">
+    <nav class="tabs no-print" id="admin-tabs">
+      <!-- 狭い画面のドロワーだけに出る閉じるボタン（広い画面ではCSSで非表示） -->
+      <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
       <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
       <button type="button" class="tab" data-tab="kitchen">製造ケーキ一覧</button>
       <button type="button" class="tab" data-tab="settings">設定</button>
-      <a class="tab tab-link" href="./products.html">商品 ↗</a>
+      <a class="tab tab-link" href="./products.html">商品</a>
+      <!-- 画面切替ではなく操作：お客様フォームを代行モードで開く（旧「📞 電話予約を登録」。まりほ指示 2026-09-03でメニューへ移動・改名） -->
+      <button type="button" class="tab tab-action" id="btn-staff-order">予約の直接登録</button>
+      <!-- ログアウトもメニューの中（店名の行に単独で置くと位置が浮く＝まりほ指摘 2026-09-03） -->
+      <button type="button" class="tab tab-action tab-muted" id="btn-logout">ログアウト</button>
     </nav>
+    <div class="admin-main">
 
     <div class="date-nav no-print" id="date-nav">
       <button type="button" class="cal-nav" id="date-prev">‹</button>
       <input type="date" id="date-input">
       <button type="button" class="cal-nav" id="date-next">›</button>
       <button type="button" class="pill" id="date-today">今日</button>
-      <button type="button" class="pill staff-order-btn" id="btn-staff-order">📞 電話予約を登録</button>
     </div>
 
     <!-- 受取リスト（店頭ビュー） -->
@@ -85,6 +94,56 @@
         </label>
         <div class="field">定休日<button type="button" class="tip" data-tip="選んだ曜日は、お客様が受取日に選べなくなります。">？</button>
           <div class="weekday-row" id="t-weekdays"></div>
+        </div>
+      </div>
+      <!-- 見た目（tenants.theme）。右の見本は保存前の状態をそのまま映す（2026-09-03 まりほ合意） -->
+      <div class="confirm-box" id="theme-box">
+        <h3>見た目<button type="button" class="tip" data-tip="お客様のフォームの色と字体です。見本にはすぐ映りますが、お客様に見えるのは「保存する」を押してからです。">？</button></h3>
+        <div class="th-cols">
+          <div class="th-ctl">
+            <div class="field">基調色<span class="help">ボタンと選んだ印に使います</span>
+              <div class="th-sw"><button type="button" class="th-swatch" data-c="#4a4a4a" style="background:#4a4a4a" aria-label="墨"></button><button type="button" class="th-swatch" data-c="#e89aa8" style="background:#e89aa8" aria-label="桜"></button><button type="button" class="th-swatch" data-c="#d98c5f" style="background:#d98c5f" aria-label="杏"></button><button type="button" class="th-swatch" data-c="#b8a24a" style="background:#b8a24a" aria-label="芥子"></button><button type="button" class="th-swatch" data-c="#6f9a6b" style="background:#6f9a6b" aria-label="若葉"></button><button type="button" class="th-swatch" data-c="#5b7ba6" style="background:#5b7ba6" aria-label="藍"></button><button type="button" class="th-swatch" data-c="#8a6aa0" style="background:#8a6aa0" aria-label="藤"></button><input type="color" id="th-accent" aria-label="自分で色を選ぶ"><span class="th-hex" id="th-accent-hex"></span></div>
+            </div>
+            <details class="th-adv" id="th-adv">
+              <summary>こだわり（色を細かく決める）</summary>
+              <div class="th-advbody">
+            <div class="th-row"><label for="th-bg">背景</label><input type="color" id="th-bg" data-key="bg"><label class="th-auto"><input type="checkbox" id="th-bg-auto" data-key="bg" checked> 自動</label></div>
+            <div class="th-row"><label for="th-ink">文字</label><input type="color" id="th-ink" data-key="ink"><label class="th-auto"><input type="checkbox" id="th-ink-auto" data-key="ink" checked> 自動</label></div>
+            <div class="th-row"><label for="th-boxbg">項目の背景</label><input type="color" id="th-boxbg" data-key="boxbg"><label class="th-auto"><input type="checkbox" id="th-boxbg-auto" data-key="boxbg" checked> 自動</label></div>
+            <div class="th-row"><label for="th-box">項目の枠</label><input type="color" id="th-box" data-key="box"><label class="th-auto"><input type="checkbox" id="th-box-auto" data-key="box" checked> 自動</label></div>
+            <div class="th-row"><label for="th-line">区切り線</label><input type="color" id="th-line" data-key="line"><label class="th-auto"><input type="checkbox" id="th-line-auto" data-key="line" checked> 自動</label></div>
+            <div class="th-row"><label for="th-on">ボタンの文字</label><input type="color" id="th-on" data-key="on"><label class="th-auto"><input type="checkbox" id="th-on-auto" data-key="on" checked> 自動</label></div>
+            <div class="th-row"><label for="th-sel">選んだ項目の背景</label><input type="color" id="th-sel" data-key="sel"><label class="th-auto"><input type="checkbox" id="th-sel-auto" data-key="sel" checked> 自動</label></div>
+            <div class="th-row"><label for="th-selbox">選んだ項目の枠</label><input type="color" id="th-selbox" data-key="selbox"><label class="th-auto"><input type="checkbox" id="th-selbox-auto" data-key="selbox" checked> 自動</label></div>
+            <div class="th-row"><label for="th-selink">選んだ項目の文字</label><input type="color" id="th-selink" data-key="selink"><label class="th-auto"><input type="checkbox" id="th-selink-auto" data-key="selink" checked> 自動</label></div>
+                <div class="small warn hidden" id="th-warn">文字と背景の差が小さく、読みにくくなっています</div>
+                <div class="help">「自動」のままの色は、基調色と背景から計算されます。</div>
+              </div>
+            </details>
+            <div class="field">雰囲気<span class="help">字体と角の丸さをまとめて変えます</span>
+              <div class="th-types">
+                <label class="th-type t-maru"><input type="radio" name="th-type" value="maru"><span class="th-sample">あ</span><span class="th-nm">やわらか</span><span class="th-ds">丸い字・丸い角</span></label>
+                <label class="th-type t-kaku"><input type="radio" name="th-type" value="kaku" checked><span class="th-sample">あ</span><span class="th-nm">すっきり</span><span class="th-ds">太めの字・直線</span></label>
+                <label class="th-type t-min"><input type="radio" name="th-type" value="min"><span class="th-sample">あ</span><span class="th-nm">しっとり</span><span class="th-ds">明朝・角なし</span></label>
+              </div>
+            </div>
+            <div class="field">ロゴ画像<span class="help">無いときは店名の文字が出ます。横長・背景透過のPNGが向いています</span>
+              <div class="th-logo-row">
+                <img id="th-logo-img" class="th-logo-img hidden" alt="">
+                <label class="pill photo-pick">画像を選ぶ<input type="file" id="th-logo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+                <button type="button" class="pill hidden" id="th-logo-clear">ロゴを外す</button>
+                <input type="hidden" id="th-logo-url">
+              </div>
+            </div>
+            <label class="field">店名の下の一言
+              <input type="text" id="th-sub" maxlength="30" placeholder="オーダーケーキのご予約">
+            </label>
+            <div class="th-actions"><button type="button" class="pill" id="th-reset">初期値に戻す</button></div>
+          </div>
+          <div class="th-prev">
+            <div class="th-prev-cap">お客様フォームの見本（保存前の状態）</div>
+            <iframe id="th-frame" title="お客様フォームの見本" loading="lazy"></iframe>
+          </div>
         </div>
       </div>
       <div class="confirm-box">
@@ -221,6 +280,9 @@
         <button type="button" class="pill" id="btn-billing-portal-settings">お支払い管理をひらく</button>
       </div>
     </section>
+
+    </div><!-- /.admin-main -->
+    </div><!-- /.admin-body -->
   </main>
 
   <!-- 画面下に固定される保存バー（設定タブでのみ表示） -->
@@ -231,7 +293,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788093369"></script>
-<script src="admin.js?v=1788093369"></script>
+<script src="tips.js?v=1788422503"></script>
+<script src="admin.js?v=1788422503"></script>
 </body>
 </html>

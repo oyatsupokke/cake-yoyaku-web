@@ -104,8 +104,11 @@ async function showApp() {
   $("admin-shop-name").textContent = `${state.tenantName}｜管理`;
   // 電話予約の代行登録：お客様フォームを代行モードで開く（同じログインを使う）
   const staffBtn = $("btn-staff-order");
-  if (staffBtn) staffBtn.onclick = () =>
+  if (staffBtn) staffBtn.onclick = () => {
     window.open(`../?shop=${encodeURIComponent(state.subdomain)}&staff=1`, "_blank");
+    $("admin-body").classList.remove("menu-open");
+    $("menu-btn").setAttribute("aria-expanded", "false");
+  };
   renderBillingBanner(t[0]);
   $("view-login").classList.add("hidden");
   $("view-app").classList.remove("hidden");
@@ -455,6 +458,18 @@ async function loadTenantForm() {
   regField("tenants", T, "self_content_time", $("t-self-content-time"));
   regField("tenants", T, "self_cancel_days", $("t-self-cancel-days"), { number: true });
   regField("tenants", T, "self_cancel_time", $("t-self-cancel-time"));
+  // 見た目（theme は1列のJSON。入力欄は複数なので get でまとめる）
+  initTheme(t.theme || {});
+  regField("tenants", T, "theme", $("th-accent"), { get: buildTheme });
+  const themeEvt = () => { markDirty(); pushThemePreview(); };
+  document.querySelectorAll("#theme-box input").forEach((el) => {
+    if (el.type === "file") return;
+    el.addEventListener(el.type === "checkbox" || el.type === "radio" ? "change" : "input", themeEvt);
+  });
+  const frame = $("th-frame");
+  const src = `../?shop=${encodeURIComponent(state.subdomain)}`;
+  if (frame.getAttribute("src") !== src) frame.src = src;
+  frame.onload = pushThemePreview;
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
   // 時刻はNOT NULL。空にされたら既定の18:00に戻す（空欄保存でエラーにしない）
   regField("tenants", T, "reminder_send_at", $("t-reminder-time"),
@@ -612,11 +627,31 @@ $("btn-ov-add").onclick = async () => {
 };
 
 /* ---------- タブ・ログインUI ---------- */
-document.querySelectorAll(".tab").forEach((b) => {
+// 狭い画面のメニュー開閉（☰）。広い画面ではボタン自体が非表示なので何も起きない
+$("menu-btn").onclick = (e) => {
+  e.stopPropagation();
+  const open = $("admin-body").classList.toggle("menu-open");
+  $("menu-btn").setAttribute("aria-expanded", open ? "true" : "false");
+};
+$("menu-close").onclick = () => {
+  $("admin-body").classList.remove("menu-open");
+  $("menu-btn").setAttribute("aria-expanded", "false");
+};
+// メニューの外を触ったら閉じる
+document.addEventListener("click", (e) => {
+  if (!$("admin-body").classList.contains("menu-open")) return;
+  if (e.target.closest("#admin-tabs")) return;
+  $("admin-body").classList.remove("menu-open");
+  $("menu-btn").setAttribute("aria-expanded", "false");
+});
+document.querySelectorAll(".tab:not(.tab-action)").forEach((b) => {
   b.onclick = () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("selected"));
     b.classList.add("selected");
     state.tab = b.dataset.tab;
+    // 選んだらメニューを閉じる
+    $("admin-body").classList.remove("menu-open");
+    $("menu-btn").setAttribute("aria-expanded", "false");
     $("tab-pickup").classList.toggle("hidden", state.tab !== "pickup");
     $("tab-kitchen").classList.toggle("hidden", state.tab !== "kitchen");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
@@ -658,3 +693,115 @@ $("link-forgot").onclick = async (e) => {
   }
   showLogin();
 })();
+
+/* ---------- 設定 › 見た目 ----------
+ * tenants.theme = { accent, type, logo_url, sub, adv:{bg,ink,boxbg,box,line,on,sel,selbox,selink} }
+ * adv は「自動」を外した色だけ持つ（無い色はフォーム側が基調色から計算）。 */
+const THEME_KEYS = ["bg", "ink", "boxbg", "box", "line", "on", "sel", "selbox", "selink"];
+const THEME_DEFAULT_ACCENT = "#4a4a4a";
+function mixHex(a, b, t) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+  const ch = (i) => Math.round(((A >> i) & 255) * t + ((B >> i) & 255) * (1 - t));
+  return "#" + [16, 8, 0].map((i) => ch(i).toString(16).padStart(2, "0")).join("");
+}
+function lum(h) {
+  const n = parseInt(h.slice(1), 16);
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+}
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+// 「自動」の色（styles.css の計算と同じ結果になるように）
+function themeAutoColors(accent, adv) {
+  const bg = adv.bg || "#ffffff", ink = adv.ink || "#2a2a2a";
+  return { bg, ink, boxbg: bg, box: "#e3e3e3", line: "#e3e3e3", on: "#ffffff",
+           sel: mixHex(accent, bg, 0.16), selbox: mixHex(accent, "#000000", 0.75), selink: ink };
+}
+function themeSetAccent(c) {
+  $("th-accent").value = c;
+  $("th-accent-hex").textContent = c;
+  document.querySelectorAll(".th-swatch").forEach((b) => b.setAttribute("aria-pressed", b.dataset.c === c ? "true" : "false"));
+}
+function themeRefreshAuto() {
+  const accent = $("th-accent").value;
+  const adv = {};
+  for (const k of THEME_KEYS) if (!$(`th-${k}-auto`).checked) adv[k] = $(`th-${k}`).value;
+  const auto = themeAutoColors(accent, adv);
+  for (const k of THEME_KEYS) {
+    const isAuto = $(`th-${k}-auto`).checked;
+    $(`th-${k}`).disabled = isAuto;
+    if (isAuto) $(`th-${k}`).value = auto[k];
+  }
+  const eff = Object.assign({}, auto, adv);
+  $("th-warn").classList.toggle("hidden", contrast(eff.ink, eff.bg) >= 4.5 && contrast(eff.on, accent) >= 3);
+}
+function initTheme(th) {
+  themeSetAccent(th.accent || th.primary || THEME_DEFAULT_ACCENT);
+  const adv = th.adv || {};
+  for (const k of THEME_KEYS) {
+    $(`th-${k}-auto`).checked = !adv[k];
+    if (adv[k]) $(`th-${k}`).value = adv[k];
+  }
+  $("th-adv").open = Object.keys(adv).length > 0;
+  const type = ["maru", "kaku", "min"].includes(th.type) ? th.type : "kaku";
+  document.querySelector(`input[name="th-type"][value="${type}"]`).checked = true;
+  $("th-logo-url").value = th.logo_url || "";
+  themeShowLogo(th.logo_url || "");
+  $("th-sub").value = th.sub || "";
+  themeRefreshAuto();
+}
+function buildTheme() {
+  const th = { accent: $("th-accent").value, type: document.querySelector('input[name="th-type"]:checked').value };
+  const adv = {};
+  for (const k of THEME_KEYS) if (!$(`th-${k}-auto`).checked) adv[k] = $(`th-${k}`).value;
+  if (Object.keys(adv).length) th.adv = adv;
+  if ($("th-logo-url").value) th.logo_url = $("th-logo-url").value;
+  const sub = $("th-sub").value.trim();
+  if (sub) th.sub = sub;
+  return th;
+}
+function pushThemePreview() {
+  const frame = $("th-frame");
+  if (frame?.contentWindow) frame.contentWindow.postMessage({ type: "pokke-theme", theme: buildTheme() }, location.origin);
+}
+function themeShowLogo(url) {
+  const img = $("th-logo-img");
+  if (url) { img.src = url; img.classList.remove("hidden"); $("th-logo-clear").classList.remove("hidden"); }
+  else { img.removeAttribute("src"); img.classList.add("hidden"); $("th-logo-clear").classList.add("hidden"); }
+}
+document.querySelectorAll(".th-swatch").forEach((b) => b.addEventListener("click", () => {
+  themeSetAccent(b.dataset.c); themeRefreshAuto(); markDirty(); pushThemePreview();
+}));
+$("th-accent").addEventListener("input", () => { themeSetAccent($("th-accent").value); themeRefreshAuto(); });
+document.querySelectorAll('#th-adv input[type="checkbox"], #th-adv input[type="color"]').forEach((el) =>
+  el.addEventListener(el.type === "checkbox" ? "change" : "input", themeRefreshAuto));
+$("th-reset").onclick = () => {
+  initTheme({});
+  markDirty(); pushThemePreview();
+};
+$("th-logo-clear").onclick = () => { $("th-logo-url").value = ""; themeShowLogo(""); markDirty(); pushThemePreview(); };
+$("th-logo-file").addEventListener("change", async () => {
+  const file = $("th-logo-file").files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { toast("画像ファイルを選んでください"); return; }
+  if (file.size > 2 * 1024 * 1024) { toast("画像が大きすぎます（2MBまで）"); return; }
+  try {
+    // バケットが受けるのは jpeg/png/webp（20260725100000_images.sql）
+    const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[file.type];
+    if (!ext) throw new Error("PNG・JPEG・WebP の画像を選んでください");
+    const name = `${state.tenantId}/logo/${crypto.randomUUID()}.${ext}`;
+    const res = await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${name}`, {
+      method: "POST",
+      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": file.type, "x-upsert": "true" },
+      body: file,
+    });
+    if (!res.ok) throw new Error(`アップロードに失敗しました (${res.status})`);
+    const url = `${CONFIG.url}/storage/v1/object/public/shop-images/${name}`;
+    $("th-logo-url").value = url;
+    themeShowLogo(url);
+    markDirty(); pushThemePreview();
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    $("th-logo-file").value = "";
+  }
+});

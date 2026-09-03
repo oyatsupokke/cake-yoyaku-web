@@ -252,9 +252,7 @@ async function load() {
   }
   document.title = `${state.tenant.name}｜オーダーケーキのご予約`;
   $("shop-name").textContent = state.tenant.name;
-  if (state.tenant.theme?.primary) {
-    document.documentElement.style.setProperty("--primary", state.tenant.theme.primary);
-  }
+  applyTheme(state.tenant.theme);
 
   const T = state.tenant.id;
   [state.products, state.questions, state.slots] = await Promise.all([
@@ -281,7 +279,7 @@ function enterStaffMode() {
   const b = document.createElement("div");
   b.className = "staff-banner";
   if (staffSession()?.access_token) {
-    b.innerHTML = "📞 <strong>電話予約の代行登録モード</strong>：" +
+    b.innerHTML = "📞 <strong>予約の直接登録モード</strong>：" +
       "締切後・満枠・休業の日もオレンジ表示で選べます（登録前に確認が出ます）。" +
       "メールアドレスは空欄OK。空欄の場合、確認メールは送られません。";
   } else {
@@ -1093,4 +1091,34 @@ $("btn-submit").onclick = async () => {
 load().catch((e) => {
   $("shop-name").textContent = "読み込みエラー";
   console.error(e);
+});
+
+/* ---------- 見た目（tenants.theme） ----------
+ * 形：{ accent, type:'maru'|'kaku'|'min', logo_url, sub, adv:{bg,ink,boxbg,box,line,on,sel,selbox,selink} }
+ * adv に無い色は styles.css の自動値（基調色から計算）が使われる。
+ * 旧形式 { primary } は accent として読む。 */
+const THEME_ADV_KEYS = ["bg", "ink", "boxbg", "box", "line", "on", "sel", "selbox", "selink"];
+function applyTheme(th) {
+  th = th || {};
+  const root = document.documentElement;
+  const accent = th.accent || th.primary || null;
+  if (accent) root.style.setProperty("--accent", accent); else root.style.removeProperty("--accent");
+  const adv = th.adv || {};
+  for (const k of THEME_ADV_KEYS) {
+    if (adv[k]) root.style.setProperty("--" + k, adv[k]); else root.style.removeProperty("--" + k);
+  }
+  root.classList.remove("type-maru", "type-kaku", "type-min");
+  if (th.type) root.classList.add("type-" + th.type);
+  const logo = document.getElementById("shop-logo"), name = document.getElementById("shop-name");
+  if (logo && name) {
+    if (th.logo_url) { logo.src = th.logo_url; logo.classList.remove("hidden"); name.classList.add("hidden"); }
+    else { logo.classList.add("hidden"); name.classList.remove("hidden"); }
+  }
+  const sub = document.getElementById("shop-sub");
+  if (sub) sub.textContent = th.sub || "オーダーケーキのご予約";
+}
+// 管理画面「設定 › 見た目」の見本用：保存前の設定を受け取ってその場で反映（同一オリジンのみ）
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin) return;
+  if (e.data && e.data.type === "pokke-theme") applyTheme(e.data.theme);
 });

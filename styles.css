@@ -1,17 +1,39 @@
-/* pokke予約フォーム — パステル・手描きの温かみ・絵本感（テーマ色はJSがCSS変数で上書き） */
+/* pokke予約フォーム（テーマ色はJSがCSS変数で上書き）。ブランドトーンの正本は ~/claude/pokke-hp/CLAUDE.md */
+/* ---- テーマトークン（2026-09-03 まりほ合意）----
+ * 製品の素は「無地」：白地・墨の文字・飾りなし。店は管理画面「設定 › 見た目」で
+ * 基調色1色＋雰囲気の型＋ロゴ＋一言を選び、「こだわり」で下記の色を個別に上書きできる。
+ * app.js が tenants.theme を読んで <html> の style と class に流し込む。
+ * pokke のピンクは「1店舗分の設定」であって製品の色ではない（以前ここにあった #f6cfd6 は移動）。 */
 :root {
-  --primary: #f6cfd6;      /* 淡いピンク */
-  --primary-deep: #e89aa8;
-  --ink: #5b4a4e;
-  --bg: #fdf8f6;
-  --card: #ffffff;
-  --line: #f0e0e4;
-  --accent: #f5a623;
+  --accent: #4a4a4a;        /* 基調色：ボタン・選んだ印 */
+  --ink: #2a2a2a;           /* 文字 */
+  --bg: #ffffff;            /* 背景 */
+  --boxbg: var(--bg);       /* 項目の背景（カード・選択肢） */
+  --box: #e3e3e3;           /* 項目の枠 */
+  --line: #e3e3e3;          /* 区切り線 */
+  --on: #ffffff;            /* ボタンの文字（基調色の上に載る色） */
+  --sel: color-mix(in srgb, var(--accent) 16%, var(--bg));   /* 選んだ項目の背景 */
+  --selbox: color-mix(in srgb, var(--accent) 75%, #000);     /* 選んだ項目の枠 */
+  --selink: var(--ink);                                      /* 選んだ項目の文字 */
+  --mute: color-mix(in srgb, var(--ink) 55%, var(--bg));     /* 注意書きの薄い文字 */
+  --r: 4px;                 /* 角の丸さ（入力欄・選択肢） */
+  --r-lg: 8px;              /* 角の丸さ（カード・箱） */
+  --ff: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --accent-deep: color-mix(in srgb, var(--accent) 75%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  /* 旧名（既存セレクタが参照している別名） */
+  --primary: var(--accent);
+  --primary-deep: var(--accent-deep);
+  --card: var(--boxbg);
 }
+/* 雰囲気の型（tenants.theme.type） */
+.type-maru { --ff: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif; --r: 12px; --r-lg: 18px; }
+.type-kaku { --r: 4px; --r-lg: 8px; }
+.type-min  { --ff: "Shippori Mincho", "Hiragino Mincho ProN", serif; --r: 2px; --r-lg: 3px; }
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", "Yu Gothic", sans-serif;
+  font-family: var(--ff);
   background: var(--bg);
   color: var(--ink);
   line-height: 1.7;
@@ -20,21 +42,22 @@ body {
 
 .shop-header { text-align: center; padding: 28px 0 8px; }
 .shop-header h1 { margin: 0; font-size: 1.5rem; letter-spacing: .06em; }
-.shop-sub { margin: 4px 0 0; color: var(--primary-deep); font-size: .95rem; }
+.shop-sub { margin: 4px 0 0; color: var(--mute); font-size: .95rem; }
+.shop-logo { max-height: 72px; max-width: 80%; display: block; margin: 0 auto; }
 
 /* プレビュー */
 .preview-box { text-align: center; margin: 12px 0 20px; }
 .preview-canvas {
   width: 240px; height: 240px; margin: 0 auto;
   background: #fff; border: 2px dashed var(--primary);
-  border-radius: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: calc(var(--r-lg) + 8px); display: flex; align-items: center; justify-content: center;
   overflow: hidden;
 }
 .preview-canvas canvas { width: 100%; height: 100%; }
 .preview-canvas img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .preview-placeholder { font-size: 72px; }
 .preview-caption { margin: 8px 0 0; font-weight: bold; font-size: .95rem; }
-.preview-note, .small { font-size: .78rem; color: #a08a8f; margin: 2px 0 0; }
+.preview-note, .small { font-size: .78rem; color: var(--mute); margin: 2px 0 0; }
 
 /* ステップ */
 .step { margin: 26px 0; }
@@ -43,7 +66,7 @@ body {
   border-bottom: 2px solid var(--line); padding-bottom: 6px;
 }
 .step-no {
-  background: var(--primary); color: #fff; border-radius: 50%;
+  background: var(--primary); color: var(--on); border-radius: 50%;
   width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
   font-size: .9rem; flex-shrink: 0;
 }
@@ -52,45 +75,45 @@ body {
 /* 商品カード */
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .card {
-  background: var(--card); border: 2px solid var(--line); border-radius: 16px;
+  background: var(--card); border: 2px solid var(--box); border-radius: var(--r-lg);
   padding: 14px 12px; cursor: pointer; text-align: center; transition: .15s;
 }
 .card:hover { border-color: var(--primary); }
-.card.selected { border-color: var(--primary-deep); background: #fff5f7; }
+.card.selected { border-color: var(--selbox); background: var(--sel); color: var(--selink); }
 .card .card-emoji { font-size: 34px; }
 .card .card-photo {
-  width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden;
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden;
   margin-bottom: 6px; background: #fff;
 }
 .card .card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card .card-name { font-weight: bold; font-size: .92rem; margin-top: 4px; }
-.card .card-desc { font-size: .74rem; color: #a08a8f; margin-top: 4px; }
+.card .card-desc { font-size: .74rem; color: var(--mute); margin-top: 4px; }
 .card .card-price { font-size: .8rem; color: var(--primary-deep); margin-top: 4px; }
 
 /* ピル（サイズ・時間枠） */
 .pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .pill {
-  border: 2px solid var(--line); background: var(--card); border-radius: 999px;
+  border: 2px solid var(--box); background: var(--card); border-radius: 999px;
   padding: 8px 18px; cursor: pointer; font-size: .95rem; transition: .15s;
   white-space: nowrap;   /* 幅が足りないとき1文字ずつ縦に折れるのを防ぐ */
 }
 .pill:hover { border-color: var(--primary); }
-.pill.selected { border-color: var(--primary-deep); background: var(--primary); color: #fff; font-weight: bold; }
+.pill.selected { border-color: var(--primary-deep); background: var(--primary); color: var(--on); font-weight: bold; }
 .pill.full { color: #c2b6b9; background: #f4eeef; cursor: not-allowed; }
 
 /* 選択グループ */
-.group { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 14px 0; }
+.group { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; margin: 14px 0; }
 .group h3 { margin: 0 0 4px; font-size: .98rem; }
-.group .group-note { font-size: .76rem; color: #a08a8f; margin: 0 0 8px; }
+.group .group-note { font-size: .76rem; color: var(--mute); margin: 0 0 8px; }
 .group .group-desc { font-size: .84rem; color: var(--ink); margin: 0 0 6px; }
 .opt {
   display: flex; align-items: center; gap: 10px; padding: 8px 6px;
-  border-radius: 10px; cursor: pointer;
+  border-radius: var(--r); cursor: pointer;
 }
 .opt:hover { background: #fdf1f3; }
 .opt input { accent-color: var(--primary-deep); width: 18px; height: 18px; }
 .opt .opt-name { flex: 1; font-size: .92rem; }
-.opt .opt-note { display: block; font-size: .72rem; color: #a08a8f; }
+.opt .opt-note { display: block; font-size: .72rem; color: var(--mute); }
 .opt .opt-desc { display: block; font-size: .78rem; color: var(--ink); }
 .opt .opt-photo {
   width: 44px; height: 44px; flex: 0 0 auto; border-radius: 8px; overflow: hidden;
@@ -98,7 +121,7 @@ body {
 }
 .opt .opt-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .note-accent { color: #d0455f !important; font-weight: bold !important; }
-.product-note { font-size: .85rem; background: #fff5f7; border-radius: 10px; padding: 8px 12px; }
+.product-note { font-size: .85rem; background: var(--sel); border-radius: var(--r); padding: 8px 12px; }
 .opt .opt-price { font-size: .85rem; color: var(--primary-deep); white-space: nowrap; }
 .name-row { display: flex; gap: 10px; }
 .name-row input { flex: 1; min-width: 0; }
@@ -113,12 +136,12 @@ body {
 .qty-count small { font-size: .75rem; font-weight: 500; margin-left: 1px; }
 .opt-textfield { padding: 0 6px 8px 34px; }
 .opt-textfield input {
-  width: 100%; padding: 8px 12px; border: 2px solid var(--line); border-radius: 10px;
+  width: 100%; padding: 8px 12px; border: 2px solid var(--line); border-radius: var(--r);
   font-size: .92rem; font-family: inherit; color: var(--ink);
 }
 .opt-textfield input:focus { outline: none; border-color: var(--primary); }
 .req {
-  background: var(--primary-deep); color: #fff; font-size: .68rem;
+  background: var(--primary-deep); color: var(--on); font-size: .68rem;
   border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
 }
 
@@ -134,9 +157,9 @@ body {
 .dot.few { background: var(--accent); }
 .dot.full { background: #c9c1c3; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.cal-grid .dow { text-align: center; font-size: .74rem; color: #a08a8f; padding: 2px 0; }
+.cal-grid .dow { text-align: center; font-size: .74rem; color: var(--mute); padding: 2px 0; }
 .cal-day {
-  background: #fff; border: 1.5px solid var(--line); border-radius: 10px;
+  background: var(--boxbg); border: 1.5px solid var(--box); border-radius: var(--r);
   min-height: 52px; text-align: center; padding: 4px 0; font-size: .85rem;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
 }
@@ -147,8 +170,8 @@ body {
 .cal-day.full { color: #b7abae; }
 .cal-day.clickable { cursor: pointer; }
 .cal-day.clickable:hover { border-color: var(--primary); }
-.cal-day.selected { border-color: var(--primary-deep); background: var(--primary); color: #fff; }
-.cal-day.selected .mark { color: #fff; }
+.cal-day.selected { border-color: var(--primary-deep); background: var(--primary); color: var(--on); }
+.cal-day.selected .mark { color: var(--on); }
 #slot-area h3 { font-size: .95rem; margin: 16px 0 8px; }
 
 /* フォーム */
@@ -157,31 +180,31 @@ body {
    width:100% にすると丸が引き伸ばされてラベルがズレる（2026-08-30 選択式の質問を足すため型で絞った） */
 .field input:not([type="radio"]):not([type="checkbox"]), .field textarea, .field select {
   display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
-  border: 2px solid var(--line); border-radius: 12px; font-size: 1rem;
+  border: 2px solid var(--line); border-radius: var(--r); font-size: 1rem;
   font-family: inherit; background: #fff; color: var(--ink);
 }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--primary); }
-.field .help { font-weight: normal; font-size: .76rem; color: #a08a8f; margin: 2px 0 0; }
+.field .help { font-weight: normal; font-size: .76rem; color: var(--mute); margin: 2px 0 0; }
 /* 選択式の質問（ラジオ・チェックボックス） */
 .pick-list { display: block; margin-top: 6px; }
 label.pick {
   display: flex; gap: 10px; align-items: center; font-weight: normal; font-size: .95rem;
   padding: 9px 12px; margin-top: 6px; background: #fff;
-  border: 2px solid var(--line); border-radius: 12px; cursor: pointer;
+  border: 2px solid var(--box); border-radius: var(--r); cursor: pointer;
 }
 label.pick input { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--primary-deep); }
-label.pick:has(input:checked) { border-color: var(--primary-deep); background: #fff8fa; }
+label.pick:has(input:checked) { border-color: var(--selbox); background: var(--sel); color: var(--selink); }
 /* 選択肢を選んだ人にだけ出る質問（選択肢のすぐ下にぶら下げる） */
 .opt-question { margin: 2px 0 10px 12px; padding-left: 12px; border-left: 3px solid var(--line); }
 .opt-question .field { margin: 6px 0; }
 .pay-note {
-  background: #fff5e8; border-radius: 12px; padding: 10px 14px; font-size: .88rem; margin: 16px 0;
+  background: #fff5e8; border-radius: var(--r); padding: 10px 14px; font-size: .88rem; margin: 16px 0;
 }
 
 /* ボタン */
 .btn-primary {
   display: block; width: 100%; margin: 18px 0 0; padding: 14px;
-  background: var(--primary-deep); color: #fff; border: none; border-radius: 999px;
+  background: var(--primary-deep); color: var(--on); border: none; border-radius: 999px;
   font-size: 1.05rem; font-weight: bold; cursor: pointer; font-family: inherit;
 }
 .btn-primary:disabled { background: #ddcfd3; cursor: not-allowed; }
@@ -193,10 +216,10 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 
 /* 確認・完了 */
 .confirm-title { text-align: center; margin-top: 24px; }
-.confirm-box { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; margin: 14px 0; }
+.confirm-box { background: var(--boxbg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; margin: 14px 0; }
 .confirm-box h3 { margin: 0 0 8px; font-size: .95rem; color: var(--primary-deep); }
 .confirm-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: .92rem; }
-.confirm-row .k { color: #a08a8f; flex-shrink: 0; }
+.confirm-row .k { color: var(--mute); flex-shrink: 0; }
 .confirm-row.total { border-top: 2px solid var(--line); margin-top: 8px; padding-top: 10px; font-weight: bold; font-size: 1.05rem; }
 .done-box { text-align: center; padding: 48px 0; }
 .done-emoji { font-size: 56px; }
@@ -205,7 +228,7 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 /* 金額バー */
 .price-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
-  background: #fffdf9; border-top: 2px solid var(--line);
+  background: var(--bg); border-top: 2px solid var(--line);
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px 20px; font-size: .9rem;
 }
@@ -214,7 +237,7 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 /* トースト（自動で外れたお知らせ） */
 .toast {
   position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
-  background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 18px;
+  background: var(--ink); color: var(--on); border-radius: var(--r); padding: 10px 18px;
   font-size: .84rem; max-width: 90%; transition: opacity .4s; z-index: 10;
 }
 
@@ -227,7 +250,7 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 .line-invite { margin: 18px 0 0; text-align: center; }
 .line-btn {
   display: block; width: 100%; box-sizing: border-box; padding: 13px;
-  background: #06C755; color: #fff; border-radius: 999px;
+  background: #06C755; color: var(--on); border-radius: 999px;
   font-size: 1rem; font-weight: bold; text-decoration: none; text-align: center;
 }
 .line-btn:active { opacity: .85; }
@@ -237,7 +260,7 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 /* ---------- 代行登録モード（お店が電話予約を入力する画面） ---------- */
 .staff-banner {
   background: #fff4e5; border: 1.5px solid #f0a24b; color: #8a5a1c;
-  border-radius: 12px; padding: 10px 14px; margin: 12px 16px 0;
+  border-radius: var(--r); padding: 10px 14px; margin: 12px 16px 0;
   font-size: .88rem; line-height: 1.7;
 }
 .staff-banner a { color: #c07422; font-weight: bold; }
@@ -247,12 +270,12 @@ label.pick:has(input:checked) { border-color: var(--primary-deep); background: #
 }
 .cal-day.staff-warn .mark { color: #f0a24b; }
 .cal-day.staff-warn:hover { border-color: #f0a24b; }
-.cal-day.staff-warn.selected { background: #f0a24b; border-color: #d98c2b; color: #fff; }
-.cal-day.staff-warn.selected .mark { color: #fff; }
+.cal-day.staff-warn.selected { background: #f0a24b; border-color: #d98c2b; color: var(--on); }
+.cal-day.staff-warn.selected .mark { color: var(--on); }
 .pill.full.staff-warn {
   color: #c07422; background: #fff4e5; cursor: pointer;
 }
-.pill.full.staff-warn.selected { background: #f0a24b; color: #fff; }
+.pill.full.staff-warn.selected { background: #f0a24b; color: var(--on); }
 
 /* キャンセルポリシー・特商法の表記は行ごとの箇条書きで書かれる。
    textContentで入れた改行がそのまま出るようにする（2026-08-28：1本の長文に潰れていた） */

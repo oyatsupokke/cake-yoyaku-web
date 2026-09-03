@@ -1,5 +1,7 @@
 /* 管理画面（店頭・厨房・設定）。現場=スマホ・タブレット前提の大きめUI */
-.admin { max-width: 640px; padding-bottom: 40px; }
+/* #app 側の max-width:560px（styles.css）はIDセレクタで強く、この指定は効いていなかった。
+   同じ強さで上書きする（2026-08-31 発見。大きいモニタでも560px幅のまま出ていた） */
+#app.admin { max-width: 640px; padding-bottom: 40px; }
 .login-box { max-width: 360px; margin: 80px auto; text-align: center; }
 .login-box h1 { font-size: 1.3rem; }
 .login-box .field { text-align: left; }
@@ -16,6 +18,10 @@
 }
 .tab.selected { background: var(--primary); border-color: var(--primary-deep); color: #fff; }
 .tab-link { text-align: center; text-decoration: none; line-height: 1.4; }
+/* メニュー内の「操作」項目（画面切替ではない）。少し離して、破線で区別 */
+.tab-action { margin-top: 10px; border-style: dashed; }
+.tab-action + .tab-action { margin-top: 0; }
+.tab-muted { color: #a08a8f; font-weight: normal; }
 
 .date-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
 .date-nav input[type="date"] {
@@ -122,7 +128,7 @@
 .billing-banner .pill { margin-left: 6px; }
 
 /* 画面下に固定される保存バー */
-.admin { padding-bottom: 90px; }
+#app.admin { padding-bottom: 90px; }
 .save-bar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
   background: #fffdf9; border-top: 2px solid var(--line);
@@ -135,9 +141,8 @@
 .save-bar .btn-primary { width: auto; margin: 0; padding: 10px 28px; font-size: .95rem; }
 .save-bar .btn-primary:disabled { background: #ddcfd3; }
 
-/* 電話予約（代行登録）の目印と入口ボタン */
+/* 電話予約（代行登録）の目印（受取リストのバッジ） */
 .st-staff { background: #eef4ff; color: #3b6bb5; }
-.staff-order-btn { margin-left: auto; }
 
 /* 「？」ヘルプ：タップで説明が開く（スマホにはホバーが無いため） */
 .tip {
@@ -155,14 +160,104 @@
 
 /* スマホ幅の調整：タブ・ボタンの文字が1文字ずつ折れてはみ出さないように（まりほ指摘 2026-08-26） */
 @media (max-width: 480px) {
-  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tab { flex: 1 0 auto; white-space: nowrap; font-size: .85rem; padding: 9px 8px; }
+  .tab { white-space: nowrap; font-size: .9rem; }
   .date-nav { flex-wrap: wrap; }
   .admin .pill { padding: 8px 12px; }
-  .staff-order-btn { margin-left: 0; }
   .rule-row, .ov-row, .prod-row { flex-wrap: wrap; }
   .rule-row input[type="number"] { width: 60px; }
 }
 
 /* 未記入などの注意書き（設定タブ） */
 .small.warn { color: #c07422; background: #fff4e5; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+
+
+/* ---- 広い画面：メニューを左の縦並びにして、本文に横幅を渡す ----
+ * 4項目しかないので畳まない（隠すと押す手間が増えるだけ）。
+ * 狭い画面は従来どおり上の横並びのまま＝店頭で片手で押せる形を変えない。
+ * PC版とスマホ版を別々に作らず、1つのHTMLが幅で並び替わる形にしている。 */
+@media (min-width: 920px) {
+  #app.admin { max-width: 1100px; }
+  .admin-body {
+    display: grid; grid-template-columns: 200px minmax(0, 1fr);
+    gap: 26px; align-items: start;
+  }
+  .tabs { flex-direction: column; gap: 6px; margin: 0; position: sticky; top: 14px; }
+  .tab { flex: none; text-align: left; padding: 11px 14px; }
+  .admin-main { min-width: 0; }
+}
+@media print {
+  .admin-body { display: block; }
+}
+
+/* ---- 狭い画面：メニューは畳んでおく（まりほ判断 2026-09-03） ----
+ * 店名の行の ☰ に「いま見ている画面の名前」を出し、押すとメニューが縦に開く。
+ * 選ぶと閉じる。文字を短くする案は効果が薄いと却下されたので、畳む形にした。 */
+.menu-btn {
+  display: none; align-items: center; gap: 6px;
+  margin-left: auto;
+  padding: 6px 12px; border: 2px solid var(--line); border-radius: 10px;
+  background: #fff; color: var(--ink); font-family: inherit; font-size: 1.25rem; line-height: 1;
+  cursor: pointer;
+}
+.menu-close { display: none; }
+@media (max-width: 919px) {
+  .menu-btn { display: inline-flex; }
+  /* 右から出るドロワー。本文は動かさない（まりほ要望 2026-09-03）。
+     メニューの外は薄暗くし、そこを触ると閉じる */
+  .tabs {
+    display: flex; flex-direction: column; gap: 6px; margin: 0;
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 30;
+    width: min(260px, 80vw); padding: 18px 12px; box-sizing: border-box;
+    background: #fff; border-left: 2px solid var(--line);
+    box-shadow: -8px 0 24px rgba(0,0,0,.12);
+    transform: translateX(100%); transition: transform .2s ease;
+    visibility: hidden;
+  }
+  .admin-body.menu-open .tabs { transform: translateX(0); visibility: visible; }
+  .admin-body::before {
+    content: ""; position: fixed; inset: 0; z-index: 25;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .admin-body.menu-open::before { opacity: 1; pointer-events: auto; }
+  .tab { flex: none; text-align: left; padding: 12px 14px; }
+  .tab-link { text-align: left; }
+  .menu-close {
+    display: block; align-self: flex-end; margin-bottom: 8px;
+    background: none; border: none; color: var(--ink); font-family: inherit;
+    font-size: 1rem; font-weight: bold; padding: 8px 6px; cursor: pointer;
+  }
+}
+}
+
+/* ---- 設定 › 見た目 ---- */
+.th-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.th-sw { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.th-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+.th-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+.th-sw input[type="color"], .th-row input[type="color"] { width: 38px; height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 2px; background: #fff; cursor: pointer; }
+.th-hex { font-variant-numeric: tabular-nums; font-size: .85rem; color: #a08a8f; }
+.th-adv { margin: 4px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.th-adv summary { cursor: pointer; padding: 8px 12px; font-size: .9rem; font-weight: bold; }
+.th-advbody { padding: 4px 12px 10px; border-top: 1px solid var(--line); }
+.th-row { display: grid; grid-template-columns: 150px 38px auto; gap: 10px; align-items: center; padding: 5px 0; font-size: .9rem; }
+.th-row input[type="color"]:disabled { opacity: .45; cursor: default; }
+.th-auto { font-size: .82rem; color: #7a6a6e; display: flex; align-items: center; gap: 4px; }
+.th-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.th-type { border: 2px solid var(--line); border-radius: 10px; padding: 10px 6px; cursor: pointer; background: #fff; text-align: center; display: block; position: relative; }
+.th-type input { position: absolute; opacity: 0; width: 0; height: 0; }
+.th-type:has(input:checked) { border-color: var(--primary-deep); background: #fff5f7; }
+.th-sample { font-size: 1.3rem; line-height: 1.2; display: block; }
+.t-maru .th-sample { font-family: "Hiragino Maru Gothic ProN", "Zen Maru Gothic", sans-serif; }
+.t-kaku .th-sample { font-family: "Hiragino Sans", "Zen Kaku Gothic New", sans-serif; font-weight: bold; }
+.t-min .th-sample { font-family: "Hiragino Mincho ProN", "Shippori Mincho", serif; }
+.th-nm { font-size: .85rem; font-weight: bold; display: block; }
+.th-ds { font-size: .72rem; color: #a08a8f; display: block; }
+.th-logo-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.th-logo-img { max-height: 48px; max-width: 200px; border: 1px solid var(--line); border-radius: 6px; padding: 4px; background: #fff; }
+.th-actions { margin-top: 6px; }
+.th-prev-cap { font-size: .8rem; color: #a08a8f; margin-bottom: 6px; }
+#th-frame { width: 100%; height: 640px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+@media (min-width: 920px) {
+  .th-cols { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+  .th-prev { position: sticky; top: 14px; }
+}

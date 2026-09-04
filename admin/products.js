@@ -232,6 +232,17 @@ async function deleteImageFile(url) {
   const marker = "/object/public/shop-images/";
   const i = url.indexOf(marker);
   if (i < 0) return;
+  // コピーした商品は元の商品と同じ画像ファイルを指す。他の行からまだ参照されていれば
+  // ファイルは消さない（欄からは外れるが、元の商品の写真が突然消える事故を防ぐ）
+  try {
+    const u = encodeURIComponent(url);
+    const [ps, os, gs] = await Promise.all([
+      api("GET", `/rest/v1/products?or=(photo_url.eq.${u},layer_url.eq.${u})&deleted_at=is.null&select=id`),
+      api("GET", `/rest/v1/options?or=(photo_url.eq.${u},layer_url.eq.${u})&select=id`),
+      api("GET", `/rest/v1/option_groups?default_layer_url=eq.${u}&select=id`),
+    ]);
+    if (ps.length + os.length + gs.length > 0) return; // 自分の行は呼び出し前に外れている
+  } catch { /* 数えられなければ従来どおり消す */ }
   const path = url.slice(i + marker.length);
   await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${path}`, {
     method: "DELETE",
@@ -560,6 +571,23 @@ $("btn-p-publish").onclick = async () => {
   toast(p.is_published ? "非公開にしました" : "公開しました");
   reloadAll();
 };
+/* ---------- この商品をコピー（サーバー側 fn_duplicate_product が丸ごと写す） ---------- */
+$("btn-p-copy").onclick = async () => {
+  const p = state.current;
+  if (!confirmLeave()) return;
+  if (!confirm(`「${p.name}」をコピーして新しい商品を作りますか？\n（名前は「${p.name}（コピー）」・非公開の状態で作られます）`)) return;
+  try {
+    const newId = await api("POST", "/rest/v1/rpc/fn_duplicate_product", { p_product: p.id });
+    toast(`「${p.name}（コピー）」を作りました（非公開の状態です）`);
+    state.dirty = false;
+    await loadAll(false);
+    state.current = state.products.find((x) => x.id === newId) || null;
+    renderTabs(); renderEditor();
+  } catch (e) {
+    toast("コピーできませんでした：" + e.message);
+  }
+};
+
 $("btn-p-delete").onclick = async () => {
   const p = state.current;
   if (!confirm(`「${p.name}」を削除しますか？\n（過去の予約データはそのまま残ります。削除後は一覧から消えます）`)) return;

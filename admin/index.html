@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788423555">
-<link rel="stylesheet" href="admin.css?v=1788423555">
+<link rel="stylesheet" href="../styles.css?v=1788494566">
+<link rel="stylesheet" href="admin.css?v=1788494566">
 </head>
 <body>
 <div id="app" class="admin">
@@ -240,6 +240,7 @@
         <p class="small warn hidden" id="tokushoho-warn">⚠️ 未記入です。ネットで注文を受けるお店は表示が必要な項目です。記入すると、お客様のご注文確認画面に表示されます。</p>
         <div class="field">お客様ご自身での変更・キャンセル
           <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
+          <p class="small warn hidden" id="self-url-warn">⚠️ 予約フォームの公開URLが設定されていないため、有効にしてもメールとLINEにリンクが出ません。お手数ですがサポートへご連絡ください。</p>
           <div class="cf-row">
             <strong>この機能を使う</strong>
             <label class="cf-check"><input type="checkbox" id="t-self-enabled">有効にする</label>
@@ -273,6 +274,27 @@
         </div>
       </div>
 
+      <div class="confirm-box">
+        <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変えられません（消えません）。空欄にしておくと、下の見本に出ている文がそのまま送られます。">？</button></h3>
+        <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変えられるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
+        <label class="field">お支払いのご案内<button type="button" class="tip" data-tip="「■ お支払い」の行に出ます。振込のみのお店や、前払いのお店はここを書き換えてください。メールにもLINEにも同じ文が出ます。">？</button>
+          <input type="text" id="t-mail-payment" placeholder="店頭でのお支払いをお願いします">
+        </label>
+        <div class="field">どのお知らせを編集するか
+          <div class="mail-chips" id="mail-kinds"></div>
+        </div>
+        <label class="field">はじめの文（お名前のすぐ下）
+          <textarea id="t-mail-intro" rows="2"></textarea>
+        </label>
+        <label class="field">おわりに足す文（お店からのご案内）<button type="button" class="tip" data-tip="署名の少し上に足されます。駐車場のご案内や、お受け取りのお願いなど、毎回お客様に伝えていることを書いておく欄です。メールにもLINEにも同じ文が出ます。「※このメールは送信専用です。」などの締めの文は、この下に自動で付くので書かなくて大丈夫です。">？</button>
+          <textarea id="t-mail-outro" rows="3"></textarea>
+        </label>
+        <div class="field">送られる文の見本
+          <div class="mail-chips mail-ch" id="mail-ch"></div>
+          <pre class="mail-preview" id="mail-preview"></pre>
+        </div>
+      </div>
+
       <!-- ご契約・お支払い（自店=exemptのときはJSが隠す） -->
       <div class="confirm-box" id="billing-settings-box">
         <h3>ご契約・お支払い</h3>
@@ -293,7 +315,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788423555"></script>
-<script src="admin.js?v=1788423555"></script>
+<script src="tips.js?v=1788494566"></script>
+<script src="admin.js?v=1788494566"></script>
 </body>
 </html>

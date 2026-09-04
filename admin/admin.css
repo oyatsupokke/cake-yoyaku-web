@@ -185,6 +185,22 @@
 .small.warn { color: #c07422; background: #fff4e5; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
 
 
+/* ---- お客様へのメール文面（設定タブ） ----
+ * 見本は「店主が書いた文＝色を敷く／自動で作られる部分＝そのまま」で見分ける。
+ * 説明文を足すのではなく見れば分かる形にする（商品ページのプレビューと同じ考え方）。
+ * .lit は products.css と同じ見え方に揃える（触っている欄が見本のどこに出るか）。 */
+.mail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mail-chips .mail-chip.on { background: var(--primary); border-color: var(--primary); font-weight: 600; }
+.mail-ch { margin-bottom: 2px; }
+.mail-preview {
+  margin: 6px 0 0; padding: 14px 16px; background: #fff;
+  border: 1px solid var(--line); border-radius: 10px;
+  font-family: inherit; font-size: .84rem; line-height: 1.8; color: var(--ink);
+  white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+}
+.mail-preview .mail-mine { background: #fdeef1; border-radius: 5px; padding: 1px 4px; }
+.mail-preview .lit { background: #fff3d6; box-shadow: 0 0 0 2px #e8b45c; border-radius: 6px; }
+
 /* ---- 広い画面：メニューを左の縦並びにして、本文に横幅を渡す ----
  * 4項目しかないので畳まない（隠すと押す手間が増えるだけ）。
  * 狭い画面は従来どおり上の横並びのまま＝店頭で片手で押せる形を変えない。

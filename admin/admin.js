@@ -25,7 +25,9 @@ const STATUS = {
 };
 const NEXT = { new: "confirmed", confirmed: "in_production", in_production: "completed" };
 
-const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup" };
+const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup",
+  // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
+  mailKind: "customer", mailCh: "mail", formUrl: "", mailTexts: {}, mailLight: null, mailBound: false };
 
 function toast(msg) {
   const t = $("toast");
@@ -392,6 +394,212 @@ window.addEventListener("beforeunload", (e) => {
   if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
 });
 
+/* ---------- お客様へのメール／LINEの文面（設定タブ） ----------
+ * 店主が書けるのは3つだけ：はじめの文・おわりに足す文・お支払いの1行。
+ * 予約番号・受取日時・ご注文内容・合計金額は注文から自動で作る部分なので編集させない
+ * （消せてしまうと、受取日時の書いていない確認メールが送れてしまう）。
+ * 「※このメールは送信専用です。」などの締めの文も固定にしてある。置き換え式にすると
+ * 消せてしまうし、メール用の文言がそのままLINEに出てしまう。
+ *
+ * 文面の正本はDBの fn_render_order_email / fn_render_line_message。
+ * ここの見本は、どこに何が入るかを見せるためにJSで同じ形を組み立てている。
+ * 既定文がSQLとズレていないかは scripts/test_mail_texts_defaults.mjs が見張る。
+ */
+const MAIL_KINDS = [
+  { k: "customer", label: "ご予約確認",
+    subject: "ご予約を承りました",
+    intro: "このたびはご予約いただきありがとうございます。\n以下の内容で承りました。",
+    closing: "※このメールは送信専用です。",
+    manage: true, policy: true,
+    line: { when: "お客様がLINE連携をされたとき", noNote: true,
+            greeting: "LINE通知の設定が完了しました。ご予約は以下の内容で承っています。" } },
+  { k: "customer_change", label: "内容の変更",
+    subject: "ご予約内容の変更を承りました",
+    intro: "ご予約内容の変更を承りました。\n変更後の内容は以下のとおりです。",
+    closing: "※このメールは送信専用です。",
+    manage: true, policy: true,
+    line: { when: "ご予約内容が変更されたとき",
+            greeting: "ご予約内容の変更を承りました。変更後の内容：" } },
+  { k: "customer_cancel", label: "キャンセル",
+    subject: "ご予約のキャンセルを承りました",
+    intro: "以下のご予約のキャンセルを承りました。",
+    pre: "またのご利用を心よりお待ちしております。",
+    closing: "※このメールは送信専用です。",
+    manage: false, policy: false, shortBlock: true,
+    line: { when: "キャンセルされたとき",
+            greeting: "以下のご予約のキャンセルを承りました。",
+            pre: "またのご利用を心よりお待ちしております。" } },
+  { k: "customer_reminder", label: "受取前日のお知らせ",
+    subject: "明日はお受け取り日です",
+    intro: "ご予約いただいた商品は、明日お受け取りいただけます。\nお気をつけてお越しください。",
+    closing: "※このメールは送信専用です。\nお受け取り日時のご相談は、お店までご連絡ください。",
+    manage: true, policy: false,
+    line: { when: "お受け取りの前日",
+            greeting: "明日はお受け取り日です。お気をつけてお越しください。", pay: true } },
+];
+const MAIL_PAY_DEFAULT = "店頭でのお支払いをお願いします";
+const LINE_PAY_DEFAULT = "お支払いは店頭でお願いします。";
+const mailKind = () => MAIL_KINDS.find((m) => m.k === state.mailKind) || MAIL_KINDS[0];
+
+/* いま画面に出ている2枠を、種類ごとの下書きへしまう（種類を切り替えても消えないように） */
+function mailStash() {
+  const cur = state.mailTexts[state.mailKind] || (state.mailTexts[state.mailKind] = {});
+  cur.intro = $("t-mail-intro").value;
+  cur.outro = $("t-mail-outro").value;
+}
+
+/* 保存する値。書いていない種類はキーごと持たない＝既定文のまま送られる */
+function mailTextsValue() {
+  mailStash();
+  const out = {};
+  const pay = $("t-mail-payment").value.trim();
+  if (pay) out.payment = pay;
+  for (const m of MAIL_KINDS) {
+    const v = state.mailTexts[m.k] || {};
+    const one = {};
+    if ((v.intro || "").trim()) one.intro = v.intro.trim();
+    if ((v.outro || "").trim()) one.outro = v.outro.trim();
+    if (Object.keys(one).length) out[m.k] = one;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function mailPaint() {
+  const m = mailKind();
+  const cur = state.mailTexts[m.k] || {};
+  $("t-mail-intro").value = cur.intro || "";
+  $("t-mail-outro").value = cur.outro || "";
+  // 空欄のときは既定文をうすく見せる＝「空欄にすると何が送られるか」が分かる
+  $("t-mail-intro").placeholder = m.intro;
+  $("t-mail-outro").placeholder = "例：駐車場は店舗裏に3台ございます。";
+  for (const [id, val] of [["mail-kinds", m.k], ["mail-ch", state.mailCh]]) {
+    [...$(id).querySelectorAll("button")].forEach((b) => b.classList.toggle("on", b.dataset.v === val));
+  }
+  mailPreview();
+}
+
+/* 送られる文の見本。色の付いた行が店主の書いた文、それ以外は自動で作られる部分 */
+function mailPreview() {
+  const m = mailKind();
+  const cur = state.mailTexts[m.k] || {};
+  const shop = $("t-name").value.trim() || "お店の名前";
+  const payRaw = $("t-mail-payment").value.trim();
+  const policy = $("t-cancel").value.trim();
+  const selfOn = $("t-self-enabled").checked;
+  const outro = (cur.outro || "").trim();
+  const mine = (text, key) =>
+    `<span class="mail-mine${state.mailLight === key ? " lit" : ""}">${esc(text)}</span>`;
+  const out = [];
+
+  if (state.mailCh === "line") {
+    const L = m.line;
+    out.push(`LINE：${esc(L.when)}に届きます`
+             + (L.noNote ? "" : "（LINE連携をされたお客様にだけ）"));
+    out.push("──────────");
+    out.push("山田 花子 様");
+    out.push(esc(L.greeting));
+    out.push("");
+    out.push("予約番号：No.1024");
+    out.push("受取日時：2026年12月24日（木） 15:00〜16:00");
+    out.push("ご注文：ショートケーキ（5号）");
+    if (!m.shortBlock) out.push("合計：4,800円（税込）");
+    if (L.pay) out.push(mine(payRaw || LINE_PAY_DEFAULT, "pay"));
+    if (m.manage && selfOn && state.formUrl) {
+      out.push("");
+      out.push("▼ご予約の確認・変更・キャンセル");
+      out.push(esc(state.formUrl) + "manage.html?t=…");
+    }
+    if (L.pre) { out.push(""); out.push(esc(L.pre)); }
+    if (outro) { out.push(""); out.push(mine(outro, "outro")); }
+    out.push("");
+    out.push(esc(shop));
+    $("mail-preview").innerHTML = out.join("\n");
+    return;
+  }
+
+  out.push(`件名：【${esc(shop)}】${esc(m.subject)}（No.1024）`);
+  out.push("──────────");
+  out.push("山田 花子 様");
+  out.push("");
+  out.push(mine(cur.intro?.trim() || m.intro, "intro"));
+  out.push("");
+  out.push("■ 予約番号：No.1024");
+  out.push("■ 受取日時：2026年12月24日（木） 15:00〜16:00");
+  out.push("■ ご注文：ショートケーキ（5号）");
+  if (!m.shortBlock) {
+    out.push("　・フルーツ：いちご");
+    out.push("■ ご記入内容");
+    out.push("　・プレートの文字：Happy Birthday");
+    out.push("■ 合計金額：4,800円（税込）");
+    out.push("■ お支払い：" + mine(payRaw || MAIL_PAY_DEFAULT, "pay"));
+  }
+  // 描画の条件はDB側と同じ（self_manage_enabled かつ public_form_url が空でない）。
+  // URLが無い店では見本からもこの節が消えるので、沈黙する機能に目で気づける
+  if (m.manage && selfOn && state.formUrl) {
+    out.push("");
+    out.push("■ ご予約の確認・変更・キャンセル");
+    out.push("以下のページからご自身でお手続きいただけます。");
+    out.push(esc(state.formUrl) + "manage.html?t=…");
+  }
+  if (m.policy && policy) {
+    out.push("");
+    out.push("■ キャンセルについて");
+    out.push(esc(policy));
+  }
+  if (m.pre) { out.push(""); out.push(esc(m.pre)); }
+  if (outro) { out.push(""); out.push(mine(outro, "outro")); }
+  out.push("");
+  out.push(esc(m.closing));
+  out.push("");
+  out.push(esc(shop));
+  out.push(esc($("t-email").value.trim() || "notify@example.com"));
+  $("mail-preview").innerHTML = out.join("\n");
+}
+
+function mailInit(t) {
+  const src = t.email_texts || {};
+  state.mailTexts = {};
+  for (const m of MAIL_KINDS) {
+    state.mailTexts[m.k] = { intro: src[m.k]?.intro || "", outro: src[m.k]?.outro || "" };
+  }
+  $("t-mail-payment").value = src.payment || "";
+  state.mailKind = MAIL_KINDS[0].k;
+  state.mailCh = "mail";
+
+  const chips = (id, items, onPick) => {
+    const wrap = $(id);
+    wrap.innerHTML = "";
+    for (const it of items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pill mail-chip";
+      b.dataset.v = it.v;
+      b.textContent = it.label;
+      b.onclick = () => { mailStash(); onPick(it.v); mailPaint(); };
+      wrap.appendChild(b);
+    }
+  };
+  chips("mail-kinds", MAIL_KINDS.map((m) => ({ v: m.k, label: m.label })), (v) => { state.mailKind = v; });
+  chips("mail-ch", [{ v: "mail", label: "メール" }, { v: "line", label: "LINE" }],
+        (v) => { state.mailCh = v; });
+
+  // 設定タブは読み直すたびに loadTenantForm が走るので、登録は1度だけにする
+  if (!state.mailBound) {
+    state.mailBound = true;
+    const keys = { "t-mail-intro": "intro", "t-mail-outro": "outro", "t-mail-payment": "pay" };
+    for (const [id, key] of Object.entries(keys)) {
+      $(id).addEventListener("input", () => { mailStash(); mailPreview(); markDirty(); });
+      // 触っている欄が見本のどこに出るかを光らせる（説明文の代わり・商品ページと同じ）
+      $(id).addEventListener("focus", () => { state.mailLight = key; mailPreview(); });
+      $(id).addEventListener("blur", () => { state.mailLight = null; mailPreview(); });
+    }
+    // 見本には店名・通知メール・キャンセルポリシー・セルフ操作の有無も映る
+    for (const id of ["t-name", "t-email", "t-cancel"]) $(id).addEventListener("input", mailPreview);
+    $("t-self-enabled").addEventListener("change", mailPreview);
+  }
+  mailPaint();
+}
+
 /* ---------- 設定 ---------- */
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 async function loadTenantForm() {
@@ -430,6 +638,12 @@ async function loadTenantForm() {
   // 受取前日のリマインド
   $("t-reminder-enabled").checked = t.reminder_enabled === true;
   $("t-reminder-time").value = (t.reminder_send_at || "18:00").slice(0, 5);
+  // 予約フォームの公開URL。ここが空だと、セルフ操作もLINEもリンクが出ない
+  // （管理画面では有効に見えるのに機能だけ沈黙する形だったので、気づけるようにする）
+  state.formUrl = (t.public_form_url || "").trim();
+  $("self-url-warn").classList.toggle("hidden", !!state.formUrl);
+  // お客様へのメール／LINEの文面（はじめの文・おわりに足す文・お支払いの1行）
+  mailInit(t);
   const w = $("t-weekdays");
   w.innerHTML = "";
   WEEKDAYS.forEach((name, i) => {
@@ -474,6 +688,9 @@ async function loadTenantForm() {
   if (frame.getAttribute("src") !== src) frame.src = src;
   frame.onload = pushThemePreview;
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
+  // メール文面は4種ぶんを1つのjsonbにまとめて持つ（tokushoho・customer_form と同じ形）。
+  // 代表の欄として「はじめの文」を登録し、値は mailTextsValue が4種ぶん組み立てる
+  regField("tenants", T, "email_texts", $("t-mail-intro"), { get: mailTextsValue });
   // 時刻はNOT NULL。空にされたら既定の18:00に戻す（空欄保存でエラーにしない）
   regField("tenants", T, "reminder_send_at", $("t-reminder-time"),
     { get: () => $("t-reminder-time").value.trim() || "18:00" });

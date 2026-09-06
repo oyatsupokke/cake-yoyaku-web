@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788495328">
-<link rel="stylesheet" href="admin.css?v=1788495328">
+<link rel="stylesheet" href="../styles.css?v=1788701462">
+<link rel="stylesheet" href="admin.css?v=1788701462">
 </head>
 <body>
 <div id="app" class="admin">
@@ -163,8 +163,14 @@
       </div>
       <div class="confirm-box">
         <h3>1日の上限（全体）</h3>
-        <p class="small">空欄にすると上限なしになります。商品ごとの上限（例：このケーキは1日3台まで）は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。</p>
+        <p class="small">お店全体で「1日に何台まで受けるか」です。空欄にすると上限なしになります。商品ごとの上限（例：このケーキは1日3台まで）は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。</p>
         <div id="rules-list"></div>
+        <div class="override-add hidden" id="rule-add">
+          <span>1日</span>
+          <input type="number" id="rule-daily" min="0" style="width:90px" placeholder="10">
+          <span>台まで</span>
+          <button type="button" class="pill" id="btn-rule-add">この上限にする</button>
+        </div>
       </div>
       <div class="confirm-box">
         <h3>受取時間</h3>
@@ -231,6 +237,9 @@
       </div>
       <div class="confirm-box">
         <h3>お客様への案内とセルフ操作</h3>
+        <label class="field">予約ページの注意書き（「選択中のケーキ」の下に出ます）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキの絵や写真の下に出る一言です。「写真はイメージです」「果物は季節により異なります」など。空欄にすると何も出ません。">？</button>
+          <textarea id="t-preview-note" rows="2" placeholder="例: ※写真はイメージです。季節により果物が変わります。"></textarea>
+        </label>
         <label class="field">キャンセルポリシー（予約確認画面・確認メール・お客様の管理ページに表示されます）<button type="button" class="tip" data-tip="書いた内容がそのまま表示されます。「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
           <textarea id="t-cancel" rows="3"></textarea>
         </label>
@@ -315,7 +324,7 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788495328"></script>
-<script src="admin.js?v=1788495328"></script>
+<script src="tips.js?v=1788701462"></script>
+<script src="admin.js?v=1788701462"></script>
 </body>
 </html>

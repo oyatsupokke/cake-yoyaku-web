@@ -255,3 +255,46 @@
 @media (min-width: 1360px) {
   .grp-body, .q-body { grid-template-columns: minmax(0, 1fr) 380px; }
 }
+
+/* 「画像を貼ってもらう」形式の質問（2026-09-06）。プレビューでの見え方 */
+.q-img-preview {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border: 1px solid var(--primary-deep); border-radius: 8px; color: var(--primary-deep);
+  font-size: .9rem; background: #fff;
+}
+.q-img-preview .mini { color: #a08a8f; }
+.q-fields .q-imgmax { white-space: nowrap; }
+
+/* 見本の画像（プレビュー内の見え方） */
+.pv-sample { display: block; margin-bottom: 8px; }
+.pv-sample img { display: block; max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--line); }
+.q-sample-field, .g-sample { margin-top: 8px; }
+
+/* ---- 商品タブ：カテゴリで畳む＋名前で絞る（2026-09-06） ---- */
+.prod-filter { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.prod-filter input {
+  flex: 1; max-width: 280px; padding: 8px 12px; font-size: 16px; font-family: inherit;
+  border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+}
+.prod-filter input:focus { outline: none; border-color: var(--primary-deep); }
+.prod-hits { font-size: .78rem; color: #a08a8f; white-space: nowrap; }
+
+.tab-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.cat-band { margin-top: 6px; }
+.cat-band > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  padding: 8px 2px 6px; font-size: .82rem; color: #8d7b80; font-weight: bold;
+  border-top: 1px solid var(--line);
+}
+.cat-band > summary::-webkit-details-marker { display: none; }
+.cat-band > summary::before { content: "▾"; font-size: .7rem; color: var(--primary-deep); }
+.cat-band:not([open]) > summary::before { content: "▸"; }
+.cat-band .cat-count {
+  font-weight: normal; background: #f3ebe8; border-radius: 999px; padding: 1px 8px; font-size: .74rem;
+}
+.cat-band > .tab-row { padding-bottom: 4px; }
+
+.cat-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.cat-row .cat-rename { flex: 1; min-width: 140px; font-size: 16px; }
+.cat-row .mini { color: #a08a8f; white-space: nowrap; }
+.cat-row button[disabled] { opacity: .35; cursor: default; }

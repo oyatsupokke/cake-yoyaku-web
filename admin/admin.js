@@ -38,6 +38,22 @@ function toast(msg) {
   t._h = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add("hidden"), 400); }, 2600);
 }
 
+/* ---------- 入力欄をスクロールから守る（2026-09-06） ----------
+ * ブラウザの仕様で、数値・日時の入力欄はフォーカスされているとホイールで値が変わる。
+ * 空の datetime-local はそれだけで「いまの日時」が入る。
+ * 実際に本番で「受付開始」に身に覚えのない日時（保存の86秒前・秒は00）が入っていた。
+ * 価格や台数でも同じ事故が起きるので、ホイールが来たらフォーカスを外して値を守る。 */
+const SPINNABLE = /^(number|date|datetime-local|time|month|week)$/;
+document.addEventListener("wheel", (e) => {
+  const el = document.activeElement;
+  if (!el || el !== e.target || !SPINNABLE.test(el.type)) return;
+  e.preventDefault();   // 値を動かさない（passiveだと止められないので、この監視は非passive）
+  el.blur();
+  // 日付欄はblurしても中の桁にフォーカスが残る（Chrome）。
+  // そのままだとページが動かず固まって見えるので、代わりに自分でスクロールする
+  if (document.activeElement === el) window.scrollBy(0, e.deltaY);
+}, { passive: false });
+
 /* ---------- 認証 ---------- */
 function saveSession(s) { localStorage.setItem("pokke_admin_session", JSON.stringify(s)); state.session = s; }
 function loadSession() {
@@ -187,7 +203,7 @@ async function loadOrders() {
   state.orders = await api("GET",
     `/rest/v1/orders?tenant_id=eq.${state.tenantId}&pickup_date=eq.${state.date}` +
     `&order=pickup_slot_label.asc,order_number.asc` +
-    `&select=*,order_items(*,order_item_options(*)),order_answers(*)`);
+    `&select=*,order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at)`);
   renderPickup();
   renderKitchen();
 }
@@ -214,6 +230,7 @@ function renderPickup() {
         <span class="order-total">${yen(o.total_amount)}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
+        ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
       <div class="order-body hidden"></div>`;
@@ -225,6 +242,47 @@ function renderPickup() {
     wrap.appendChild(card);
   }
 }
+/* お客様が添付した画像（非公開バケット）を見るための署名付きURL。
+ * 店のログインで Storage に直接署名を頼む（ポリシー order_images_staff_object_read）。
+ * 有効期限は1時間。画面を開き直せばまた新しいURLが出る。 */
+async function signOrderImages(images) {
+  const out = [];
+  for (const im of [...(images || [])].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""))) {
+    try {
+      const r = await api("POST", `/storage/v1/object/sign/order-images/${im.path}`, { expiresIn: 3600 });
+      if (r?.signedURL) out.push({
+        id: im.id, question_id: im.question_id, note: im.note,
+        url: CONFIG.url + "/storage/v1" + r.signedURL,
+      });
+    } catch { /* 1枚読めなくても残りは見せる */ }
+  }
+  return out;
+}
+/* 予約詳細に画像を並べる（タップで原寸を別タブ） */
+async function paintOrderImages(box, o) {
+  const signed = await signOrderImages(o.order_images);
+  if (!signed.length) { box.remove(); return; }
+  const cell = (list) => list.map((x) =>
+    `<span class="order-image"><a href="${x.url}" target="_blank" rel="noopener">` +
+    `<img src="${x.url}" alt="お客様の添付画像"></a>` +
+    (x.note ? `<span class="cap">${esc(x.note)}</span>` : "") + `</span>`).join("");
+  // 質問ごとにまとめて、その質問の行（「2枚」と出ている行）を画像そのものに置き換える
+  const byQ = new Map();
+  const rest = [];
+  for (const x of signed) {
+    if (!x.question_id) { rest.push(x); continue; }
+    byQ.set(x.question_id, [...(byQ.get(x.question_id) || []), x]);
+  }
+  const body = box.parentElement;
+  for (const [qid, list] of byQ) {
+    const target = body.querySelector(`[data-q="${qid}"] .v`);
+    if (target) target.outerHTML = `<span class="order-images">${cell(list)}</span>`;
+    else rest.push(...list);
+  }
+  if (!rest.length) { box.previousElementSibling?.remove(); box.remove(); return; }
+  box.innerHTML = cell(rest);
+}
+
 function fillOrderBody(el, o) {
   const rows = [];
   const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
@@ -236,7 +294,11 @@ function fillOrderBody(el, o) {
     }
   }
   for (const a of o.order_answers) {
-    if (a.answer_text || a.choice_label_snapshot) row(a.label_snapshot, a.answer_text || a.choice_label_snapshot);
+    const v = a.answer_text || a.choice_label_snapshot;
+    if (!v) continue;
+    // 画像の回答は、あとで paintOrderImages がこの行にサムネイルを入れる
+    rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
+      `<span class="k">${esc(a.label_snapshot)}</span><span class="v">${esc(v)}</span></div>`);
   }
   if (o.customer_kana) row("フリガナ", o.customer_kana);
   const phone = String(o.customer_phone ?? "");
@@ -254,7 +316,12 @@ function fillOrderBody(el, o) {
   if (o.mail_failed) {
     actions += `<button type="button" class="pill mail-btn">確認メールを再送</button>`;
   }
-  el.innerHTML = rows.join("") + (actions ? `<div class="order-actions">${actions}</div>` : "");
+  const hasImages = (o.order_images || []).length > 0;
+  el.innerHTML = rows.join("") +
+    (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
+       <div class="order-images">読み込み中…</div>` : "") +
+    (actions ? `<div class="order-actions">${actions}</div>` : "");
+  if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   el.querySelector(".next-btn")?.addEventListener("click", () => updateStatus(o, NEXT[o.status]));
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
@@ -324,7 +391,7 @@ function renderKitchen() {
     card.className = "kcard";
     card.innerHTML = `
       <div class="khead"><span>${esc(o.pickup_slot_label)}</span>
-        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様</span>
+        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       <ul>${opts}${notes}</ul>
       ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
@@ -610,6 +677,7 @@ async function loadTenantForm() {
   $("t-deadline").value = t.default_deadline_days ?? 3;
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
+  $("t-preview-note").value = t.preview_note || "";
   $("t-cancel").value = t.cancel_policy || "";
   const cf = t.customer_form?.address ?? { enabled: false, required: false };
   $("t-addr-enabled").checked = !!cf.enabled;
@@ -661,6 +729,8 @@ async function loadTenantForm() {
   regField("tenants", T, "contact_email", $("t-email"));
   regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
   regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
+  regField("tenants", T, "preview_note", $("t-preview-note"),
+    { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
   regField("tenants", T, "cancel_policy", $("t-cancel"));
   regField("tenants", T, "customer_form", $("t-addr-enabled"), {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,
@@ -738,10 +808,25 @@ async function loadSettings() {
     const row = document.createElement("div");
     row.className = "rule-row";
     row.innerHTML = `<span class="rule-name">${esc(r.name)}</span>
-      <input type="number" min="0" placeholder="なし" value="${r.daily_limit ?? ""}"> 台/日`;
+      <input type="number" min="0" placeholder="なし" value="${r.daily_limit ?? ""}"> 台/日
+      <button type="button" class="pill danger">やめる</button>`;
     regField("capacity_rules", r.id, "daily_limit", row.querySelector("input"), { number: true });
+    row.querySelector("button").onclick = async () => {
+      if (!confirm(`「${r.name}」をやめますか？\n（この上限がなくなり、1日に受ける台数は無制限になります）`)) return;
+      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${r.id}`);
+      toast("上限をやめました");
+      loadSettings();
+    };
     rw.appendChild(row);
   }
+  // 上限のルールが1本も無い店では、ここから追加できるようにする（2026-09-04）
+  // 以前は pokke 側がSQLで入れるしかなく、導入手順の工程4が店の手で完結しなかった
+  const hasAll = rules.some((r) => r.scope === "all");
+  if (!hasAll) {
+    rw.insertAdjacentHTML("beforeend",
+      `<p class="small">いまは1日の上限がありません（何台でもお受けします）。</p>`);
+  }
+  $("rule-add").classList.toggle("hidden", hasAll);
 
   // 商品ごとの設定（締切・公開・上限）は商品エディタ（products.html）に集約（まりほ指摘 2026-08-25）
 
@@ -815,6 +900,17 @@ async function addSlots(times) {
   toast(`${rows.length}枠を追加しました`);
   loadSlots();
 }
+$("btn-rule-add").onclick = async () => {
+  const n = parseInt($("rule-daily").value, 10);
+  if (!(n >= 0)) { toast("1日に受ける台数を入れてください"); return; }
+  await api("POST", "/rest/v1/capacity_rules", {
+    tenant_id: state.tenantId, name: "全体上限", scope: "all", daily_limit: n,
+  });
+  $("rule-daily").value = "";
+  toast(`1日${n}台までにしました`);
+  loadSettings();
+};
+
 $("btn-slot-bulk").onclick = () => {
   const start = $("slot-start").value, end = $("slot-end").value;
   const step = parseInt($("slot-interval").value, 10);

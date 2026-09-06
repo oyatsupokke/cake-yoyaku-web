@@ -18,10 +18,27 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const state = {
   session: null, tenantId: null, products: [], sharedLists: [], questions: [], globalGroups: [],
+  categories: [],
   current: null, fields: [],
   // 選択肢の「詳しい設定」を開いているもの。普段はたたんでおく（画面が縦に延々と続かないように）
   openOptions: new Set(),
 };
+
+/* ---------- 入力欄をスクロールから守る（2026-09-06） ----------
+ * ブラウザの仕様で、数値・日時の入力欄はフォーカスされているとホイールで値が変わる。
+ * 空の datetime-local はそれだけで「いまの日時」が入る。
+ * 実際に本番で「受付開始」に身に覚えのない日時（保存の86秒前・秒は00）が入っていた。
+ * 価格や台数でも同じ事故が起きるので、ホイールが来たらフォーカスを外して値を守る。 */
+const SPINNABLE = /^(number|date|datetime-local|time|month|week)$/;
+document.addEventListener("wheel", (e) => {
+  const el = document.activeElement;
+  if (!el || el !== e.target || !SPINNABLE.test(el.type)) return;
+  e.preventDefault();   // 値を動かさない（passiveだと止められないので、この監視は非passive）
+  el.blur();
+  // 日付欄はblurしても中の桁にフォーカスが残る（Chrome）。
+  // そのままだとページが動かず固まって見えるので、代わりに自分でスクロールする
+  if (document.activeElement === el) window.scrollBy(0, e.deltaY);
+}, { passive: false });
 
 /* ---------- 保存の仕組み ----------
  * 入力欄を「どのテーブルのどの項目か」と一緒に登録しておき、
@@ -236,12 +253,13 @@ async function deleteImageFile(url) {
   // ファイルは消さない（欄からは外れるが、元の商品の写真が突然消える事故を防ぐ）
   try {
     const u = encodeURIComponent(url);
-    const [ps, os, gs] = await Promise.all([
+    const [ps, os, gs, qs] = await Promise.all([
       api("GET", `/rest/v1/products?or=(photo_url.eq.${u},layer_url.eq.${u})&deleted_at=is.null&select=id`),
       api("GET", `/rest/v1/options?or=(photo_url.eq.${u},layer_url.eq.${u})&select=id`),
-      api("GET", `/rest/v1/option_groups?default_layer_url=eq.${u}&select=id`),
+      api("GET", `/rest/v1/option_groups?or=(default_layer_url.eq.${u},sample_image_url.eq.${u})&select=id`),
+      api("GET", `/rest/v1/common_questions?sample_image_url=eq.${u}&select=id`),
     ]);
-    if (ps.length + os.length + gs.length > 0) return; // 自分の行は呼び出し前に外れている
+    if (ps.length + os.length + gs.length + qs.length > 0) return; // 自分の行は呼び出し前に外れている
   } catch { /* 数えられなければ従来どおり消す */ }
   const path = url.slice(i + marker.length);
   await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${path}`, {
@@ -356,7 +374,7 @@ function buildPhotoField(opts) {
 /* ---------- データロード ---------- */
 async function loadAll(keepCurrent = true) {
   // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
-  const [products, lists, questions, globalGroups] = await Promise.all([
+  const [products, lists, questions, globalGroups, categories] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
       `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
     api("GET", `/rest/v1/shared_lists?tenant_id=eq.${state.tenantId}&select=*,shared_list_items(*)`),
@@ -364,11 +382,13 @@ async function loadAll(keepCurrent = true) {
       `&select=*,common_question_choices(*),common_question_products(product_id)`),
     api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&product_id=is.null&order=display_order` +
       `&select=*,options(*,shared_list_items(*))`),
+    api("GET", `/rest/v1/categories?tenant_id=eq.${state.tenantId}&order=display_order`),
   ]);
   state.products = products;
   state.sharedLists = lists;
   state.questions = questions;
   state.globalGroups = globalGroups;
+  state.categories = categories;
   if (keepCurrent && state.current) {
     state.current = products.find((p) => p.id === state.current.id) || products[0] || null;
   } else {
@@ -378,28 +398,157 @@ async function loadAll(keepCurrent = true) {
   renderTabs();
   renderEditor();
   renderQuestions();
+  renderCategories();
   renderSharedLists();
   $("save-bar").classList.remove("hidden");
   markDirty();
 }
 
-/* ---------- 商品タブ ---------- */
+/* ---------- 商品タブ（2026-09-06：カテゴリで畳む＋名前で絞る） ----------
+ * 商品が10を超えたあたりからタブが3行以上になり、いまどれを編集しているか
+ * 分からなくなる（導入手順書の「わかっていること」3）。
+ *   ・カテゴリを1つも作っていない店は、今までどおり平らに並ぶ
+ *   ・絞り込み欄は商品が増えてから出す（少ない店の画面を余計にしない）
+ * 畳んだ状態はこのブラウザに覚えさせる（店ごとの好みなのでサーバーには持たない）。
+ */
+const CLOSED_CATS_KEY = "pokke_admin_closed_cats";
+function closedCats() {
+  try { return new Set(JSON.parse(localStorage.getItem(CLOSED_CATS_KEY)) || []); } catch { return new Set(); }
+}
+function saveClosedCats(set) {
+  try { localStorage.setItem(CLOSED_CATS_KEY, JSON.stringify([...set])); } catch { /* 使えなくても畳めるだけ */ }
+}
+
+function makeProdTab(p) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "prod-tab" + (state.current?.id === p.id ? " selected" : "") + (p.is_published ? "" : " unpublished");
+  b.textContent = p.name + (p.is_published ? "" : "（非公開）");
+  b.onclick = () => {
+    if (!confirmLeave()) return;
+    state.dirty = false;
+    state.current = p; renderTabs(); renderEditor();
+  };
+  return b;
+}
+
+// ひらがなで打ってもカタカナの商品名に当たるようにする（「くりすます」→「クリスマス」）
+const forMatch = (s) => String(s || "").toLowerCase()
+  .replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
 function renderTabs() {
   const wrap = $("prod-tabs");
   wrap.innerHTML = "";
-  for (const p of state.products) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "prod-tab" + (state.current?.id === p.id ? " selected" : "") + (p.is_published ? "" : " unpublished");
-    b.textContent = p.name + (p.is_published ? "" : "（非公開）");
-    b.onclick = () => {
-      if (!confirmLeave()) return;
-      state.dirty = false;
-      state.current = p; renderTabs(); renderEditor();
-    };
-    wrap.appendChild(b);
+  const raw = ($("prod-filter")?.value || "").trim();
+  const q = forMatch(raw);
+  const shown = state.products.filter((p) => !q || forMatch(p.name).includes(q));
+
+  const needFilter = state.products.length > 8;
+  $("prod-filter-row").classList.toggle("hidden", !needFilter);
+  $("prod-hits").textContent = raw ? `${shown.length}件` : `${state.products.length}商品`;
+
+  const rowOf = (items) => {
+    const row = document.createElement("div");
+    row.className = "tab-row";
+    items.forEach((p) => row.appendChild(makeProdTab(p)));
+    return row;
+  };
+
+  if (!state.categories.length) {
+    wrap.appendChild(rowOf(shown));
+  } else {
+    const closed = closedCats();
+    const bands = [...state.categories, { id: null, name: "未分類" }];
+    for (const c of bands) {
+      const items = shown.filter((p) => (p.category_id || null) === (c.id || null));
+      if (!items.length) continue;
+      const band = document.createElement("details");
+      band.className = "cat-band";
+      const key = c.id || "none";
+      // 絞り込み中と、いま編集している商品が入っている帯は必ず開く
+      band.open = !!q || items.some((p) => p.id === state.current?.id) || !closed.has(key);
+      const sum = document.createElement("summary");
+      sum.innerHTML = `<span class="cat-name">${esc(c.name)}</span><span class="cat-count">${items.length}</span>`;
+      band.appendChild(sum);
+      band.appendChild(rowOf(items));
+      band.addEventListener("toggle", () => {
+        const now = closedCats();
+        band.open ? now.delete(key) : now.add(key);
+        saveClosedCats(now);
+      });
+      wrap.appendChild(band);
+    }
+  }
+  if (!shown.length) {
+    wrap.insertAdjacentHTML("beforeend", `<p class="small">「${esc(raw)}」に合う商品はありません</p>`);
   }
 }
+$("prod-filter").addEventListener("input", () => renderTabs());
+
+/* ---------- カテゴリ（商品タブのまとめ方・お客様の画面には出ない） ---------- */
+// URLに使う名前。お客様に出るものではないので店には聞かず、こちらで作る
+function makeCatSlug(name) {
+  const taken = new Set(state.categories.map((c) => c.slug));
+  let base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (!base) base = "cat";
+  let slug = base;
+  let n = 2;
+  while (taken.has(slug)) slug = `${base}-${n++}`;
+  return slug;
+}
+
+function renderCategories() {
+  const wrap = $("cat-list");
+  wrap.innerHTML = "";
+  if (!state.categories.length) {
+    wrap.innerHTML = `<p class="small">まだカテゴリはありません（商品タブは今までどおり並びます）。</p>`;
+  }
+  state.categories.forEach((c, i) => {
+    const n = state.products.filter((p) => p.category_id === c.id).length;
+    const row = document.createElement("div");
+    row.className = "cat-row";
+    row.innerHTML = `
+      <input type="text" class="cat-rename inplace" value="${esc(c.name)}" aria-label="カテゴリ名">
+      <span class="mini">${n}商品</span>
+      <button type="button" class="pill cat-up" ${i === 0 ? "disabled" : ""} aria-label="上へ">↑</button>
+      <button type="button" class="pill cat-down" ${i === state.categories.length - 1 ? "disabled" : ""} aria-label="下へ">↓</button>
+      <button type="button" class="pill danger cat-del">削除</button>`;
+    regField("categories", c.id, "name", row.querySelector(".cat-rename"));
+    const swap = async (j) => {
+      const other = state.categories[j];
+      await api("PATCH", `/rest/v1/categories?id=eq.${c.id}`, { display_order: other.display_order });
+      await api("PATCH", `/rest/v1/categories?id=eq.${other.id}`, { display_order: c.display_order });
+      reloadAll();
+    };
+    row.querySelector(".cat-up").onclick = () => swap(i - 1);
+    row.querySelector(".cat-down").onclick = () => swap(i + 1);
+    row.querySelector(".cat-del").onclick = async () => {
+      if (!confirm(`カテゴリ「${c.name}」を削除しますか？\n` +
+        (n ? `この中の${n}商品は「未分類」に移ります（商品は消えません）。` : "")))
+        return;
+      try {
+        if (n) await api("PATCH", `/rest/v1/products?category_id=eq.${c.id}`, { category_id: null });
+        await api("DELETE", `/rest/v1/categories?id=eq.${c.id}`);
+        toast(`「${c.name}」を削除しました`);
+      } catch {
+        toast("このカテゴリは上限の設定などで使われているため削除できません");
+      }
+      reloadAll();
+    };
+    wrap.appendChild(row);
+  });
+}
+$("btn-cat-add").onclick = async () => {
+  const name = $("cat-name").value.trim();
+  if (!name) { toast("カテゴリ名を入れてください"); return; }
+  await api("POST", "/rest/v1/categories", [{
+    tenant_id: state.tenantId, name, slug: makeCatSlug(name),
+    display_order: state.categories.length,
+  }]);
+  $("cat-name").value = "";
+  toast(`カテゴリ「${name}」を作りました`);
+  reloadAll();
+};
 $("btn-new-product").onclick = async () => {
   const name = prompt("新しい商品の名前を入力してください");
   if (!name || !name.trim()) return;
@@ -472,6 +621,17 @@ function renderEditor() {
       return wd.length ? wd : null;
     },
   });
+
+  // カテゴリ（作っている店にだけ出す。商品タブのまとめ方であってお客様には出ない）
+  const catField = $("p-category-field");
+  catField.classList.toggle("hidden", !state.categories.length);
+  if (state.categories.length) {
+    $("p-category").innerHTML = `<option value="">未分類</option>` +
+      state.categories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+    $("p-category").value = p.category_id || "";
+    regField("products", p.id, "category_id", $("p-category"),
+      { get: () => $("p-category").value || null });
+  }
 
   // 商品写真
   const photoWrap = $("p-photo");
@@ -691,8 +851,10 @@ const Q_TYPES = [
   { v: "select", label: "プルダウン" },
   { v: "radio", label: "ラジオボタン（1つ選ぶ）" },
   { v: "checkbox", label: "チェックボックス（複数選べる）" },
+  { v: "image", label: "画像を貼ってもらう" },
 ];
 const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
+const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3);
 const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order);
 const typeOptions = (sel) => Q_TYPES.map((t) =>
   `<option value="${t.v}" ${t.v === sel ? "selected" : ""}>${t.label}</option>`).join("");
@@ -728,6 +890,10 @@ function answerFieldHtml(view) {
     return cs.map((c) => `<label class="pick"><input type="${t}" disabled>${esc(c.label || "（未入力）")}</label>`).join("")
       || `<span class="mini">回答の選択肢がまだありません</span>`;
   }
+  if (view.type === "image") {
+    return `<span class="q-img-preview">📷 写真を選ぶ` +
+      `<span class="mini">（お客様は${esc(view.imageMax || 3)}枚まで貼れます）</span></span>`;
+  }
   return `<input type="text" disabled>`;
 }
 
@@ -741,6 +907,10 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
     <select class="q-type">${typeOptions(q.input_type)}</select>
     <label class="chk"><input type="checkbox" class="q-req" ${q.is_required ? "checked" : ""}>必須にする</label>
+    <label class="chk q-imgmax ${q.input_type === "image" ? "" : "hidden"}">枚数
+      <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
+        `<option value="${n}" ${n === imgMaxOf(q) ? "selected" : ""}>${n}枚まで</option>`).join("")}</select>
+    </label>
     <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}"></div>
     ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に小さく出ます）">`}`;
 
@@ -755,6 +925,23 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   const reqEl = box.querySelector(".q-req");
   regField("common_questions", q.id, "is_required", reqEl);
   reqEl.addEventListener("change", () => { view.required = reqEl.checked; onPaint(); });
+
+  // 見本の画像（色見本・仕上がりの例など。プレビュー合成には使わない）
+  const sample = document.createElement("div");
+  sample.className = "q-sample-field";
+  sample.appendChild(buildPhotoField({
+    url: q.sample_image_url,
+    kind: "samples",
+    label: "見本の画像（任意）",
+    hint: "色見本・仕上がりの例など。お客様の画面で質問の下に出ます",
+    onChange: (url) => api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { sample_image_url: url }),
+  }));
+  box.appendChild(sample);
+
+  const maxEl = box.querySelector(".q-imgmax-sel");
+  regField("common_questions", q.id, "image_max", maxEl,
+    { get: () => parseInt(maxEl.value, 10) || 3 });
+  maxEl.addEventListener("change", () => { view.imageMax = parseInt(maxEl.value, 10) || 3; onPaint(); });
 
   box.querySelector(".q-type").addEventListener("change", async (e) => {
     const type = e.target.value;
@@ -853,6 +1040,7 @@ function buildGroupBox(p, g) {
         <textarea class="gh-note" rows="2" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
         <label class="chk"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
       <div class="g-default-layer"></div>
+      <div class="g-sample"></div>
       <p class="meta">選択肢 ${g.options.length}件</p>
       <div class="g-options"></div>
       <div class="override-add g-add-row ${g.shared_list_id ? "hidden" : ""}">
@@ -885,7 +1073,7 @@ function buildGroupBox(p, g) {
       return {
         id: o.id, name: optDisplayName(o), price: o.price_delta, available: o.is_available,
         q: q ? {
-          label: q.label, type: q.input_type, required: q.is_required,
+          label: q.label, type: q.input_type, required: q.is_required, imageMax: imgMaxOf(q),
           choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
         } : null,
       };
@@ -979,6 +1167,13 @@ function buildGroupBox(p, g) {
   });
 
   // グループの既定イラスト（何も選ばれていないときに重ねる絵）
+  box.querySelector(".g-sample").appendChild(buildPhotoField({
+    url: g.sample_image_url,
+    kind: "samples",
+    label: "見本の画像（任意）",
+    hint: "色見本・仕上がりの例など。お客様の画面で説明の下に出ます",
+    onChange: (url) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { sample_image_url: url }),
+  }));
   box.querySelector(".g-default-layer").appendChild(buildLayerField({
     url: g.default_layer_url,
     z: g.default_layer_z,
@@ -1311,13 +1506,16 @@ function buildQuestionBox(q) {
     </div>`;
 
   const view = {
-    label: q.label, required: !!q.is_required, type: q.input_type,
+    label: q.label, required: !!q.is_required, type: q.input_type, imageMax: imgMaxOf(q),
+    sample: q.sample_image_url,
     choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
   };
   const paint = () => {
     box.querySelector(".pv-label").textContent = view.label || "（質問文）";
     box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
-    box.querySelector(".pv-body").innerHTML = answerFieldHtml(view);
+    box.querySelector(".pv-body").innerHTML =
+      (view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt=""></span>` : "") +
+      answerFieldHtml(view);
     applyLight();
   };
 

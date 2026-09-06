@@ -291,3 +291,16 @@
   .th-cols { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
   .th-prev { position: sticky; top: 14px; }
 }
+
+/* ---- お客様の添付画像（2026-09-04） ---- */
+.st-image { background: #eef7ee; color: #3f7a45; }
+.order-images { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 10px; }
+.order-images img {
+  width: 110px; height: 110px; object-fit: cover;
+  border: 1px solid #e6dcdf; border-radius: 8px; display: block;
+}
+@media print {
+  .order-images img { width: 90px; height: 90px; }
+}
+.order-image { display: flex; flex-direction: column; gap: 3px; width: 110px; }
+.order-image .cap { font-size: .72rem; color: #8a7a6a; line-height: 1.4; }

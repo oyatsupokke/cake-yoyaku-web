@@ -6,7 +6,7 @@
 <title>オーダーケーキのご予約</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1788495328">
+<link rel="stylesheet" href="styles.css?v=1788701462">
 </head>
 <body>
 <div id="app">
@@ -19,13 +19,13 @@
 
   <main id="view-form">
 
-    <!-- デザインイメージ（プレビュー） -->
+    <!-- 選択中のケーキ（プレビュー枠） -->
     <section class="preview-box" id="preview-box">
       <div class="preview-canvas" id="preview-canvas">
         <span class="preview-placeholder">🎂</span>
       </div>
-      <p class="preview-caption">デザインイメージ</p>
-      <p class="preview-note">※実際の商品は、フルーツの大きさ・配置・仕入れ状況などにより異なります。</p>
+      <p class="preview-caption">選択中のケーキ</p>
+      <p class="preview-note hidden" id="preview-note"></p>
     </section>
 
     <!-- 1. ケーキを選ぶ -->
@@ -148,6 +148,6 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="app.js?v=1788495328"></script>
+<script src="app.js?v=1788701462"></script>
 </body>
 </html>

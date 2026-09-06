@@ -298,3 +298,46 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 @media (max-width: 919px) {
   .admin input, .admin select, .admin textarea { font-size: 16px !important; }
 }
+
+/* ---- 画像の添付（2026-09-06：「画像を貼ってもらう」形式の質問の回答欄） ---- */
+.img-box { display: block; font-weight: normal; }
+.img-list { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 10px; }
+.img-list:empty { margin: 0; }
+.img-cell { display: flex; flex-direction: column; gap: 5px; width: 116px; }
+.img-note-input {
+  width: 100%; padding: 6px 8px; font-size: 16px; font-family: inherit;
+  border: 1px solid var(--box); border-radius: var(--r); background: var(--bg); color: var(--ink);
+}
+.img-note-input:focus { outline: none; border-color: var(--accent); }
+.img-thumb {
+  position: relative; display: block; width: 116px; height: 116px; overflow: hidden;
+  border: 1px solid var(--box); border-radius: var(--r); background: var(--boxbg);
+}
+.img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-thumb .rm {
+  position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; padding: 0;
+  border: none; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff;
+  font-size: 15px; line-height: 1; cursor: pointer;
+}
+.img-thumb.busy { display: grid; place-items: center; font-size: .74rem; color: var(--mute); }
+.img-pick {
+  display: inline-block; margin-top: 6px; padding: 10px 20px; background: var(--bg);
+  border: 1px solid var(--accent); border-radius: var(--r);
+  color: var(--accent-deep); font-size: .92rem; font-weight: bold; cursor: pointer;
+}
+.img-pick.disabled { opacity: .45; pointer-events: none; }
+.img-note { display: block; color: var(--mute); margin: 6px 0 0; font-weight: normal; }
+.confirm-thumbs { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }
+.confirm-thumb { display: flex; flex-direction: column; gap: 3px; width: 84px; text-align: right; }
+.confirm-thumb img {
+  width: 84px; height: 84px; object-fit: cover;
+  border: 1px solid var(--line); border-radius: var(--r);
+}
+.confirm-thumb .cap { font-size: .74rem; color: var(--mute); line-height: 1.4; }
+
+/* ---- 店が用意した見本の画像（2026-09-06）。プレビュー合成には使わない ---- */
+.sample-img { display: block; margin: 8px 0 10px; cursor: zoom-in; }
+.sample-img img {
+  display: block; max-width: 100%; width: auto; max-height: 220px;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+}

@@ -208,7 +208,7 @@ async function restoreSaved() {
       if ($("cust-postal")) { $("cust-postal").value = c.postal || ""; $("cust-address").value = c.address || ""; }
     }
     const p = state.products.find((x) => x.id === saved.product_id);
-    if (!p) return;
+    if (!p || !onSale(p)) return;   // 受付期間が終わった商品の下書きは復元しない
     selectProduct(p);
     const v = p.product_variants.find((x) => x.id === saved.variant_id);
     if (!v) return;
@@ -250,6 +250,10 @@ async function load() {
       $("req-address").classList.remove("hidden");
     }
   }
+  // プレビュー枠の注意書きは店ごとの設定（空欄なら1行も出さない）
+  const pnote = (state.tenant.preview_note || "").trim();
+  $("preview-note").textContent = pnote;
+  $("preview-note").classList.toggle("hidden", !pnote);
   document.title = `${state.tenant.name}｜オーダーケーキのご予約`;
   $("shop-name").textContent = state.tenant.name;
   applyTheme(state.tenant.theme);
@@ -356,6 +360,7 @@ async function enterEditMode() {
     const slot = state.slots.find((x) => x.id === EDIT_ORDER.pickup_slot_id);
     if (slot) { state.sel.slot = slot; renderSlots(); }
     renderQuestions();
+    await loadOrderImages(EDIT_TOKEN);
     toast("いまのご予約内容を読み込みました。変更したいところを直してください");
   } finally {
     RESTORING = false;
@@ -363,6 +368,23 @@ async function enterEditMode() {
 }
 
 /* ---------- ユーティリティ ---------- */
+/* 販売期間（受付開始・受付終了）。これまでこの判定はサーバー側の日付チェック
+ * （fn_date_orderable）にしか無く、受付前・受付終了後の商品も一覧に並んでいた。
+ * お客様から見ると「選べるのにカレンダーが全部灰色の商品」になる（2026-09-06 修正）。 */
+function onSale(p) {
+  const now = Date.now();
+  if (p.sale_start_at && now < Date.parse(p.sale_start_at)) return false;
+  if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
+  return true;
+}
+/* 一覧に出す商品。
+ *  ・代行登録（お店の入力）は、受付前・受付終了後も店の判断で登録できるので全部出す
+ *  ・すでに選んでいる商品は残す＝変更モードで開いた予約の商品が、受付終了後に
+ *    消えてお客様が内容変更できなくなるのを防ぐ */
+function visibleProducts() {
+  if (STAFF_MODE) return state.products;
+  return state.products.filter((p) => onSale(p) || p.id === state.sel.product?.id);
+}
 const optName = (o) => o.name || o.shared_list_items?.name || "";
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
 const optDesc = (o) => o.description || "";
@@ -427,7 +449,7 @@ const EMOJI = { "生クリームデコレーション": "🍰", "フルーツタ
 function renderProducts() {
   const wrap = $("product-cards");
   wrap.innerHTML = "";
-  for (const p of state.products) {
+  for (const p of visibleProducts()) {
     const prices = p.product_variants.filter((v) => v.is_available).map((v) => v.price);
     const el = document.createElement("div");
     el.className = "card" + (state.sel.product?.id === p.id ? " selected" : "");
@@ -557,7 +579,13 @@ function selectVariant(v) {
   // 受取日はサイズ確定後に（サイズ別上限があるため）
   state.sel.date = null;
   state.sel.slot = null;
-  state.calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  // 受取できる期間が先にある商品（クリスマスなど）は、その最初の月から開く。
+  // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
+  const pStart = state.sel.product.pickup_start_date
+    ? new Date(state.sel.product.pickup_start_date + "T00:00:00") : null;
+  const today = new Date();
+  const calBase = pStart && pStart > today ? pStart : today;
+  state.calMonth = new Date(calBase.getFullYear(), calBase.getMonth(), 1);
   $("sec-date").classList.remove("hidden");
   $("slot-area").classList.add("hidden");
   loadCalendar();
@@ -583,7 +611,9 @@ function renderGroups() {
     box.className = "group";
     box.innerHTML = `<h3>${g.name}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
       (g.description ? `<p class="group-desc">${g.description}</p>` : "") +
-      (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${g.note}</p>` : "");
+      (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${g.note}</p>` : "") +
+      sampleImageHtml(g.sample_image_url);
+    wireSampleImage(box);
     for (const o of sortedOpts(g)) {
       if (!o.is_available) continue;
       // 共有リスト由来なのに項目が取れない=停止中（RLSで非表示）→ 出さない
@@ -813,6 +843,7 @@ function normAnswer(a) {
   return {
     text: a?.text ?? null,
     choiceIds: a?.choiceIds ? [...a.choiceIds] : (a?.choiceId ? [a.choiceId] : []),
+    images: a?.images ?? [],   // 「画像を貼ってもらう」形式の質問の添付（配列は共有して持ち回る）
   };
 }
 function visibleQuestions() {  // 店全体の質問（選択肢の質問は選択肢の下に出すのでここには含めない）
@@ -834,6 +865,13 @@ const askedQuestions = () => [...visibleQuestions(), ...optionQuestions()];
 function answerInputsHtml(q) {
   const cs = qChoices(q);
   const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
+  if (q.input_type === "image") {
+    return `<span class="img-box" id="img-box-${q.id}">` +
+      `<span class="img-list"></span>` +
+      `<span class="img-pick"><input type="file" accept="image/*" multiple hidden>` +
+      `<span class="img-pick-label">写真を選ぶ</span></span>` +
+      `<span class="small img-note"></span></span>`;
+  }
   if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
@@ -847,11 +885,43 @@ function answerInputsHtml(q) {
   return `<input type="text">`;
 }
 /* 質問1つ分の入力欄を作る。共通の質問も選択肢の質問も同じ部品を使う */
+/* 店が用意した「見本の画像」（色見本・仕上がりの例など）。
+ * プレビュー合成には使わない、ただの見本（2026-09-06）。 */
+function sampleImageHtml(url) {
+  return url ? `<span class="sample-img"><img src="${url}" alt="見本" loading="lazy"></span>` : "";
+}
+function wireSampleImage(el) {
+  const s = el.querySelector(".sample-img");
+  if (!s) return;
+  // labelの中にあるので、押しただけで選択が変わらないように止めてから開く
+  s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.open(s.querySelector("img").src, "_blank"); };
+}
+
 function buildQuestionField(q) {
   const field = document.createElement("label");
   field.className = "field";
   field.innerHTML = `${q.label}${q.is_required ? '<span class="req">必須</span>' : ""}` +
-    (q.help_text ? `<span class="help">${q.help_text}</span>` : "") + answerInputsHtml(q);
+    (q.help_text ? `<span class="help">${q.help_text}</span>` : "") +
+    sampleImageHtml(q.sample_image_url) + answerInputsHtml(q);
+  wireSampleImage(field);
+
+  if (q.input_type === "image") {
+    // labelの中にfileを置くと、サムネイルを消すボタンを押しただけでも
+    // ファイル選択が開いてしまう。押せる場所を「写真を選ぶ」だけに絞る
+    field.className = "field img-field";
+    const picker = field.querySelector(".img-pick");
+    const file = picker.querySelector("input[type=file]");
+    picker.onclick = (e) => { e.preventDefault(); if (!picker.classList.contains("disabled")) file.click(); };
+    file.onchange = async (e) => {
+      const files = e.target.files;
+      e.target.value = "";        // 同じ写真をもう一度選べるように
+      await addImageFiles(q, files);
+    };
+    answerImages(q.id);           // 保存先の配列を用意しておく
+    setTimeout(() => paintImageAnswer(q), 0);
+    return field;
+  }
+
   const inputs = [...field.querySelectorAll("input,textarea,select")];
   const saved = normAnswer(state.sel.answers.get(q.id));
   const multi = q.input_type === "radio" || q.input_type === "checkbox";
@@ -875,6 +945,159 @@ function renderQuestions() {
   const wrap = $("question-list");
   wrap.innerHTML = "";
   for (const q of visibleQuestions()) wrap.appendChild(buildQuestionField(q));
+  for (const q of askedQuestions()) if (q.input_type === "image") paintImageAnswer(q);
+}
+
+/* ---------- 画像の添付（2026-09-06：質問の回答のしかたの1つ） ----------
+ * 「回答のしかた＝画像を貼ってもらう」の質問だけに出る欄。
+ * お客様が選んだ瞬間にブラウザで長辺1600pxへ縮小し、非公開バケットへ仮置きする。
+ * 注文が成立した時点でその注文と質問に紐づく（成立しなかったものは24時間で消える）。
+ * 実体は署名付きURLでしか読めない＝公開URLにはならない。
+ */
+const IMG_ENDPOINT = () => `${CONFIG.url}/functions/v1/order-images`;
+const IMG_MAX_SIDE = 1600;
+const imgMax = (q) => Math.min(Math.max(parseInt(q.image_max, 10) || 3, 1), 3);
+function answerImages(qid) {
+  let a = state.sel.answers.get(qid);
+  if (!a || !a.images) { a = normAnswer(a); state.sel.answers.set(qid, a); }
+  return a.images;
+}
+
+// スマホの写真はそのままだと数MBある。送る前に縮めるので5MB超の写真も選べる
+function shrinkImage(file, maxSide = IMG_MAX_SIDE, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";      // 透過PNG対策（白で塗ってから描く）
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => (blob ? resolve({ blob, w, h }) : reject(new Error("画像を変換できませんでした"))),
+        "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("画像を読み込めませんでした")); };
+    img.src = url;
+  });
+}
+
+async function uploadOneImage(file, q) {
+  const { blob, w, h } = await shrinkImage(file);
+  const res = await fetch(IMG_ENDPOINT(), {
+    method: "POST",
+    headers: {
+      apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "upload",
+      tenant_id: state.tenant.id,
+      product_id: state.sel.product.id,
+      question_id: q.id,
+      content_type: "image/jpeg",
+      bytes: blob.size, width: w, height: h,
+    }),
+  });
+  const j = await res.json().catch(() => null);
+  if (!j?.ok) throw new Error(j?.message || "画像を受け付けられませんでした");
+  const put = await fetch(j.upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": "image/jpeg" },
+    body: blob,
+  });
+  if (!put.ok) throw new Error("画像を送れませんでした。電波の良いところでもう一度お試しください");
+  return { id: j.id, url: URL.createObjectURL(blob), note: "" };
+}
+
+async function addImageFiles(q, files) {
+  const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
+  if (!list.length) { toast("画像ファイルをお選びください"); return; }
+  const images = answerImages(q.id);
+  const room = imgMax(q) - images.length;
+  if (room <= 0) { toast(`「${q.label}」は${imgMax(q)}枚までです`); return; }
+  if (list.length > room) toast(`あと${room}枚まで追加できます`);
+  for (const file of list.slice(0, room)) {
+    const slot = { id: null, url: null, note: "", busy: true };
+    images.push(slot);
+    paintImageAnswer(q);
+    try {
+      const up = await uploadOneImage(file, q);
+      slot.id = up.id;
+      slot.url = up.url;
+      slot.busy = false;
+    } catch (e) {
+      images.splice(images.indexOf(slot), 1);
+      toast(e.message);
+    }
+    paintImageAnswer(q);
+  }
+}
+
+/* 質問1つぶんの添付欄を描き直す（サムネイル・×・「写真を選ぶ」の出し分け） */
+function paintImageAnswer(q) {
+  const box = document.getElementById(`img-box-${q.id}`);
+  if (!box) return;
+  const images = answerImages(q.id);
+  const max = imgMax(q);
+  const list = box.querySelector(".img-list");
+  list.innerHTML = "";
+  for (const slot of images) {
+    const cell = document.createElement("span");
+    cell.className = "img-cell";
+    if (slot.busy) {
+      cell.innerHTML = `<span class="img-thumb busy">送信中…</span>`;
+    } else {
+      // 写真ごとにひとこと（「1枚目はこの形、2枚目はこの色」が書けるように）
+      cell.innerHTML =
+        `<span class="img-thumb"><img src="${slot.url}" alt="">` +
+        `<button type="button" class="rm" title="外す">×</button></span>` +
+        `<input type="text" class="img-note-input" maxlength="100" placeholder="この写真について（任意）">`;
+      cell.querySelector(".rm").onclick = () => {
+        images.splice(images.indexOf(slot), 1);
+        paintImageAnswer(q);
+      };
+      const noteEl = cell.querySelector(".img-note-input");
+      noteEl.value = slot.note || "";
+      noteEl.oninput = () => { slot.note = noteEl.value; };
+    }
+    list.appendChild(cell);
+  }
+  box.querySelector(".img-pick").classList.toggle("disabled", images.length >= max);
+  box.querySelector(".img-pick-label").textContent = images.length ? "写真を追加する" : "写真を選ぶ";
+  box.querySelector(".img-note").textContent =
+    `${max}枚まで・1枚5MBまで（JPEG・PNG）。スマホの写真はそのまま選べます。` +
+    `写真ごとに「この形で」などのひとことを添えられます`;
+}
+
+/* 変更モード：いまの予約に付いている画像を、質問ごとに読み込む（署名付きURLは1時間有効） */
+async function loadOrderImages(token) {
+  try {
+    const res = await fetch(IMG_ENDPOINT(), {
+      method: "POST",
+      headers: {
+        apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "view", manage_token: token }),
+    });
+    const j = await res.json();
+    if (!j?.ok) return;
+    for (const x of j.images || []) {
+      if (!x.question_id) continue;
+      const a = normAnswer(state.sel.answers.get(x.question_id));
+      a.images.push({ id: x.id, url: x.url, note: x.note || "", busy: false });
+      state.sel.answers.set(x.question_id, a);
+    }
+    renderQuestions();
+  } catch { /* 読めなくても、変更そのものは進められる */ }
 }
 
 /* ---------- 6. 確認 → 注文 ---------- */
@@ -893,8 +1116,14 @@ function validate() {
   if (!s.date) return "受取日を選んでください";
   if (!s.slot) return "受取時間を選んでください";
   for (const q of askedQuestions()) {
-    if (!q.is_required) continue;
     const a = normAnswer(s.answers.get(q.id));
+    if (q.input_type === "image") {
+      if (a.images.some((x) => x.busy)) return "画像の送信が終わるまで少しお待ちください";
+      if (q.is_required && !a.images.length) return `「${q.label}」の画像を1枚以上お選びください`;
+      if (a.images.length > imgMax(q)) return `「${q.label}」の画像は${imgMax(q)}枚までです`;
+      continue;
+    }
+    if (!q.is_required) continue;
     if (!a.choiceIds.length && !(a.text || "").trim()) return `「${q.label}」にご記入ください`;
   }
   if (!$("cust-sei").value.trim() || !$("cust-mei").value.trim()) return "お名前（姓・名）をご記入ください";
@@ -946,6 +1175,16 @@ function renderConfirm() {
   }
   for (const q of askedQuestions()) {
     const a = normAnswer(s.answers.get(q.id));
+    if (q.input_type === "image") {
+      if (a.images.length) {
+        rows.push(`<div class="confirm-row"><span class="k">${q.label}</span>` +
+          `<span class="confirm-thumbs">` +
+          a.images.map((x) => `<span class="confirm-thumb"><img src="${x.url}" alt="">` +
+            ((x.note || "").trim() ? `<span class="cap">${(x.note || "").trim()}</span>` : "") +
+            `</span>`).join("") + `</span></div>`);
+      }
+      continue;
+    }
     let v = a.text || "";
     if (a.choiceIds.length) {
       v = a.choiceIds.map((cid) => {
@@ -1009,7 +1248,12 @@ $("btn-submit").onclick = async () => {
           for (const [question_id, raw] of s.answers) {
             if (!asked.has(question_id)) continue;
             const a = normAnswer(raw);
-            if (a.choiceIds.length) {
+            // 画像の回答（仮置きのid。成立した時点でサーバー側が注文と質問に紐づける）
+            const imgs = a.images.filter((x) => x.id)
+              .map((x) => ({ id: x.id, note: (x.note || "").trim() || null }));
+            if (imgs.length) {
+              out.push({ question_id, answer_text: null, choice_id: null, images: imgs });
+            } else if (a.choiceIds.length) {
               for (const choice_id of a.choiceIds) out.push({ question_id, answer_text: null, choice_id });
             } else if ((a.text || "").trim()) {
               out.push({ question_id, answer_text: a.text.trim(), choice_id: null });

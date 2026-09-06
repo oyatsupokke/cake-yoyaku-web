@@ -69,6 +69,46 @@ function fmtPickup(dateStr, slotLabel) {
   return `${y}年${m}月${d}日（${dow}） ${slotLabel}`;
 }
 
+/* ---------- 添付いただいた画像（2026-09-04） ----------
+ * 実体は非公開バケットにあり、Edge Function が manage_token を確かめて
+ * 1時間だけ有効な署名付きURLを返す（メールには画像を添付しない方針）。 */
+async function loadOrderImages() {
+  try {
+    const res = await fetch(`${CONFIG.url}/functions/v1/order-images`, {
+      method: "POST",
+      headers: {
+        apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "view", manage_token: TOKEN }),
+    });
+    const j = await res.json();
+    if (!j?.ok || !j.images?.length) return;
+    const thumbs = (list) => `<span class="manage-thumbs">` + list.map((x) =>
+      `<span class="manage-thumb"><a href="${x.url}" target="_blank" rel="noopener">` +
+      `<img src="${x.url}" alt="添付画像"></a>` +
+      (x.note ? `<span class="cap">${x.note}</span>` : "") + `</span>`).join("") + `</span>`;
+    // 質問ごとにまとめて、その質問の行（「2枚」と出ている行）を画像そのものに置き換える
+    const rest = [];
+    const byQ = new Map();
+    for (const x of j.images) {
+      if (!x.question_id) { rest.push(x); continue; }
+      byQ.set(x.question_id, [...(byQ.get(x.question_id) || []), x]);
+    }
+    for (const [qid, list] of byQ) {
+      const cell = $("order-detail").querySelector(`[data-q="${qid}"] .v`);
+      if (cell) cell.outerHTML = thumbs(list);
+      else rest.push(...list);
+    }
+    if (rest.length) {
+      const box = document.createElement("div");
+      box.className = "confirm-row";
+      box.innerHTML = `<span class="k">添付画像</span>` + thumbs(rest);
+      $("order-detail").appendChild(box);
+    }
+  } catch { /* 画像が出せなくても、予約内容の確認・変更は使える */ }
+}
+
 /* ---------- 予約内容の表示 ---------- */
 
 const STATUS_LABEL = {
@@ -95,12 +135,15 @@ function renderOrder() {
   }
   for (const a of o.answers) {
     const v = a.choice_label || a.answer_text;
-    if (v) row(a.label, v);
+    // 画像の回答は、あとで loadOrderImages がこの行にサムネイルを入れる
+    if (v) rows.push(`<div class="confirm-row" data-q="${a.question_id || ""}">` +
+      `<span class="k">${a.label}</span><span class="v">${v}</span></div>`);
   }
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(o.total_amount)}</span></div>`);
   $("order-detail").innerHTML = rows.join("");
+  loadOrderImages();
 
   // 操作ボタン
   const list = $("action-list");

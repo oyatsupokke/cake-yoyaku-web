@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788495328">
-<link rel="stylesheet" href="admin.css?v=1788495328">
-<link rel="stylesheet" href="products.css?v=1788495328">
+<link rel="stylesheet" href="../styles.css?v=1788701462">
+<link rel="stylesheet" href="admin.css?v=1788701462">
+<link rel="stylesheet" href="products.css?v=1788701462">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -27,6 +27,10 @@
       </span>
     </header>
 
+    <div class="prod-filter hidden" id="prod-filter-row">
+      <input type="search" id="prod-filter" placeholder="商品名で絞る" aria-label="商品名で絞る">
+      <span class="prod-hits" id="prod-hits"></span>
+    </div>
     <div class="prod-tabs" id="prod-tabs"></div>
     <div style="margin: 6px 0 16px;">
       <button type="button" class="pill" id="btn-new-product">＋ 新しい商品を追加</button>
@@ -38,6 +42,9 @@
       <div class="confirm-box">
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
+        <label class="field hidden" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。ページ下の「カテゴリ」で作ったものから選びます。お客様の画面には出ません。">？</button>
+          <select id="p-category" style="width:230px"></select>
+        </label>
         <div id="p-photo"></div>
         <div id="p-layer"></div>
         <div class="text-field">
@@ -138,6 +145,17 @@
       <button type="button" class="pill ghost" id="btn-q-add">＋ 質問を追加</button>
     </div>
 
+    <!-- カテゴリ（商品が増えた店で、上の商品タブをまとめるため） -->
+    <div class="confirm-box">
+      <h3>カテゴリ（商品のまとめ方）<button type="button" class="tip" data-tip="商品が増えると上のタブが何行にもなって探しにくくなります。カテゴリを作ると、タブがカテゴリごとにまとまって、ふだん触らないものを畳んでおけます。お客様の画面には出ません。">？</button></h3>
+      <p class="small">上の<strong>商品タブのまとめ方</strong>です。作ると、タブがカテゴリごとにまとまって畳めるようになります。どのカテゴリに入れるかは、各商品の「基本情報」で選びます。<strong>お客様の画面には出ません。</strong></p>
+      <div id="cat-list"></div>
+      <div class="override-add">
+        <input type="text" id="cat-name" placeholder="新しいカテゴリ名（例: 定番のケーキ）" style="width:230px">
+        <button type="button" class="pill" id="btn-cat-add">カテゴリ追加</button>
+      </div>
+    </div>
+
     <!-- 共有リスト管理 -->
     <div class="confirm-box">
       <h3>共有リスト（果物など・複数の商品で共通の選択肢）</h3>
@@ -160,7 +178,7 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788495328"></script>
-<script src="products.js?v=1788495328"></script>
+<script src="tips.js?v=1788701462"></script>
+<script src="products.js?v=1788701462"></script>
 </body>
 </html>

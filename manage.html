@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
 <title>ご予約の確認・変更・キャンセル</title>
-<link rel="stylesheet" href="styles.css?v=1788495328">
+<link rel="stylesheet" href="styles.css?v=1788701462">
 <style>
   /* このページ専用の少しだけの追加スタイル */
   .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f2e8dc; color: #7a5c3d; vertical-align: middle; margin-left: 8px; }
@@ -16,6 +16,10 @@
   .btn-danger { width: 100%; padding: 12px; border: 1px solid #d9a3a3; border-radius: 12px; background: #fff; color: #a33; font-size: 15px; font-weight: 600; cursor: pointer; }
   .locked-note { background: #faf3e8; border-radius: 12px; padding: 14px; font-size: 13px; color: #7a5c3d; margin-top: 12px; line-height: 1.7; }
   .back-link { display: inline-block; margin-top: 16px; color: #8a7a6a; font-size: 13px; }
+  .manage-thumbs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .manage-thumbs img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #eadfe2; display: block; }
+  .manage-thumb { display: flex; flex-direction: column; gap: 3px; width: 84px; text-align: right; }
+  .manage-thumb .cap { font-size: 11px; color: #8a7a6a; line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -102,6 +106,6 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="manage.js?v=1788495328"></script>
+<script src="manage.js?v=1788701462"></script>
 </body>
 </html>

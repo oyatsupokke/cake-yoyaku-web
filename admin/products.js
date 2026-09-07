@@ -916,7 +916,7 @@ const Q_TYPES = [
 ];
 const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
 const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3);
-const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order);
+const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 const typeOptions = (sel) => Q_TYPES.map((t) =>
   `<option value="${t.v}" ${t.v === sel ? "selected" : ""}>${t.label}</option>`).join("");
 const questionOf = (optionId) => state.questions.find((q) => q.option_id === optionId) || null;
@@ -1014,6 +1014,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   });
 
   const chWrap = box.querySelector(".q-choices");
+  const choiceRows = [];
   for (const c of qChoices(q)) {
     const row = document.createElement("div");
     row.className = "choice";
@@ -1039,6 +1040,17 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       reloadAll();
     };
     chWrap.appendChild(row);
+    choiceRows.push({ data: c, row, target: row });
+  }
+  addOrderControls(chWrap, choiceRows, "common_question_choices", ids => {
+    view.choices.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    onPaint();
+  });
+  if (choiceRows.length) {
+    const note = document.createElement("p");
+    note.className = "small";
+    note.textContent = "↑・↓で回答の選択肢を並べ替え、「保存する」で確定します。";
+    chWrap.prepend(note);
   }
   {
     const add = document.createElement("button");
@@ -1048,7 +1060,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     add.onclick = async () => {
       await api("POST", "/rest/v1/common_question_choices", [{
         tenant_id: state.tenantId, question_id: q.id, label: "",
-        display_order: qChoices(q).length,
+        display_order: Math.max(-1, ...qChoices(q).map(c => Number(c.display_order) || 0)) + 1,
       }]);
       reloadAll();
     };
@@ -1528,14 +1540,70 @@ $("btn-g-add").onclick = async () => {
 };
 
 /* ---------- 共通の質問（店全体） ---------- */
+// 要素を移動するだけにして、入力中の文章・開閉状態を保つ。保存は既存の保存バーで行う。
+function addOrderControls(container, items, table, onMove = () => {}) {
+  const entries = items.map(({ data, row, target }) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.value = data.display_order ?? 0;
+    row.appendChild(input);
+    regField(table, data.id, "display_order", input, { number: true });
+    const controls = document.createElement("span");
+    controls.className = "question-order";
+    const buttons = [-1, 1].map((direction) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pill";
+      button.textContent = direction < 0 ? "↑" : "↓";
+      button.setAttribute("aria-label", direction < 0 ? "上へ移動" : "下へ移動");
+      button.onclick = () => {
+        if (state.saving) return;
+        const index = entries.findIndex(e => e.data.id === data.id), next = index + direction;
+        if (next < 0 || next >= entries.length) return;
+        const a = entries[index], b = entries[next];
+        if (direction < 0) container.insertBefore(a.row, b.row);
+        else container.insertBefore(b.row, a.row);
+        [entries[index], entries[next]] = [b, a];
+        entries.forEach((entry, order) => { entry.input.value = order; });
+        update();
+        onMove(entries.map(entry => entry.data.id));
+        markDirty();
+      };
+      controls.appendChild(button);
+      return button;
+    });
+    target.appendChild(controls);
+    return { data, row, input, buttons };
+  });
+  function update() {
+    entries.forEach((entry, index) => {
+      entry.buttons[0].disabled = index === 0;
+      entry.buttons[1].disabled = index === entries.length - 1;
+    });
+  }
+  update();
+}
+
 function renderQuestions() {
   const wrap = $("questions-list");
   wrap.innerHTML = "";
-  const common = state.questions.filter((q) => !q.option_id);
+  const common = state.questions.filter((q) => !q.option_id)
+    .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
   if (!common.length) {
     wrap.innerHTML = `<p class="small">まだありません。どのケーキでも聞くこと（メッセージプレートなど）を追加してください。</p>`;
   }
-  for (const q of common) wrap.appendChild(buildQuestionBox(q));
+  const items = common.map(q => {
+    const row = buildQuestionBox(q);
+    wrap.appendChild(row);
+    return { data: q, row, target: row.querySelector(".q-bar") };
+  });
+  addOrderControls(wrap, items, "common_questions");
+  if (common.length) {
+    const note = document.createElement("p");
+    note.className = "small";
+    note.textContent = "↑・↓で並べ替えて「保存する」で確定します。お客様にもこの順で表示されます。";
+    wrap.prepend(note);
+  }
 }
 
 function buildQuestionBox(q) {
@@ -1634,7 +1702,7 @@ function buildQuestionBox(q) {
 $("btn-q-add").onclick = async () => {
   await api("POST", "/rest/v1/common_questions", [{
     tenant_id: state.tenantId, label: "", input_type: "text", is_required: false,
-    scope: "all", display_order: state.questions.filter((q) => !q.option_id).length,
+    scope: "all", display_order: Math.max(-1, ...state.questions.filter(q => !q.option_id).map(q => Number(q.display_order) || 0)) + 1,
   }]);
   toast("質問を追加しました（質問文を入れてください）");
   reloadAll();

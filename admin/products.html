@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788780330">
-<link rel="stylesheet" href="admin.css?v=1788780330">
-<link rel="stylesheet" href="products.css?v=1788780330">
-<link rel="stylesheet" href="admin-layout.css?v=1788780330">
+<link rel="stylesheet" href="../styles.css?v=1788784125">
+<link rel="stylesheet" href="admin.css?v=1788784125">
+<link rel="stylesheet" href="products.css?v=1788784125">
+<link rel="stylesheet" href="admin-layout.css?v=1788784125">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -70,7 +70,7 @@
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
         <div class="product-copy-action">
-          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てを丸ごと写した新しい商品を作ります。名前の後ろに（コピー）が付き、非公開の状態で始まります。写真とイラストは同じ画像を使います。">？</button>
+          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てをコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
         </div>
         <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
           <div class="override-add" style="margin:4px 0 0">
@@ -94,13 +94,13 @@
         <div class="field product-limit-field">
           <label for="p-deadline">締切（受取日の何日前まで受け付けるか）</label>
           <div class="product-unit-row"><input type="number" id="p-deadline" min="0" placeholder="空欄=店の基本" aria-describedby="p-deadline-help"><span>日前</span></div>
-          <p class="help" id="p-deadline-help">空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</p>
+          <p class="help" id="p-deadline-help">※空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</p>
         </div>
         <div class="field product-limit-field">
           <div>この商品の上限（何台まで受けるか）</div>
           <div class="product-unit-row"><label for="p-cap-daily">1日</label><input type="number" id="p-cap-daily" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
           <div class="product-unit-row"><label for="p-cap-slot">同じ時間帯</label><input type="number" id="p-cap-slot" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
-          <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。画面下の「保存する」で確定します。</p>
+          <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限台数設定」だけが適用されます）。<br>例えば、全体は1日10台、このケーキは1日3台・同じ時間帯2台まで、という設定が可能です。<br>画面下の「保存する」で確定します。</p>
         </div>
         <div class="status-line product-publish-section">
           <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
@@ -111,14 +111,12 @@
       </div>
 
       <div class="confirm-box product-compact-card">
-        <h3>販売期間・受取できる日（季節商品の設定）</h3>
-        <p class="small">クリスマスなどの季節限定の商品の場合は、フォームを分けずにここで期間を設定します。空欄=制限なし（通常商品）。</p>
+        <h3>販売期間・受取可能日</h3>
+        <p class="small">クリスマスなどの季節限定の商品の場合は、ここで期間を設定します。</p>
         <div class="season-grid">
-          <label class="field">受付開始（この日時に自動で表示されます）
-            <input type="datetime-local" id="p-sale-start">
+          <label class="field">受付開始日時（この日時に自動で表示されます）<input type="datetime-local" id="p-sale-start">
           </label>
-          <label class="field">受付終了（この日時に自動で締め切ります）
-            <input type="datetime-local" id="p-sale-end">
+          <label class="field">受付終了日時（この日時に自動で締め切ります）<input type="datetime-local" id="p-sale-end">
           </label>
         </div>
         <label class="field">受取日の指定方法
@@ -139,7 +137,7 @@
         <p class="small">定休日は除きます。この商品だけ定休日に受け付けたいときは「日付で指定」を選んでください。</p>
         </div>
         <div id="p-pickup-dates" class="hidden">
-          <p class="small">追加した日だけ受け付けます。定休日は追加時に確認します。他の商品には影響しません。</p>
+          <p class="small">追加した日だけ受け付けます。定休日の場合は追加時に確認が入ります。他の商品には影響しません。</p>
           <div class="override-add"><input type="date" id="p-pickup-date" aria-label="受け付ける日"><button type="button" class="pill" id="btn-pickup-date-add">日付を追加</button></div>
           <div id="p-pickup-date-list"></div>
         </div>
@@ -164,7 +162,7 @@
       </div>
 
       <div class="confirm-box">
-        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）<button type="button" class="tip" data-tip="お客様に選んでもらう項目です。「1つ選ぶ」はどれか1つだけ、「複数選べる」はいくつでも。「必須」にすると選ばないと注文できません。選択肢には追加料金と、選んだ人にだけ聞く質問を付けられます。ここで作るグループはこのケーキだけに出ます。他のケーキにも出したくなったら、作ったあとグループの中の「すべてのケーキに出す」を入れてください。">？</button></h3>
+        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）<button type="button" class="tip" data-tip="お客様に選んでもらう項目です。「1つ選ぶ」はどれか1つだけ、「複数選べる」はいくつでも。&#10;「必須」にすると選ばないと注文できません。&#10;選択肢には追加料金と、選んだ人にだけ聞く質問を付けられます。&#10;ここで作るグループはこのケーキだけに出ます。他のケーキにも出す場合は、作ったあとグループの中の「すべてのケーキに出す」を入れてください。">？</button></h3>
         <div id="groups-list"></div>
         <div class="group-add-box">
           <strong>＋ 新しいグループを追加</strong>
@@ -217,10 +215,10 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788780330"></script>
-<script src="edit-drafts.js?v=1788780330"></script>
-<script src="products-menu.js?v=1788780330"></script>
-<script src="pickup-schedule.js?v=1788780330"></script>
-<script src="products.js?v=1788780330"></script>
+<script src="tips.js?v=1788784125"></script>
+<script src="edit-drafts.js?v=1788784125"></script>
+<script src="products-menu.js?v=1788784125"></script>
+<script src="pickup-schedule.js?v=1788784125"></script>
+<script src="products.js?v=1788784125"></script>
 </body>
 </html>

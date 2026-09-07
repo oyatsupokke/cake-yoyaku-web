@@ -268,7 +268,7 @@ async function load() {
   [state.products, state.questions, state.slots] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
         `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(name,note))),option_exclusions(*)`),
-    api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order` +
+    api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices(*),common_question_products(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
   ]);
@@ -849,7 +849,7 @@ const qOptionId = (q) => q.option_id || q.trigger_option_id || null;
 const qLive = (q) => q.is_active !== false && (q.label || "").trim() !== "";
 const qChoices = (q) => (q.common_question_choices || [])
   .filter((c) => c.is_available !== false)
-  .sort((a, b) => a.display_order - b.display_order);
+  .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 // 回答は1つの質問に複数入りうる（チェックボックス）。古い保存データの {choiceId} も受ける
 function normAnswer(a) {
   return {

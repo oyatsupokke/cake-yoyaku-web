@@ -867,7 +867,7 @@ async function loadSettings() {
   const hasAll = rules.some((r) => r.scope === "all");
   if (!hasAll) {
     rw.insertAdjacentHTML("beforeend",
-      `<p class="small">いまは1日の上限がありません（何台でもお受けします）。</p>`);
+      `<p class="small">現在は1日の上限がありません。</p>`);
   }
   $("rule-add").classList.toggle("hidden", hasAll);
 

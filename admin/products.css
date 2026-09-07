@@ -105,7 +105,10 @@
   padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px;
   font-family: inherit; font-size: .88rem; color: var(--ink); background: #fff;
 }
-.choice { display: flex; gap: 7px; align-items: center; }
+.choice { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.question-order { display: inline-flex; gap: 6px; margin-left: auto; }
+.question-order button { min-width: 44px; min-height: 44px; }
+.question-order button:disabled { opacity: .35; cursor: default; }
 .choice input[type="text"] { flex: 1; min-width: 100px; }
 .choice input[type="number"] { width: 84px; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; font-family: inherit; }
 .ghost { border-style: dashed; color: #a08a8f; }

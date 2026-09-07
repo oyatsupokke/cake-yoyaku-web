@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788780330">
-<link rel="stylesheet" href="admin.css?v=1788780330">
-<link rel="stylesheet" href="admin-layout.css?v=1788780330">
-<link rel="stylesheet" href="support.css?v=1788780330">
+<link rel="stylesheet" href="../styles.css?v=1788784125">
+<link rel="stylesheet" href="admin.css?v=1788784125">
+<link rel="stylesheet" href="admin-layout.css?v=1788784125">
+<link rel="stylesheet" href="support.css?v=1788784125">
 </head>
 <body>
 <div id="app" class="admin">
@@ -142,7 +142,7 @@
         <label class="field">店名
           <input type="text" id="t-name">
         </label>
-        <label class="field">予約通知メール<button type="button" class="tip" data-tip="予約・変更・キャンセルのお知らせが届くメールアドレスです。ふだん見るアドレスにしてください。">？</button>
+        <label class="field">予約通知先メールアドレス<button type="button" class="tip" data-tip="予約・変更・キャンセルのお知らせが届くメールアドレスです。">？</button>
           <input type="email" id="t-email">
         </label>
         <div class="field">定休日<button type="button" class="tip" data-tip="選んだ曜日は、お客様が受取日に選べなくなります。">？</button>
@@ -150,23 +150,23 @@
         </div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-deadline">
-        <h3>受付の締切</h3>
+        <h3>受付の締切設定</h3>
         <label class="field">基本の締切（受取日の何日前まで受け付けるか）
           <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
-          <span class="help">商品ごとに変えたい場合は「商品」ページで上書きできます。</span>
+          <span class="help">※商品ごとに変えたい場合は、商品ページで設定できます。</span>
         </label>
-        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）<button type="button" class="tip" data-tip="例：3日前締切で20:00にすると、受取日の3日前の夜8時に受付が自動で閉まります。">？</button>
+        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）<button type="button" class="tip" data-tip="設定した日時に自動で予約が締め切られます。">？</button>
           <input type="time" id="t-cutoff">
         </label>
         <div class="field">締切日数の数え方
           <label class="radio-line"><input type="radio" name="deadline-mode" value="calendar">暦日どおり数える（定休日も1日と数える）</label>
           <label class="radio-line"><input type="radio" name="deadline-mode" value="business">定休日は数えない（仕込みできる日だけで数える）</label>
-          <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「数えない」だと前の週の金曜が締切になります。定休日にも仕込みをするお店は「暦日どおり」のままでOK。</span>
+          <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「定休日は数えない」だと前の週の金曜が締切になります。</span>
         </div>
       </div>
       <div class="confirm-box">
-        <h3>1日の上限（全体）</h3>
-        <p class="small">お店全体で「1日に何台まで受けるか」です。空欄にすると上限なしになります。商品ごとの上限（例：このケーキは1日3台まで）は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。</p>
+        <h3>1日の上限台数設定</h3>
+        <p class="small">お店全体で「1日に何台まで受けるか」の設定です。<br>空欄にすると上限なしになります。<br>商品ごとの上限は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。</p>
         <div id="rules-list"></div>
         <div class="override-add hidden" id="rule-add">
           <span>1日</span>
@@ -176,8 +176,8 @@
         </div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-pickup">
-        <h3>受取時間</h3>
-        <p class="small">枠は自由に追加できます（30分ごと・15分ごともOK）。上限が空欄の枠は台数無制限です。</p>
+        <h3>受取時間設定</h3>
+        <p class="small">枠は自由に追加できます。上限が空欄の枠は台数無制限です。</p>
         <div class="override-add">
           <input type="time" id="slot-start" value="11:00">
           <span>〜</span>
@@ -196,7 +196,7 @@
         <div id="slots-list"></div>
       </div>
       <div class="confirm-box">
-        <h3>臨時休業・臨時営業<button type="button" class="tip" data-tip="臨時休業＝その日は予約を受けません。「定休日だけど営業」＝定休日でも受け取れるようにします（クリスマスが定休日と重なる年などに）。">？</button></h3>
+        <h3>臨時休業・臨時営業<button type="button" class="tip" data-tip="臨時休業＝設定した日は予約を受けません。&#10;臨時営業＝イベントとかぶっている定休日など、臨時受取が可能な日などに使用します。">？</button></h3>
         <div class="override-add">
           <input type="date" id="ov-date">
           <select id="ov-kind">
@@ -208,7 +208,7 @@
         <div id="overrides-list"></div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-customer">
-        <h3>お客様の入力項目</h3>
+        <h3>お客様情報の入力項目</h3>
         <p class="small">予約フォームでお客様に入力してもらう項目です。</p>
         <div class="field">
           <div class="cf-row">
@@ -232,18 +232,18 @@
             <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
           </div>
           <div class="cf-row">
-            <strong>ご住所（郵便番号＋住所）</strong><button type="button" class="tip" data-tip="「表示する」にすると予約フォームに郵便番号と住所の欄が出ます。郵便番号を入れると住所は自動で入ります。">？</button>
+            <strong>ご住所</strong><button type="button" class="tip" data-tip="「表示する」にすると予約フォームに郵便番号と住所の欄が出ます。郵便番号を入れると住所は自動で入ります。">？</button>
             <label class="cf-check"><input type="checkbox" id="t-addr-enabled">表示する</label>
             <label class="cf-check"><input type="checkbox" id="t-addr-required">回答必須</label>
           </div>
         </div>
       </div>
       <div class="confirm-box">
-        <h3>お客様への案内とセルフ操作</h3>
-        <label class="field">予約ページの注意書き（「選択中のケーキ」の下に出ます）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキの絵や写真の下に出る一言です。「写真はイメージです」「果物は季節により異なります」など。空欄にすると何も出ません。">？</button>
+        <h3>お客様への案内・キャンセル操作設定</h3>
+        <label class="field">予約ページの注意書き（表示箇所：「選択中のケーキ」の下）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキの絵や写真の下に出る一言です。&#10;「写真はイメージです」「果物は季節により異なります」など。空欄にすると何も出ません。">？</button>
           <textarea id="t-preview-note" rows="2" placeholder="例: ※写真はイメージです。季節により果物が変わります。"></textarea>
         </label>
-        <label class="field">キャンセルポリシー（予約確認画面・確認メール・お客様の管理ページに表示されます）<button type="button" class="tip" data-tip="書いた内容がそのまま表示されます。「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
+        <label class="field">キャンセルポリシー（表示箇所：予約確認画面・確認メール・お客様の管理ページ）<button type="button" class="tip" data-tip="「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
           <textarea id="t-cancel" rows="3"></textarea>
         </label>
         <label class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで注文を受けるときに表示が必要な項目です。事業者名・所在地・電話番号などを書きます。">？</button>
@@ -254,7 +254,6 @@
           <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
           <p class="small warn hidden" id="self-url-warn">⚠️ 予約フォームの公開URLが設定されていないため、有効にしてもメールとLINEにリンクが出ません。お手数ですがサポートへご連絡ください。</p>
           <div class="cf-row">
-            <strong>この機能を使う</strong>
             <label class="cf-check"><input type="checkbox" id="t-self-enabled">有効にする</label>
           </div>
           <div class="cf-row">
@@ -273,14 +272,13 @@
             <input type="time" id="t-self-cancel-time" style="width:100px"> まで</span>
           </div>
         </div>
-        <div class="field">受取前日のリマインド<button type="button" class="tip" data-tip="お受け取り日の前日に「明日はお受け取り日です」というお知らせを自動で送ります。メールで送られ、LINE連携をされたお客様にはLINEにも届きます。受け取り忘れを減らすための機能です。">？</button>
+        <div class="field">受取前日のリマインド<button type="button" class="tip" data-tip="お受け取り日の前日に「明日はお受け取り日です」というお知らせを自動で送ります。&#10;メールで送られ、LINE連携をされたお客様にはLINEにも届きます。受け取り忘れを減らすための機能です。">？</button>
           <p class="small">お受け取り日の前日に、ご予約内容のお知らせを自動で送ります（メール／LINE連携済みのお客様にはLINEにも）。</p>
           <div class="cf-row">
-            <strong>この機能を使う</strong>
             <label class="cf-check"><input type="checkbox" id="t-reminder-enabled">有効にする</label>
           </div>
           <div class="cf-row">
-            <strong>送る時刻</strong>
+            <strong>リマインド送信時刻</strong>
             <span>受取日の前日 <input type="time" id="t-reminder-time" style="width:100px"> ごろ</span>
           </div>
         </div>
@@ -307,22 +305,19 @@
       </div>
 
       <div class="confirm-box settings-anchor" id="settings-notifications">
-        <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変えられません（消えません）。空欄にしておくと、下の見本に出ている文がそのまま送られます。">？</button></h3>
-        <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変えられるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
-        <label class="field">お支払いのご案内<button type="button" class="tip" data-tip="「■ お支払い」の行に出ます。振込のみのお店や、前払いのお店はここを書き換えてください。メールにもLINEにも同じ文が出ます。">？</button>
+        <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。&#10;予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変更できません。&#10;空欄の場合は、下の見本に出ている文がそのまま送られます。">？</button></h3>
+        <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変更できるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
+        <label class="field">お支払いのご案内<button type="button" class="tip" data-tip="「■ お支払い」の行に出ます。振込のみのお店や、前払いのお店はここを書き換えてください。&#10;メールにもLINEにも同じ文が出ます。">？</button>
           <input type="text" id="t-mail-payment" placeholder="店頭でのお支払いをお願いします">
         </label>
-        <div class="field">どのお知らせを編集するか
-          <div class="mail-chips" id="mail-kinds"></div>
+        <div class="field"><div class="mail-chips" id="mail-kinds"></div>
         </div>
-        <label class="field">はじめの文（お名前のすぐ下）
-          <textarea id="t-mail-intro" rows="2"></textarea>
+        <label class="field">はじめの文（お名前のすぐ下に表示されます）<textarea id="t-mail-intro" rows="2"></textarea>
         </label>
-        <label class="field">おわりに足す文（お店からのご案内）<button type="button" class="tip" data-tip="署名の少し上に足されます。駐車場のご案内や、お受け取りのお願いなど、毎回お客様に伝えていることを書いておく欄です。メールにもLINEにも同じ文が出ます。「※このメールは送信専用です。」などの締めの文は、この下に自動で付くので書かなくて大丈夫です。">？</button>
+        <label class="field">おわりに足す文（お店からのご案内等）<button type="button" class="tip" data-tip="署名の少し上に足されます。駐車場のご案内や、お受け取りのお願いなど、毎回お客様に伝えていることを記載する欄です。&#10;メールにもLINEにも同じ文が出ます。「※このメールは送信専用です。」などの締めの文は、この下に自動で付くので書かなくて大丈夫です。">？</button>
           <textarea id="t-mail-outro" rows="3"></textarea>
         </label>
-        <div class="field">送られる文の見本
-          <div class="mail-chips mail-ch" id="mail-ch"></div>
+        <div class="field">送付文見本<div class="mail-chips mail-ch" id="mail-ch"></div>
           <pre class="mail-preview" id="mail-preview"></pre>
         </div>
       </div>
@@ -356,7 +351,7 @@
     <section id="tab-design" class="hidden" aria-label="デザイン">
       <!-- 見た目（tenants.theme）。右の見本は保存前の状態をそのまま映す（2026-09-03 まりほ合意） -->
       <div class="confirm-box" id="theme-box">
-        <h3>予約フォームのデザイン<button type="button" class="tip" data-tip="お客様のフォームの色と字体です。見本にはすぐ映りますが、お客様に見えるのは「保存する」を押してからです。">？</button></h3>
+        <h3>予約フォームのデザイン<button type="button" class="tip" data-tip="お客様のフォームの色と字体の設定です。">？</button></h3>
         <div class="th-cols">
           <div class="th-ctl">
             <div class="field">基調色<span class="help">ボタンと選んだ印に使います</span>
@@ -444,11 +439,11 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788780330"></script>
-<script src="edit-drafts.js?v=1788780330"></script>
-<script src="report-core.js?v=1788780330"></script>
-<script src="admin.js?v=1788780330"></script>
-<script src="reports.js?v=1788780330"></script>
-<script src="support.js?v=1788780330"></script>
+<script src="tips.js?v=1788784125"></script>
+<script src="edit-drafts.js?v=1788784125"></script>
+<script src="report-core.js?v=1788784125"></script>
+<script src="admin.js?v=1788784125"></script>
+<script src="reports.js?v=1788784125"></script>
+<script src="support.js?v=1788784125"></script>
 </body>
 </html>

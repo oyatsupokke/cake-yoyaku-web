@@ -216,7 +216,7 @@
 .tip-pop {
   background: #fdf6f0; border: 1px solid #e8cfc0; border-radius: 8px;
   padding: 8px 12px; margin: 6px 0 2px; font-size: .82rem; font-weight: normal;
-  color: #6b564a; line-height: 1.7; max-width: 560px;
+  color: #6b564a; line-height: 1.7; max-width: 560px; white-space: pre-line;
 }
 
 /* スマホ幅の調整：タブ・ボタンの文字が1文字ずつ折れてはみ出さないように（まりほ指摘 2026-08-26） */

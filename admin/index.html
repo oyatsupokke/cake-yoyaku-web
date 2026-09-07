@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788767972">
-<link rel="stylesheet" href="admin.css?v=1788767972">
-<link rel="stylesheet" href="support.css?v=1788767972">
+<link rel="stylesheet" href="../styles.css?v=1788768207">
+<link rel="stylesheet" href="admin.css?v=1788768207">
+<link rel="stylesheet" href="support.css?v=1788768207">
 </head>
 <body>
 <div id="app" class="admin">
@@ -364,18 +364,20 @@
 
 
     <section id="tab-support" class="hidden no-print" aria-labelledby="support-title">
-      <h2 id="support-title">初期設定サポート・お問い合わせ</h2>
+      <h2 id="support-title">初期設定・イラスト作成・お問い合わせ</h2>
       <p class="support-intro">お店の予約受付を始めるための設定をお手伝いします。<br>ご自身で設定する場合、初期費用はかかりません。</p>
       <div class="support-offers">
         <article class="support-offer"><h3>一緒に設定する</h3><strong>5,500円（税込）</strong><p>オンライン・1回60分</p><ul><li>画面を共有し、操作をご案内</li><li>商品登録・締切・受取設定を一緒に確認</li></ul><p>時間内で対応できる範囲を事前にご相談します。</p></article>
         <article class="support-offer"><h3>設定をおまかせする</h3><strong>12,000円（税込）</strong><p>1店舗の初期設定代行</p><ul><li>店舗情報・商品10点まで・受取設定</li><li>所定の形式でいただいた情報を入力</li></ul><p>写真加工・イラスト制作・商品企画は含みません。選択肢の量などに応じ、範囲外は作業前にお見積もりします。</p></article>
+        <article class="support-offer"><h3>イラストを作ってほしい</h3><strong>個別お見積もり</strong><p>予約ページのデザインイメージに使うイラストを作成します。</p><ul><li>対象の商品点数・飾りや色などの種類を確認</li><li>必要なイラストの内容に合わせてお見積もり</li></ul><p>制作範囲・料金・納期にご同意いただいてから制作を始めます。</p></article>
       </div>
       <aside class="support-free"><strong>通常のお問い合わせ・不具合報告はこちらから</strong><p>下の「通常のお問い合わせ・不具合報告」をお選びください。お問い合わせの送信に料金はかかりません。</p></aside>
       <form id="support-form" class="support-form">
         <label class="support-field">店舗名<input id="support-shop" readonly required></label>
         <label class="support-field">返信先メールアドレス<input id="support-email" type="email" maxlength="254" autocomplete="email" required><small>登録情報から入力しています。別の連絡先に変更できます。</small></label>
-        <label class="support-field">ご希望の内容<select id="support-kind"><option value="guided">初期設定サポート（60分）</option><option value="setup">初期設定代行</option><option value="question">通常のお問い合わせ・不具合報告</option></select></label>
+        <label class="support-field">ご希望の内容<select id="support-kind"><option value="guided">初期設定サポート（60分）</option><option value="setup">初期設定代行</option><option value="illustration">イラスト作成のご相談</option><option value="question">通常のお問い合わせ・不具合報告</option></select></label>
         <p id="support-price"></p>
+        <label class="support-field hidden" id="support-illustration-field">イラストを作りたい商品点数<input id="support-product-count" type="number" min="1" max="1000" step="1" placeholder="例：3"><small>おおよその点数で大丈夫です。下の相談欄に、商品名・飾りや色の種類・希望の雰囲気をお書きください。参考画像はメール送信時に添付できます。</small></label>
         <label class="support-field">困っていること・依頼したいこと<textarea id="support-details" maxlength="1500" required placeholder="例：サイズごとの価格と、受取日の締切を設定したいです。"></textarea><small>パスワードやお客様の個人情報は記載しないでください。（1,500文字まで）</small></label>
         <label class="support-field" id="support-dates-field">希望日時（日本時間）<textarea id="support-dates" maxlength="300" required placeholder="第1希望：○月○日 14〜16時
 第2希望：○月○日 午前中"></textarea><small>候補を2〜3つご記入ください。日程は返信で確定します。</small></label>
@@ -398,11 +400,11 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788767972"></script>
-<script src="edit-drafts.js?v=1788767972"></script>
-<script src="report-core.js?v=1788767972"></script>
-<script src="admin.js?v=1788767972"></script>
-<script src="reports.js?v=1788767972"></script>
-<script src="support.js?v=1788767972"></script>
+<script src="tips.js?v=1788768207"></script>
+<script src="edit-drafts.js?v=1788768207"></script>
+<script src="report-core.js?v=1788768207"></script>
+<script src="admin.js?v=1788768207"></script>
+<script src="reports.js?v=1788768207"></script>
+<script src="support.js?v=1788768207"></script>
 </body>
 </html>

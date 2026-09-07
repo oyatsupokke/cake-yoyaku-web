@@ -64,3 +64,7 @@
 .preview-canvas,.booking-dialog-picture{background:var(--boxbg)}
 #booking-preview-dialog{border-radius:var(--r-lg)}
 .opt:hover{background:var(--sel);color:var(--selink)}
+
+/* Service attribution stays separate from the booking controls and fixed total. */
+.booking-credit{margin:40px 0 0;padding:16px 0;text-align:center;color:var(--mute);font-weight:400;line-height:1.6}
+.booking-credit small{font-size:12px}

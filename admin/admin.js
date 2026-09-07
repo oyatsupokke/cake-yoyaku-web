@@ -1017,17 +1017,33 @@ $("btn-login").onclick = async () => {
 };
 $("login-password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btn-login").click(); });
 $("btn-logout").onclick = logout;
-$("link-forgot").onclick = async (e) => {
-  e.preventDefault();
-  const email = $("login-email").value.trim();
-  if (!email) { toast("メールアドレスを入力してから押してください"); return; }
-  await fetch(`${CONFIG.url}/auth/v1/recover`, {
+async function sendPasswordRecovery(email) {
+  const redirect = new URL("./reset.html", location.href).href;
+  const res = await fetch(`${CONFIG.url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`, {
     method: "POST",
     headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, options: {} , gotrue_meta_security: {}}),
+    body: JSON.stringify({ email }),
   });
-  // 存在しないメールでも同じ表示（メールアドレスの存在を漏らさない）
-  $("forgot-sent").classList.remove("hidden");
+  if (!res.ok) throw new Error("送信できませんでした。時間をおいてもう一度お試しください。");
+}
+let recoverySending = false;
+$("link-forgot").onclick = async (e) => {
+  e.preventDefault();
+  if (recoverySending) return;
+  $("forgot-sent").classList.add("hidden");
+  $("login-error").classList.add("hidden");
+  const input = $("login-email");
+  const email = input.value.trim();
+  if (!email || !input.checkValidity()) { toast("メールアドレスを正しく入力してから押してください"); return; }
+  recoverySending = true;
+  try {
+    await sendPasswordRecovery(email);
+    // 未登録アドレスでも同じ表示。登録の有無を漏らさない。
+    $("forgot-sent").classList.remove("hidden");
+  } catch (e) {
+    $("login-error").textContent = e.message;
+    $("login-error").classList.remove("hidden");
+  } finally { recoverySending = false; }
 };
 
 /* ---------- アカウント・契約の専用画面 ---------- */
@@ -1051,13 +1067,7 @@ $("btn-account-reset").onclick = async () => {
   button.disabled = true;
   $("account-message").textContent = "送信中…";
   try {
-    const redirect = new URL("./reset.html", location.href).href;
-    const res = await fetch(`${CONFIG.url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`, {
-      method: "POST",
-      headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ email: state.accountEmail }),
-    });
-    if (!res.ok) throw new Error("送信できませんでした。時間をおいてもう一度お試しください。");
+    await sendPasswordRecovery(state.accountEmail);
     $("account-message").textContent = "再設定メールを送りました。メール内のリンクからパスワードを変更してください。";
   } catch (e) {
     $("account-message").textContent = e.message;

@@ -435,7 +435,8 @@ function currentTotal() {
 function updatePriceBar() {
   const t = currentTotal();
   if (t == null) {
-    $("price-summary").textContent = "ケーキを選んでください";
+    $("price-summary").textContent = state.sel.product
+      ? "サイズを選んでください" : "ケーキを選んでください";
     $("price-total").textContent = "";
   } else {
     $("price-summary").textContent =

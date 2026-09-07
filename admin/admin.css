@@ -304,3 +304,5 @@
 }
 .order-image { display: flex; flex-direction: column; gap: 3px; width: 110px; }
 .order-image .cap { font-size: .72rem; color: #8a7a6a; line-height: 1.4; }
+
+.save-help { display: block; font-size: .72rem; color: #786c70; margin-top: 4px; line-height: 1.5; }

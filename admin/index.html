@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788701462">
-<link rel="stylesheet" href="admin.css?v=1788701462">
+<link rel="stylesheet" href="../styles.css?v=1788742136">
+<link rel="stylesheet" href="admin.css?v=1788742136">
 </head>
 <body>
 <div id="app" class="admin">
@@ -318,13 +318,14 @@
 
   <!-- 画面下に固定される保存バー（設定タブでのみ表示） -->
   <div id="save-bar" class="save-bar hidden no-print">
-    <span id="save-status">変更はありません</span>
+    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・公開／停止・画像の変更はその場で反映します。</small></div>
     <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788701462"></script>
-<script src="admin.js?v=1788701462"></script>
+<script src="tips.js?v=1788742136"></script>
+<script src="edit-drafts.js?v=1788742136"></script>
+<script src="admin.js?v=1788742136"></script>
 </body>
 </html>

@@ -103,7 +103,14 @@ async function api(method, path, body) {
   if (res.status === 401) { showLogin(); throw new Error("再ログインしてください"); }
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   const t = await res.text();
-  return t ? JSON.parse(t) : null;
+  const data = t ? JSON.parse(t) : null;
+  const table = path.match(/^\/rest\/v1\/([a-z_]+)(?:\?|$)/)?.[1];
+  if (method === "DELETE" && table && Array.isArray(data)) {
+    const ids = data.map(row => row.id);
+    drafts.forget(table, ids);
+    state.fields = state.fields.filter(f => f.table !== table || !ids.includes(f.id));
+  }
+  return method === "GET" && table ? drafts.overlay(table, data) : data;
 }
 
 /* ---------- 画面切替 ---------- */
@@ -402,6 +409,7 @@ $("btn-print").onclick = () => window.print();
 
 /* ---------- 設定の保存（画面下の保存バー1つにまとめる） ---------- */
 state.fields = [];
+const drafts = createEditDrafts();
 function regField(table, id, column, el, opts = {}) {
   const get = opts.get || (() => {
     if (el.type === "checkbox") return el.checked;
@@ -409,38 +417,36 @@ function regField(table, id, column, el, opts = {}) {
     if (opts.number) return v === "" ? null : parseInt(v, 10);
     return v === "" ? null : v;
   });
-  state.fields.push({ table, id, column, el, get, original: get() });
+  state.fields.push(drafts.register({ table, id, column, el, get, original: get() }));
   const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
   el.addEventListener(evt, markDirty);
 }
 function collectChanges() {
-  const changes = new Map();
-  for (const f of state.fields) {
-    if (!document.body.contains(f.el)) continue;
-    const v = f.get();
-    if (JSON.stringify(v) === JSON.stringify(f.original)) continue;
-    const key = `${f.table}:${f.id}`;
-    if (!changes.has(key)) changes.set(key, { table: f.table, id: f.id, patch: {} });
-    changes.get(key).patch[f.column] = v;
-  }
-  return [...changes.values()];
+  return drafts.changes(state.fields);
 }
+
 function markDirty() {
   const n = collectChanges().length;
   state.dirty = n > 0;
   $("save-bar").classList.toggle("dirty", state.dirty);
   $("save-status").textContent = state.dirty ? "保存していない変更があります" : "変更はありません";
-  $("btn-save-all").disabled = !state.dirty;
+  $("btn-save-all").disabled = !!state.saving || !state.dirty;
+}
+async function saveChange(c) {
+  await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, c.patch);
 }
 async function saveAll() {
+  if (state.saving) return;
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
   const btn = $("btn-save-all");
+  state.saving = true;
   btn.disabled = true;
   btn.textContent = "保存中…";
   try {
     for (const c of changes) {
-      await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, c.patch);
+      await saveChange(c);
+      drafts.acknowledge(c, state.fields);
     }
     toast(`保存しました（${changes.length}件）`);
     state.dirty = false;
@@ -452,6 +458,7 @@ async function saveAll() {
   } catch (e) {
     toast("保存できませんでした：" + e.message);
   } finally {
+    state.saving = false;
     btn.textContent = "保存する";
     markDirty();
   }
@@ -797,6 +804,7 @@ async function unusedTenantSave() {
 // 「商品ごとの上限」は商品エディタ（products.html）の各商品ページへ移設（まりほ指摘 2026-08-25：分類が変）
 
 async function loadSettings() {
+  drafts.capture(state.fields);
   state.fields = []; // 入力欄の登録をやり直す
   await loadTenantForm();
   // 全体の上限ルール（商品指定でないもの）
@@ -856,6 +864,7 @@ async function loadSettings() {
 /* ---------- 受取時間枠の設定 ---------- */
 const hm = (t) => t.slice(0, 5); // "11:00:00" -> "11:00"
 async function loadSlots() {
+  drafts.capture(state.fields);
   const slots = await api("GET",
     `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&order=start_time`);
   const wrap = $("slots-list");
@@ -886,6 +895,7 @@ async function loadSlots() {
     wrap.appendChild(row);
   }
   state._slots = slots;
+  markDirty();
 }
 async function addSlots(times) {
   const existing = new Set((state._slots || []).map((s) => hm(s.start_time)));

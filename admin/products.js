@@ -45,6 +45,7 @@ document.addEventListener("wheel", (e) => {
  * 画面下の保存バー1つでまとめて保存する（変更があったものだけ送る）。
  * 追加・削除・公開切替・画像アップロードは押した時点で即反映（保存不要）。
  */
+const drafts = createEditDrafts();
 function regField(table, id, column, el, opts = {}) {
   const get = opts.get || (() => {
     if (el.type === "checkbox") return el.checked;
@@ -52,22 +53,14 @@ function regField(table, id, column, el, opts = {}) {
     if (opts.number) return v === "" ? null : parseInt(v, 10);
     return v === "" ? null : v;
   });
-  state.fields.push({ table, id, column, el, get, original: get() });
+  state.fields.push(drafts.register({ table, id, column, el, get, original: get() }));
   const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
   el.addEventListener(evt, markDirty);
 }
 function collectChanges() {
-  const changes = new Map();
-  for (const f of state.fields) {
-    if (!document.body.contains(f.el)) continue; // 再描画で消えた欄は無視
-    const v = f.get();
-    if (JSON.stringify(v) === JSON.stringify(f.original)) continue;
-    const key = `${f.table}:${f.id}`;
-    if (!changes.has(key)) changes.set(key, { table: f.table, id: f.id, patch: {} });
-    changes.get(key).patch[f.column] = v;
-  }
-  return [...changes.values()];
+  return drafts.changes(state.fields);
 }
+
 function markDirty() {
   const n = collectChanges().length;
   state.dirty = n > 0;
@@ -75,17 +68,41 @@ function markDirty() {
   if (!bar) return;
   bar.classList.toggle("dirty", state.dirty);
   $("save-status").textContent = state.dirty ? "保存していない変更があります" : "変更はありません";
-  $("btn-save-all").disabled = !state.dirty;
+  $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
+async function saveChange(c) {
+  if (c.table === "_product_capacity") return saveCapacityRule(c);
+  const { _product_ids: productIds, ...patch } = c.patch;
+  if (Object.keys(patch).length) {
+    const rows = await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, patch);
+    if (!rows?.length) throw new Error("対象が見つからないか、変更する権限がありません");
+  }
+  if (c.table === "common_questions" && productIds) {
+    const rows = await api("GET", `/rest/v1/common_question_products?question_id=eq.${c.id}`);
+    const existing = new Set(rows.map(r => r.product_id));
+    for (const pid of productIds) if (!existing.has(pid)) {
+      await api("POST", "/rest/v1/common_question_products", [{
+        tenant_id: state.tenantId, question_id: c.id, product_id: pid,
+      }]);
+    }
+    for (const r of rows) if (!productIds.includes(r.product_id)) {
+      await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${c.id}&product_id=eq.${r.product_id}`);
+    }
+  }
+}
+
 async function saveAll() {
+  if (state.saving) return;
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
   const btn = $("btn-save-all");
+  state.saving = true;
   btn.disabled = true;
   btn.textContent = "保存中…";
   try {
     for (const c of changes) {
-      await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, c.patch);
+      await saveChange(c);
+      drafts.acknowledge(c, state.fields);
     }
     toast(`保存しました（${changes.length}件）`);
     state.dirty = false;
@@ -93,32 +110,14 @@ async function saveAll() {
   } catch (e) {
     toast("保存できませんでした：" + e.message);
   } finally {
+    state.saving = false;
     btn.textContent = "保存する";
     markDirty();
   }
 }
 
-/* 未保存の入力を捨てずに再読み込みする（2026-08-29 追加）
- * この画面は「まとめて保存」方式だが、停止/削除/追加/公開切替/タブ切替などのボタンは
- * 押した瞬間にサーバーへ反映して画面を丸ごと再描画する。以前はそのとき、
- * 保存バーを押していない入力欄が黙って捨てられていた
- * （collectChanges が DOM から消えた欄を無視するため）。
- * → 再描画の前に、溜まっている変更を必ず先に保存する。 */
+/* 再読み込みは下書きを保持する。確定するのは保存ボタンだけ。 */
 async function reloadAll() {
-  const changes = collectChanges();
-  if (changes.length) {
-    try {
-      for (const c of changes) {
-        await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, c.patch);
-      }
-      state.dirty = false;
-      toast(`入力を保存してから更新しました（${changes.length}件）`);
-    } catch (e) {
-      // 保存できないまま再描画すると入力が消える。ここで止めて画面をそのまま残す
-      toast("入力を保存できませんでした：" + e.message);
-      return;
-    }
-  }
   await loadAll();
 }
 
@@ -163,7 +162,14 @@ async function api(method, path, body) {
   if (res.status === 401) { showLogin(); throw new Error("再ログインしてください"); }
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   const t = await res.text();
-  return t ? JSON.parse(t) : null;
+  const data = t ? JSON.parse(t) : null;
+  const table = path.match(/^\/rest\/v1\/([a-z_]+)(?:\?|$)/)?.[1];
+  if (method === "DELETE" && table && Array.isArray(data)) {
+    const ids = data.map(row => row.id);
+    drafts.forget(table, ids);
+    state.fields = state.fields.filter(f => f.table !== table || !ids.includes(f.id));
+  }
+  return method === "GET" && table ? drafts.overlay(table, data) : data;
 }
 function showLogin() {
   $("view-login").classList.remove("hidden");
@@ -373,6 +379,7 @@ function buildPhotoField(opts) {
 
 /* ---------- データロード ---------- */
 async function loadAll(keepCurrent = true) {
+  drafts.capture(state.fields);
   // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
   const [products, lists, questions, globalGroups, categories] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
@@ -397,6 +404,7 @@ async function loadAll(keepCurrent = true) {
   state.fields = []; // 入力欄の登録をやり直す
   renderTabs();
   renderEditor();
+  await state.capacityLoading;
   renderQuestions();
   renderCategories();
   renderSharedLists();
@@ -425,9 +433,9 @@ function makeProdTab(p) {
   b.className = "prod-tab" + (state.current?.id === p.id ? " selected" : "") + (p.is_published ? "" : " unpublished");
   b.textContent = p.name + (p.is_published ? "" : "（非公開）");
   b.onclick = () => {
-    if (!confirmLeave()) return;
-    state.dirty = false;
-    state.current = p; renderTabs(); renderEditor();
+    drafts.capture(state.fields);
+    state.current = p;
+    reloadAll();
   };
   return b;
 }
@@ -500,6 +508,8 @@ function makeCatSlug(name) {
 function renderCategories() {
   const wrap = $("cat-list");
   wrap.innerHTML = "";
+  // カテゴリがある店は開いた状態で見せる（無い店は1行に畳んだまま）
+  if (state.categories.length && !$("cat-panel").dataset.touched) $("cat-panel").open = true;
   if (!state.categories.length) {
     wrap.innerHTML = `<p class="small">まだカテゴリはありません（商品タブは今までどおり並びます）。</p>`;
   }
@@ -538,6 +548,7 @@ function renderCategories() {
     wrap.appendChild(row);
   });
 }
+$("cat-panel").addEventListener("toggle", () => { $("cat-panel").dataset.touched = "1"; });
 $("btn-cat-add").onclick = async () => {
   const name = $("cat-name").value.trim();
   if (!name) { toast("カテゴリ名を入れてください"); return; }
@@ -655,7 +666,7 @@ function renderEditor() {
     onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
   }));
 
-  loadCapacityRule(p);
+  state.capacityLoading = loadCapacityRule(p);
   renderVariants(p);
   renderGroups(p);
   renderProductStops(p);
@@ -664,64 +675,57 @@ function renderEditor() {
     state.sharedLists.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}を使う</option>`).join("");
 }
 
-/* ---------- この商品の上限（capacity_rules scope=products・入力したら即保存） ---------- */
+/* ---------- この商品の上限（ほかの入力欄と同じ保存ボタンで確定） ---------- */
+const capacityRules = new Map();
 async function loadCapacityRule(p) {
-  state.capRule = null;
-  $("p-cap-daily").value = "";
-  $("p-cap-slot").value = "";
+  const dailyEl = $("p-cap-daily"), slotEl = $("p-cap-slot");
+  dailyEl.disabled = slotEl.disabled = true;
+  dailyEl.value = slotEl.value = "";
   try {
     const rules = await api("GET",
       `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=eq.products&is_active=eq.true` +
       `&select=*,capacity_rule_products!inner(product_id)&capacity_rule_products.product_id=eq.${p.id}`);
-    if (state.current?.id !== p.id) return;  // 読み込み中に別商品へ切り替えた場合は無視
-    state.capRule = rules[0] || null;
-    if (state.capRule) {
-      $("p-cap-daily").value = state.capRule.daily_limit ?? "";
-      $("p-cap-slot").value = state.capRule.slot_limit ?? "";
+    if (state.current?.id !== p.id) return;
+    if (rules.length > 1) throw new Error("複数の上限ルールがあります。個別の確認が必要です");
+    const rule = rules[0] || null;
+    capacityRules.set(p.id, rule);
+    for (const [column, el] of [["daily_limit", dailyEl], ["slot_limit", slotEl]]) {
+      el.value = drafts.value("_product_capacity", p.id, column, rule?.[column] ?? null) ?? "";
+      el.disabled = false;
+      regField("_product_capacity", p.id, column, el, { number: true });
     }
-  } catch { /* 読めなくても他の編集は続けられる */ }
-}
-
-async function saveCapacityRule() {
-  const p = state.current;
-  if (!p) return;
-  const dailyRaw = $("p-cap-daily").value.trim();
-  const slotRaw = $("p-cap-slot").value.trim();
-  const daily = dailyRaw === "" ? null : Math.max(0, parseInt(dailyRaw, 10) || 0);
-  const slot = slotRaw === "" ? null : Math.max(0, parseInt(slotRaw, 10) || 0);
-  try {
-    if (daily == null && slot == null) {
-      // 両方空欄=この商品の上限をなくす
-      if (state.capRule) {
-        await api("DELETE", `/rest/v1/capacity_rule_products?rule_id=eq.${state.capRule.id}`);
-        await api("DELETE", `/rest/v1/capacity_rules?id=eq.${state.capRule.id}`);
-        state.capRule = null;
-        toast(`「${p.name}」の上限をなくしました（全体上限のみ）`);
-      }
-      return;
-    }
-    if (state.capRule) {
-      await api("PATCH", `/rest/v1/capacity_rules?id=eq.${state.capRule.id}`,
-        { daily_limit: daily, slot_limit: slot, name: p.name });
-      state.capRule.daily_limit = daily;
-      state.capRule.slot_limit = slot;
-    } else {
-      const rule = await api("POST", "/rest/v1/capacity_rules", [{
-        tenant_id: state.tenantId, name: p.name, scope: "products",
-        daily_limit: daily, slot_limit: slot,
-      }]);
-      await api("POST", "/rest/v1/capacity_rule_products", [{
-        rule_id: rule[0].id, product_id: p.id, tenant_id: state.tenantId,
-      }]);
-      state.capRule = rule[0];
-    }
-    toast(`「${p.name}」の上限を保存しました`);
+    markDirty();
   } catch (e) {
-    toast("上限を保存できませんでした：" + e.message);
+    if (state.current?.id === p.id) toast("商品の上限を読み込めませんでした：" + e.message);
   }
 }
-$("p-cap-daily").onchange = saveCapacityRule;
-$("p-cap-slot").onchange = saveCapacityRule;
+async function saveCapacityRule(c) {
+  const rule = capacityRules.get(c.id);
+  if (!capacityRules.has(c.id)) throw new Error("商品の上限を読み直してください");
+  const values = { daily_limit: rule?.daily_limit ?? null, slot_limit: rule?.slot_limit ?? null, ...c.patch };
+  for (const v of Object.values(values)) {
+    if (v !== null && (!Number.isInteger(v) || v < 0)) throw new Error("上限は0以上の整数、または空欄にしてください");
+  }
+  if (rule) {
+    // 空欄もPATCHで扱う。削除→作成の途中状態を作らない。
+    await api("PATCH", `/rest/v1/capacity_rules?id=eq.${rule.id}`, values);
+    capacityRules.set(c.id, { ...rule, ...values });
+  } else if (values.daily_limit !== null || values.slot_limit !== null) {
+    const created = await api("POST", "/rest/v1/capacity_rules", [{
+      tenant_id: state.tenantId, name: state.products.find(p => p.id === c.id)?.name || "商品上限",
+      scope: "products", ...values,
+    }]);
+    try {
+      await api("POST", "/rest/v1/capacity_rule_products", [{
+        rule_id: created[0].id, product_id: c.id, tenant_id: state.tenantId,
+      }]);
+    } catch (e) {
+      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${created[0].id}`);
+      throw e;
+    }
+    capacityRules.set(c.id, created[0]);
+  }
+}
 
 /* ---------- 基本情報 ---------- */
 $("btn-save-all").onclick = saveAll;
@@ -734,7 +738,7 @@ $("btn-p-publish").onclick = async () => {
 /* ---------- この商品をコピー（サーバー側 fn_duplicate_product が丸ごと写す） ---------- */
 $("btn-p-copy").onclick = async () => {
   const p = state.current;
-  if (!confirmLeave()) return;
+  if (state.dirty) { toast("コピーする前に入力内容を保存してください"); return; }
   if (!confirm(`「${p.name}」をコピーして新しい商品を作りますか？\n（名前は「${p.name}（コピー）」・非公開の状態で作られます）`)) return;
   try {
     const newId = await api("POST", "/rest/v1/rpc/fn_duplicate_product", { p_product: p.id });
@@ -742,7 +746,7 @@ $("btn-p-copy").onclick = async () => {
     state.dirty = false;
     await loadAll(false);
     state.current = state.products.find((x) => x.id === newId) || null;
-    renderTabs(); renderEditor();
+    await loadAll();
   } catch (e) {
     toast("コピーできませんでした：" + e.message);
   }
@@ -899,7 +903,7 @@ function answerFieldHtml(view) {
 
 /* 質問エディタ（共通の質問・選択肢の質問で同じ部品を使う）
  * 戻り値の要素の中で、ラベル/必須/形式/回答の選択肢を編集できる。
- * ラベルと選択肢名は「まとめて保存」、形式の変更と選択肢の増減はその場で保存する。 */
+ * ラベル・形式・選択肢名は「まとめて保存」、選択肢の追加・削除はその場で反映する。 */
 function buildQuestionFields(q, view, onPaint, opts = {}) {
   const box = document.createElement("div");
   box.className = "sub q-fields";
@@ -943,16 +947,13 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     { get: () => parseInt(maxEl.value, 10) || 3 });
   maxEl.addEventListener("change", () => { view.imageMax = parseInt(maxEl.value, 10) || 3; onPaint(); });
 
-  box.querySelector(".q-type").addEventListener("change", async (e) => {
-    const type = e.target.value;
-    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { input_type: type });
-    // 選択式に変えたのに回答の選択肢が1つも無いと、お客様は何も選べない
-    if (needsChoices(type) && !qChoices(q).length) {
-      await api("POST", "/rest/v1/common_question_choices", [{
-        tenant_id: state.tenantId, question_id: q.id, label: "", display_order: 0,
-      }]);
-    }
-    reloadAll();
+  const typeEl = box.querySelector(".q-type");
+  regField("common_questions", q.id, "input_type", typeEl);
+  typeEl.addEventListener("change", () => {
+    view.type = typeEl.value;
+    box.querySelector(".q-choices").classList.toggle("hidden", !needsChoices(view.type));
+    box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
+    onPaint();
   });
 
   const chWrap = box.querySelector(".q-choices");
@@ -982,7 +983,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     };
     chWrap.appendChild(row);
   }
-  if (needsChoices(q.input_type)) {
+  {
     const add = document.createElement("button");
     add.type = "button";
     add.className = "pill ghost";
@@ -1001,6 +1002,18 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
 
 /* ---------- 選択グループと選択肢 ---------- */
 const optDisplayName = (o) => o.name || o.shared_list_items?.name || "（共有リストの項目）";
+function optionAvailability(o) {
+  if (o.shared_list_item_id && !o.shared_list_items?.is_available)
+    return { available: false, label: "共有リストで停止中" };
+  if (!o.is_available) return { available: false, label: o.shared_list_item_id ? "この商品で停止中" : "停止中" };
+  const item = o.shared_list_items;
+  if (item?.available_from || item?.available_until) {
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: state.tenantTimezone || "Asia/Tokyo" }).format(new Date());
+    if ((item.available_from && today < item.available_from) || (item.available_until && today > item.available_until))
+      return { available: false, label: "共有リストの提供期間外" };
+  }
+  return { available: true, label: "提供中" };
+}
 // この商品に出るグループ = その商品のグループ ＋「すべてのケーキに出す」グループ
 function groupsForProduct(p) {
   return [...p.option_groups, ...state.globalGroups]
@@ -1054,7 +1067,7 @@ function buildGroupBox(p, g) {
       </div>
       </div>
       <div class="cust">
-        <p class="cap">プレビュー</p>
+        <p class="cap">お客様向けプレビュー（停止中の項目は非表示）</p>
         <div class="card">
           <h4><span class="pv-name"></span><span class="req pv-req">必須</span></h4>
           <p class="desc pv-desc"></p>
@@ -1071,7 +1084,7 @@ function buildGroupBox(p, g) {
     opts: [...g.options].sort((a, b) => a.display_order - b.display_order).map((o) => {
       const q = questionOf(o.id);
       return {
-        id: o.id, name: optDisplayName(o), price: o.price_delta, available: o.is_available,
+        id: o.id, name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         q: q ? {
           label: q.label, type: q.input_type, required: q.is_required, imageMax: imgMaxOf(q),
           choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
@@ -1087,12 +1100,12 @@ function buildGroupBox(p, g) {
     const n = box.querySelector(".pv-note");
     n.textContent = view.note; n.classList.toggle("hidden", !view.note.trim());
     n.classList.toggle("accent", view.accent);
-    box.querySelector(".pv-opts").innerHTML = view.opts.map((o) => `
-      <div class="crow ${o.available ? "" : "off"}">
+    box.querySelector(".pv-opts").innerHTML = view.opts.filter(o => o.available).map((o) => `
+      <div class="crow" data-option-id="${esc(o.id)}">
         <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
         <span>${o.price ? "+¥" + o.price.toLocaleString("ja-JP") : "無料"}</span>
       </div>
-      ${o.q ? `<div class="cfield">${esc(o.q.label || "（質問文）")}${answerFieldHtml(o.q)}</div>` : ""}`).join("");
+      ${o.q ? `<div class="cfield" data-option-id="${esc(o.id)}">${esc(o.q.label || "（質問文）")}${answerFieldHtml(o.q)}</div>` : ""}`).join("");
     applyLight();
   };
 
@@ -1123,17 +1136,9 @@ function buildGroupBox(p, g) {
   regField("option_groups", g.id, "note_accent", accentEl);
   accentEl.addEventListener("change", () => { view.accent = accentEl.checked; paint(); });
 
-  box.querySelector(".gh-all").onclick = async (e) => {
-    const on = e.target.checked;
-    const others = Math.max(0, state.products.length - 1);
-    const ask = on
-      ? `「${g.name}」を すべてのケーキに出しますか？\n（${p.name} 以外の ${others}個のケーキにも出るようになります）`
-      : `「${g.name}」を この商品（${p.name}）だけのグループに戻しますか？\n（他の ${others}個のケーキからは出なくなります）`;
-    if (!confirm(ask)) { e.target.checked = !on; return; }
-    await api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { product_id: on ? null : p.id });
-    toast(on ? "すべてのケーキに出すようにしました" : `${p.name} だけのグループにしました`);
-    reloadAll();
-  };
+  const allEl = box.querySelector(".gh-all");
+  regField("option_groups", g.id, "product_id", allEl,
+    { get: () => allEl.checked ? null : p.id });
 
   box.querySelector(".gh-del").onclick = async () => {
     const scope = isGlobal
@@ -1184,6 +1189,7 @@ function buildGroupBox(p, g) {
       patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
   }));
 
+  regField("option_groups", g.id, "default_layer_z", box.querySelector(".g-default-layer .layer-z"), { number: true });
   const optWrap = box.querySelector(".g-options");
   view.opts.forEach((ov, i) => {
     const o = g.options.find((x) => x.id === ov.id);
@@ -1206,16 +1212,17 @@ function marksHtml(o, ov) {
 function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const row = document.createElement("div");
   const open = state.openOptions.has(o.id);
-  row.className = "opt" + (open ? " open" : "") + (o.is_available ? "" : " stopped");
+  const availability = optionAvailability(o);
+  row.className = "opt" + (open ? " open" : "") + (availability.available ? "" : " stopped");
   const isLinked = !!o.shared_list_item_id;
   const q = questionOf(o.id);
   row.innerHTML = `
     <div class="opt-line">
-      <input type="text" class="oname inplace" value="${esc(o.name)}" aria-label="選択肢名"
+      <input type="text" class="oname inplace" value="${esc(isLinked ? optDisplayName(o) : o.name)}" aria-label="選択肢名"
         placeholder="${esc(isLinked ? optDisplayName(o) + "（共有リスト）" : "選択肢名")}" ${isLinked ? "disabled" : ""}>
       <span class="lbl">+¥</span><input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
       <span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" value="${esc(o.max_quantity)}">
-      <span class="state-badge ${o.is_available ? "on" : ""}">${o.is_available ? "提供中" : "停止中"}</span>
+      <span class="state-badge ${availability.available ? "on" : ""}">${availability.label}</span>
       <button type="button" class="pill o-more" aria-expanded="${open}">詳しい設定 ${open ? "▴" : "▾"}</button>
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
@@ -1233,13 +1240,14 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="acts">
         <button type="button" class="pill o-stops">ご用意できない日を設定</button>
         <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
-        <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
+        <button type="button" class="pill o-toggle">${isLinked ? (o.is_available ? "この商品だけ停止する" : "この商品の停止を解除") : (o.is_available ? "停止する" : "提供を再開する")}</button>
+        ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}
         <button type="button" class="pill danger o-del">削除</button>
       </div>
     </div>`;
 
   const repaintMarks = () => { row.querySelector(".marks").innerHTML = marksHtml(o, ov); };
-  const rowLight = () => row.closest(".grp").querySelectorAll(".pv-opts .crow")[index];
+  const rowLight = () => row.closest(".grp").querySelector(`.pv-opts .crow[data-option-id="${o.id}"]`);
 
   const nameEl = row.querySelector(".oname");
   if (!isLinked) {
@@ -1280,8 +1288,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   if (q) {
     const qLight = () => {
       const grp = row.closest(".grp");
-      const before = view.opts.slice(0, index).filter((x) => x.q).length;
-      return grp.querySelectorAll(".pv-opts .cfield")[before];
+      return grp.querySelector(`.pv-opts .cfield[data-option-id="${o.id}"]`);
     };
     qWrap.appendChild(buildQuestionFields(q, ov.q, paintGroup, { hideHelp: false, lightLabel: qLight }));
   }
@@ -1477,7 +1484,7 @@ function renderQuestions() {
 function buildQuestionBox(q) {
   const box = document.createElement("div");
   box.className = "q" + (q.is_active ? "" : " stopped");
-  const picked = new Set((q.common_question_products || []).map((r) => r.product_id));
+  const picked = new Set(q._product_ids ?? (q.common_question_products || []).map((r) => r.product_id));
   const isAll = q.scope !== "selected";
   box.innerHTML = `
     <div class="q-bar">
@@ -1529,33 +1536,20 @@ function buildQuestionBox(q) {
   nameEl.addEventListener("input", () => { view.label = nameEl.value; paint(); });
   linkLight(nameEl, () => box.querySelector(".pv-label"));
 
-  box.querySelector(".sc-all").onchange = async () => {
-    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { scope: "all" });
-    await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}`);
-    reloadAll();
-  };
-  box.querySelector(".sc-some").onchange = async () => {
-    await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { scope: "selected" });
-    reloadAll();
-  };
-  box.querySelectorAll(".cakes input").forEach((cb) => {
-    cb.onchange = async () => {
-      const pid = cb.dataset.pid;
-      try {
-        if (cb.checked) {
-          await api("POST", "/rest/v1/common_question_products", [{
-            tenant_id: state.tenantId, question_id: q.id, product_id: pid,
-          }]);
-        } else {
-          await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}&product_id=eq.${pid}`);
-        }
-        cb.closest("label").classList.toggle("on", cb.checked);
-      } catch (e) {
-        cb.checked = !cb.checked;
-        toast("変更できませんでした：" + e.message);
-      }
-    };
+  const allScope = box.querySelector(".sc-all");
+  const cakes = box.querySelector(".cakes");
+  regField("common_questions", q.id, "scope", allScope,
+    { get: () => allScope.checked ? "all" : "selected" });
+  regField("common_questions", q.id, "_product_ids", cakes, {
+    get: () => [...cakes.querySelectorAll("input:checked")].map(cb => cb.dataset.pid).sort(),
   });
+  for (const el of box.querySelectorAll('.sc-all, .sc-some, .cakes input')) {
+    el.addEventListener("change", () => {
+      cakes.classList.toggle("hidden", allScope.checked);
+      cakes.querySelectorAll("label").forEach(lb => lb.classList.toggle("on", lb.querySelector("input").checked));
+      markDirty();
+    });
+  }
 
   box.querySelector(".q-toggle").onclick = async () => {
     await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: !q.is_active });
@@ -1702,10 +1696,6 @@ state.dirty = false;
 window.addEventListener("beforeunload", (e) => {
   if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
 });
-function confirmLeave() {
-  return !state.dirty ||
-    confirm("保存していない変更があります。保存せずに移動しますか？\n（画面下の「保存する」で確定できます）");
-}
 
 /* ---------- 起動 ---------- */
 (async () => {
@@ -1717,7 +1707,8 @@ function confirmLeave() {
     state.tenantId = tu[0].tenant_id;
     $("view-app").classList.remove("hidden");
     // お客様画面プレビューリンク
-    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain`);
+    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone`);
+    state.tenantTimezone = t[0].timezone || "Asia/Tokyo";
     $("preview-link").href = `../?shop=${t[0].subdomain}`;
     await loadAll(false);
   } catch {

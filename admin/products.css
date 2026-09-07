@@ -130,7 +130,6 @@
   border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 11px; margin-top: 6px;
   font-size: .86rem; display: flex; justify-content: space-between; gap: 10px;
 }
-.cust .crow.off { opacity: .5; text-decoration: line-through; }
 .cust .cfield { margin-top: 7px; font-size: .8rem; color: #a08a8f; }
 /* 横いっぱいにするのは記入欄とプルダウンだけ。
    ラジオ・チェックボックスまで width:100% にすると丸が引き伸ばされて文字がズレる */
@@ -298,3 +297,17 @@
 .cat-row .cat-rename { flex: 1; min-width: 140px; font-size: 16px; }
 .cat-row .mini { color: #a08a8f; white-space: nowrap; }
 .cat-row button[disabled] { opacity: .35; cursor: default; }
+
+/* カテゴリの箱はタブの直下に畳んで置く（一番下では遠い＝まりほ指摘 2026-09-07） */
+.cat-panel { margin: -6px 0 16px; }
+.cat-panel > summary {
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  font-size: .85rem; color: var(--primary-deep); font-weight: bold; padding: 4px 2px;
+}
+.cat-panel > summary::-webkit-details-marker { display: none; }
+.cat-panel > summary::before { content: "▸"; font-size: .75rem; }
+.cat-panel[open] > summary::before { content: "▾"; }
+.cat-panel-body {
+  margin-top: 8px; padding: 12px 14px; background: #fff;
+  border: 1.5px solid var(--line); border-radius: 12px;
+}

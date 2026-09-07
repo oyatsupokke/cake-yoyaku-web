@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788701462">
-<link rel="stylesheet" href="admin.css?v=1788701462">
-<link rel="stylesheet" href="products.css?v=1788701462">
+<link rel="stylesheet" href="../styles.css?v=1788742136">
+<link rel="stylesheet" href="admin.css?v=1788742136">
+<link rel="stylesheet" href="products.css?v=1788742136">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -36,6 +36,19 @@
       <button type="button" class="pill" id="btn-new-product">＋ 新しい商品を追加</button>
     </div>
 
+    <!-- カテゴリ＝商品タブのまとめ方。タブのすぐ下に置く（まりほ指摘 2026-09-07：一番下は遠い） -->
+    <details class="cat-panel" id="cat-panel">
+      <summary>カテゴリでタブをまとめる<button type="button" class="tip" data-tip="商品が増えると上のタブが何行にもなって探しにくくなります。カテゴリを作ると、タブがカテゴリごとにまとまって、ふだん触らないものを畳んでおけます。お客様の画面には出ません。">？</button></summary>
+      <div class="cat-panel-body">
+        <p class="small">作ると上のタブがカテゴリごとの帯になります。どのカテゴリに入れるかは、各商品の「基本情報」で選びます。<strong>お客様の画面には出ません。</strong></p>
+        <div id="cat-list"></div>
+        <div class="override-add">
+          <input type="text" id="cat-name" placeholder="新しいカテゴリ名（例: 定番のケーキ）" style="width:230px">
+          <button type="button" class="pill" id="btn-cat-add">カテゴリ追加</button>
+        </div>
+      </div>
+    </details>
+
     <!-- 商品エディタ -->
     <div id="editor" class="hidden">
 
@@ -63,7 +76,7 @@
         <div class="field">この商品の上限（何台まで受けるか）
           <span>1日 <input type="number" id="p-cap-daily" min="0" style="width:90px" placeholder="なし"> 台まで
           ／ 同じ時間帯 <input type="number" id="p-cap-slot" min="0" style="width:90px" placeholder="なし"> 台まで</span>
-          <span class="help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。入力するとすぐ保存されます。</span>
+          <span class="help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。画面下の「保存する」で確定します。</span>
         </div>
         <div class="status-line">
           <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
@@ -145,17 +158,6 @@
       <button type="button" class="pill ghost" id="btn-q-add">＋ 質問を追加</button>
     </div>
 
-    <!-- カテゴリ（商品が増えた店で、上の商品タブをまとめるため） -->
-    <div class="confirm-box">
-      <h3>カテゴリ（商品のまとめ方）<button type="button" class="tip" data-tip="商品が増えると上のタブが何行にもなって探しにくくなります。カテゴリを作ると、タブがカテゴリごとにまとまって、ふだん触らないものを畳んでおけます。お客様の画面には出ません。">？</button></h3>
-      <p class="small">上の<strong>商品タブのまとめ方</strong>です。作ると、タブがカテゴリごとにまとまって畳めるようになります。どのカテゴリに入れるかは、各商品の「基本情報」で選びます。<strong>お客様の画面には出ません。</strong></p>
-      <div id="cat-list"></div>
-      <div class="override-add">
-        <input type="text" id="cat-name" placeholder="新しいカテゴリ名（例: 定番のケーキ）" style="width:230px">
-        <button type="button" class="pill" id="btn-cat-add">カテゴリ追加</button>
-      </div>
-    </div>
-
     <!-- 共有リスト管理 -->
     <div class="confirm-box">
       <h3>共有リスト（果物など・複数の商品で共通の選択肢）</h3>
@@ -171,14 +173,15 @@
 
   <!-- 画面下に固定される保存バー -->
   <div id="save-bar" class="save-bar hidden">
-    <span id="save-status">変更はありません</span>
+    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・公開／停止・画像の変更はその場で反映します。</small></div>
     <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
   </div>
 
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788701462"></script>
-<script src="products.js?v=1788701462"></script>
+<script src="tips.js?v=1788742136"></script>
+<script src="edit-drafts.js?v=1788742136"></script>
+<script src="products.js?v=1788742136"></script>
 </body>
 </html>

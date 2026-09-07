@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788770142">
-<link rel="stylesheet" href="admin.css?v=1788770142">
-<link rel="stylesheet" href="admin-layout.css?v=1788770142">
-<link rel="stylesheet" href="support.css?v=1788770142">
+<link rel="stylesheet" href="../styles.css?v=1788780330">
+<link rel="stylesheet" href="admin.css?v=1788780330">
+<link rel="stylesheet" href="admin-layout.css?v=1788780330">
+<link rel="stylesheet" href="support.css?v=1788780330">
 </head>
 <body>
 <div id="app" class="admin">
@@ -134,6 +134,7 @@
           <a href="#settings-pickup">受取日時</a>
           <a href="#settings-customer">お客様設定</a>
           <a href="#settings-notifications">通知文面</a>
+          <a href="#settings-line">LINE連携</a>
         </div>
       </nav>
       <div class="confirm-box settings-anchor" id="settings-shop">
@@ -285,6 +286,26 @@
         </div>
       </div>
 
+      <div class="confirm-box settings-anchor" id="settings-line">
+        <h3>LINE連携</h3>
+        <p class="small">メールに加えて、希望するお客様へLINEでも予約のお知らせを送るための設定です。</p>
+        <p id="line-config-status" role="status">設定を読み込み中…</p>
+        <p class="small" id="line-config-id"></p>
+        <p class="small">ここで表示するのは登録済みの設定です。LINEへの接続・実際の配信成功を確認した表示ではありません。</p>
+        <label class="radio-line"><input type="checkbox" id="line-enabled" disabled>お客様にLINE通知の利用を案内する</label>
+        <p class="small">ONにすると、予約完了画面などに「LINEで通知を受け取る」が表示されます。メールは引き続き届きます。</p>
+        <button type="button" class="pill" id="line-save" disabled>LINEの設定を保存する</button>
+        <p class="small">このボタンでLINEの設定だけを保存します。OFFは新しい連携や通知の作成を止める設定です。すでに送信待ちの通知は、停止後も届く場合があります。</p>
+        <p id="line-result" class="small" role="status"></p>
+        <details><summary>動作確認の手順</summary>
+          <ol><li>自分用のテスト予約を入れます（予約枠を使い、メールも届きます）。</li><li>予約完了画面の「LINEで通知を受け取る」から連携します。</li><li>LINEに予約の控えが届いたことを確認します。設定がONだけでは配信成功とは限りません。</li><li>テスト後は、不要な予約をキャンセルします。</li></ol>
+          <p class="small">届かない場合は、LINE公式アカウントのブロック状態や配信可能な通数をご確認のうえ、サポートへお問い合わせください。</p>
+        </details>
+        <details><summary>新しいLINE公式アカウントを接続したいとき</summary>
+          <p class="small">現在は運営側での接続設定が必要です。サポートへお問い合わせください。トークンやシークレットなどの秘密情報は、お問い合わせ欄に貼り付けないでください。</p>
+        </details>
+      </div>
+
       <div class="confirm-box settings-anchor" id="settings-notifications">
         <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変えられません（消えません）。空欄にしておくと、下の見本に出ている文がそのまま送られます。">？</button></h3>
         <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変えられるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
@@ -423,11 +444,11 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788770142"></script>
-<script src="edit-drafts.js?v=1788770142"></script>
-<script src="report-core.js?v=1788770143"></script>
-<script src="admin.js?v=1788770143"></script>
-<script src="reports.js?v=1788770142"></script>
-<script src="support.js?v=1788770142"></script>
+<script src="tips.js?v=1788780330"></script>
+<script src="edit-drafts.js?v=1788780330"></script>
+<script src="report-core.js?v=1788780330"></script>
+<script src="admin.js?v=1788780330"></script>
+<script src="reports.js?v=1788780330"></script>
+<script src="support.js?v=1788780330"></script>
 </body>
 </html>

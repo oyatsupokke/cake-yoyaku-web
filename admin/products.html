@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788770142">
-<link rel="stylesheet" href="admin.css?v=1788770142">
-<link rel="stylesheet" href="products.css?v=1788770142">
-<link rel="stylesheet" href="admin-layout.css?v=1788770142">
+<link rel="stylesheet" href="../styles.css?v=1788780330">
+<link rel="stylesheet" href="admin.css?v=1788780330">
+<link rel="stylesheet" href="products.css?v=1788780330">
+<link rel="stylesheet" href="admin-layout.css?v=1788780330">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -56,14 +56,10 @@
 
     <!-- カテゴリ＝商品タブのまとめ方。タブのすぐ下に置く（まりほ指摘 2026-09-07：一番下は遠い） -->
     <details class="cat-panel" id="cat-panel">
-      <summary>カテゴリでタブをまとめる<button type="button" class="tip" data-tip="商品が増えると上のタブが何行にもなって探しにくくなります。カテゴリを作ると、タブがカテゴリごとにまとまって、ふだん触らないものを畳んでおけます。お客様の画面には出ません。">？</button></summary>
+      <summary>カテゴリを管理</summary>
       <div class="cat-panel-body">
-        <p class="small">商品をカテゴリに入れると、上のタブがカテゴリごとの帯になります。<strong>入れる操作は各商品の「基本情報」→「カテゴリ」で。</strong>ここは名前の変更・並べ替え・削除だけです。お客様の画面には出ません。</p>
+        <p class="small">カテゴリ名の変更・並べ替え・削除ができます。商品の分類や新しいカテゴリの作成は、各商品の「基本情報」で行います。</p>
         <div id="cat-list"></div>
-        <div class="override-add">
-          <input type="text" id="cat-name" placeholder="新しいカテゴリ名（例: 定番のケーキ）" style="width:230px">
-          <button type="button" class="pill" id="btn-cat-add">カテゴリ追加</button>
-        </div>
       </div>
     </details>
 
@@ -73,12 +69,16 @@
       <div class="confirm-box product-compact-card">
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
+        <div class="product-copy-action">
+          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てを丸ごと写した新しい商品を作ります。名前の後ろに（コピー）が付き、非公開の状態で始まります。写真とイラストは同じ画像を使います。">？</button>
+        </div>
         <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
           <div class="override-add" style="margin:4px 0 0">
             <select id="p-category" style="width:230px"></select>
             <input type="text" id="p-category-new" class="hidden" placeholder="新しいカテゴリ名（例: クリスマス）" style="width:220px">
-            <button type="button" class="pill hidden" id="btn-p-category-create">作ってこの商品に入れる</button>
+            <button type="button" class="pill hidden" id="btn-p-category-create">作成してこの商品に設定</button>
           </div>
+          <p class="small">既存のカテゴリを選んだら「保存する」で確定します。新規作成は「作成してこの商品に設定」で、作成と分類をその場で確定します。</p>
         </div>
         <div id="p-photo"></div>
         <div id="p-layer"></div>
@@ -91,25 +91,23 @@
           <textarea id="p-note" rows="3"></textarea>
           <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" id="p-note-accent">目立たせる（赤・太字）</label>
         </div>
-        <label class="field">締切（受取日の何日前まで受け付けるか）
-          <input type="number" id="p-deadline" min="0" style="width:110px" placeholder="空欄=店の基本"> 日前
-          <span class="help">空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</span>
-        </label>
-        <div class="field">この商品の上限（何台まで受けるか）
-          <span>1日 <input type="number" id="p-cap-daily" min="0" style="width:90px" placeholder="なし"> 台まで
-          ／ 同じ時間帯 <input type="number" id="p-cap-slot" min="0" style="width:90px" placeholder="なし"> 台まで</span>
-          <span class="help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。画面下の「保存する」で確定します。</span>
+        <div class="field product-limit-field">
+          <label for="p-deadline">締切（受取日の何日前まで受け付けるか）</label>
+          <div class="product-unit-row"><input type="number" id="p-deadline" min="0" placeholder="空欄=店の基本" aria-describedby="p-deadline-help"><span>日前</span></div>
+          <p class="help" id="p-deadline-help">空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</p>
         </div>
-        <div class="status-line">
+        <div class="field product-limit-field">
+          <div>この商品の上限（何台まで受けるか）</div>
+          <div class="product-unit-row"><label for="p-cap-daily">1日</label><input type="number" id="p-cap-daily" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
+          <div class="product-unit-row"><label for="p-cap-slot">同じ時間帯</label><input type="number" id="p-cap-slot" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
+          <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限（全体）」だけが効きます）。例：全体は1日10台、このケーキは1日3台・同じ時間帯2台まで。画面下の「保存する」で確定します。</p>
+        </div>
+        <div class="status-line product-publish-section">
           <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
           <span id="p-publish-state" class="state-badge"></span>
           <button type="button" class="pill" id="btn-p-publish"></button>
         </div>
         <p id="p-publish-error" class="small warn hidden" role="alert"></p>
-        <div class="btn-row-3">
-          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てを丸ごと写した新しい商品を作ります。名前の後ろに（コピー）が付き、非公開の状態で始まります。写真とイラストは同じ画像を使います。">？</button>
-          <button type="button" class="pill danger" id="btn-p-delete">この商品を削除</button>
-        </div>
       </div>
 
       <div class="confirm-box product-compact-card">
@@ -122,6 +120,12 @@
           <label class="field">受付終了（この日時に自動で締め切ります）
             <input type="datetime-local" id="p-sale-end">
           </label>
+        </div>
+        <label class="field">受取日の指定方法
+          <select id="p-pickup-mode"><option value="normal">通常どおり（お店の営業日）</option><option value="period">期間で指定</option><option value="dates">日付で指定</option></select>
+        </label>
+        <div id="p-pickup-period">
+        <div class="season-grid">
           <label class="field">受取できる期間（開始）
             <input type="date" id="p-pickup-start">
           </label>
@@ -129,10 +133,17 @@
             <input type="date" id="p-pickup-end">
           </label>
         </div>
-        <div class="field">受取できる曜日（何も選ばなければ定休日以外すべて）
+        <div class="field">期間内で受け付ける曜日（選ばなければ営業日すべて）
           <div class="weekday-row" id="p-weekdays"></div>
         </div>
-        <p class="small" style="margin-top:10px">💡 定休日にクリスマス営業をしたい／期間の途中で1日お休みしたい場合は、<a href="./index.html">管理トップ→設定→「臨時休業・臨時営業」</a>で日付を登録してください（お店全体に効きます）。<strong>この商品だけ</strong>特定の日を休みたい場合は、下の「この商品だけ受け付けない日」を使います。</p>
+        <p class="small">定休日は除きます。この商品だけ定休日に受け付けたいときは「日付で指定」を選んでください。</p>
+        </div>
+        <div id="p-pickup-dates" class="hidden">
+          <p class="small">追加した日だけ受け付けます。定休日は追加時に確認します。他の商品には影響しません。</p>
+          <div class="override-add"><input type="date" id="p-pickup-date" aria-label="受け付ける日"><button type="button" class="pill" id="btn-pickup-date-add">日付を追加</button></div>
+          <div id="p-pickup-date-list"></div>
+        </div>
+        <p class="small">受取日の設定は「保存する」で確定します。受付開始・終了、締切、台数上限はどの指定方法でも適用されます。店舗の臨時休業と、下の商品別の受付停止日は優先されます。</p>
         <div class="field" style="margin-top:8px">この商品だけ受け付けない日
           <div class="override-add">
             <input type="date" id="p-stop-date">
@@ -172,6 +183,9 @@
         </div>
       </div>
 
+      <div class="product-delete-action">
+        <button type="button" class="pill danger" id="btn-p-delete">この商品を削除</button>
+      </div>
     </div>
 
     <!-- 共通の質問（店全体。商品タブの外にあるのは、中身が店全体の設定だから） -->
@@ -203,9 +217,10 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788770142"></script>
-<script src="edit-drafts.js?v=1788770142"></script>
-<script src="products-menu.js?v=1788770142"></script>
-<script src="products.js?v=1788770142"></script>
+<script src="tips.js?v=1788780330"></script>
+<script src="edit-drafts.js?v=1788780330"></script>
+<script src="products-menu.js?v=1788780330"></script>
+<script src="pickup-schedule.js?v=1788780330"></script>
+<script src="products.js?v=1788780330"></script>
 </body>
 </html>

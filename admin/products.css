@@ -9,6 +9,19 @@
    これまでこの指定が効かず、商品設定は560px幅のまま出ていた（2026-08-30 に発見） */
 #app.products-page { max-width: 720px; padding-bottom: 90px; }
 .back-link { text-decoration: none; color: var(--primary-deep); }
+.products-page .product-limit-field{margin:24px 0}
+.products-page .product-unit-row{display:flex;align-items:center;gap:10px;margin:10px 0;font-weight:400}
+.products-page .product-unit-row>label{flex:0 0 6em}
+.products-page .product-unit-row>span{white-space:nowrap}
+.products-page .product-unit-row input[type=number]{display:block;flex:0 0 90px;width:90px;min-width:0;margin:0}
+.products-page .product-unit-row #p-deadline{flex-basis:180px;width:180px}
+.products-page .product-limit-field .help{display:block;margin:10px 0 0;line-height:1.7}
+.products-page .product-publish-section{border-top:1px solid var(--line);padding-top:20px;margin-top:26px}
+.products-page .product-copy-action{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 22px}
+.products-page .product-delete-action{border-top:1px solid var(--line);padding:22px 0;margin:30px 0 36px}
+.cat-product-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.cat-product-row span{overflow-wrap:anywhere}.cat-product-row select{width:100%;min-width:0}
+@media(max-width:540px){.cat-product-row{grid-template-columns:1fr;gap:6px}}
 /* 商品設定は独立した編集レイアウト。狭い画面の管理メニューだけ共通化する。 */
 .product-navigation { display: none; }
 @media (max-width: 919px) {

@@ -72,6 +72,14 @@ function markDirty() {
 }
 async function saveChange(c) {
   if (c.table === "_product_capacity") return saveCapacityRule(c);
+  if (c.table === "products") {
+    const source = state.products.find(p => p.id === c.id) || {};
+    const next = { ...source, ...c.patch };
+    if (next.pickup_mode === "dates" && !(next.pickup_dates || []).length)
+      throw new Error("日付で指定する場合は、受取日を1日以上追加してください");
+    if (next.pickup_mode === "period" && next.pickup_start_date && next.pickup_end_date && next.pickup_start_date > next.pickup_end_date)
+      throw new Error("受取期間の終了日は、開始日以降にしてください");
+  }
   const { _product_ids: productIds, ...patch } = c.patch;
   if (Object.keys(patch).length) {
     const rows = await api("PATCH", `/rest/v1/${c.table}?id=eq.${c.id}`, patch);
@@ -510,11 +518,10 @@ function makeCatSlug(name) {
   return slug;
 }
 
+
 function renderCategories() {
   const wrap = $("cat-list");
   wrap.innerHTML = "";
-  // カテゴリがある店は開いた状態で見せる（無い店は1行に畳んだまま）
-  if (state.categories.length && !$("cat-panel").dataset.touched) $("cat-panel").open = true;
   if (!state.categories.length) {
     wrap.innerHTML = `<p class="small">まだカテゴリはありません（商品タブは今までどおり並びます）。</p>`;
   }
@@ -554,17 +561,6 @@ function renderCategories() {
   });
 }
 $("cat-panel").addEventListener("toggle", () => { $("cat-panel").dataset.touched = "1"; });
-$("btn-cat-add").onclick = async () => {
-  const name = $("cat-name").value.trim();
-  if (!name) { toast("カテゴリ名を入れてください"); return; }
-  await api("POST", "/rest/v1/categories", [{
-    tenant_id: state.tenantId, name, slug: makeCatSlug(name),
-    display_order: state.categories.length,
-  }]);
-  $("cat-name").value = "";
-  toast(`カテゴリ「${name}」を作りました`);
-  reloadAll();
-};
 $("btn-new-product").onclick = async () => {
   const name = prompt("新しい商品の名前を入力してください");
   if (!name || !name.trim()) return;
@@ -609,6 +605,7 @@ function renderEditor() {
   $("p-sale-end").value = isoToLocal(p.sale_end_at);
   $("p-pickup-start").value = p.pickup_start_date || "";
   $("p-pickup-end").value = p.pickup_end_date || "";
+  initPickupSchedule(p);
   const w = $("p-weekdays");
   w.innerHTML = "";
   WEEKDAYS.forEach((name, i) => {
@@ -658,17 +655,34 @@ function renderEditor() {
     if (making) newName.focus();
   };
   paintNew();
-  catSel.onchange = paintNew;
+  catSel.onchange = () => {
+    paintNew();
+    markDirty();
+  };
   newBtn.onclick = async () => {
     const name = newName.value.trim();
     if (!name) { toast("カテゴリ名を入れてください"); return; }
-    const created = await api("POST", "/rest/v1/categories", [{
-      tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: state.categories.length,
-    }]);
-    await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { category_id: created[0].id });
-    toast(`カテゴリ「${name}」を作って「${p.name}」を入れました`);
-    newName.value = "";
-    reloadAll();
+    newBtn.disabled = true;
+    let category = state.categories.find(c => c.name === name);
+    try {
+      if (!category) {
+        const created = await api("POST", "/rest/v1/categories", [{
+          tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: state.categories.length,
+        }]);
+        category = created[0];
+        state.categories.push(category); // 分類に失敗して再試行しても重複作成しない
+      }
+      await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { category_id: category.id });
+      const option = new Option(category.name, category.id);
+      catSel.add(option); catSel.value = category.id;
+      drafts.capture(state.fields);
+      drafts.acknowledge({ table: "products", id: p.id, patch: { category_id: category.id } }, state.fields);
+      toast(`「${p.name}」をカテゴリ「${category.name}」に設定しました`);
+      newName.value = "";
+      await reloadAll();
+    } catch {
+      toast(category ? "カテゴリは作成済みですが、商品の分類を完了できませんでした。もう一度押してください。" : "カテゴリを作成できませんでした。通信状態を確認してください。");
+    } finally { newBtn.disabled = false; }
   };
 
   // 商品写真
@@ -1750,8 +1764,9 @@ window.addEventListener("beforeunload", (e) => {
     state.tenantId = tu[0].tenant_id;
     $("view-app").classList.remove("hidden");
     // お客様画面プレビューリンク
-    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone`);
+    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone,closed_weekdays`);
     state.tenantTimezone = t[0].timezone || "Asia/Tokyo";
+    state.closedWeekdays = t[0].closed_weekdays || [];
     $("preview-link").href = `../?shop=${t[0].subdomain}`;
     await loadAll(false);
   } catch {

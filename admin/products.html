@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788768207">
-<link rel="stylesheet" href="admin.css?v=1788768207">
-<link rel="stylesheet" href="products.css?v=1788768207">
+<link rel="stylesheet" href="../styles.css?v=1788768899">
+<link rel="stylesheet" href="admin.css?v=1788768899">
+<link rel="stylesheet" href="products.css?v=1788768899">
+<link rel="stylesheet" href="admin-layout.css?v=1788768899">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -21,11 +22,25 @@
   <main id="view-app" class="hidden">
     <header class="admin-header">
       <h1><a href="./index.html" class="back-link">←</a> 商品の設定</h1>
-      <span>
+      <button type="button" class="menu-btn" id="menu-btn" aria-label="メニュー" aria-expanded="false" aria-controls="admin-tabs">☰</button>
+      <span class="product-header-actions">
         <a class="link-btn" id="preview-link" href="../" target="_blank">お客様画面を見る</a>
         <button type="button" class="link-btn" id="btn-reload">再読み込み</button>
       </span>
     </header>
+
+    <div class="admin-body product-navigation" id="admin-body">
+      <nav class="tabs no-print" id="admin-tabs" aria-label="管理画面">
+        <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
+        <a class="tab tab-link" href="./index.html?tab=pickup">受取リスト</a>
+        <a class="tab tab-link" href="./index.html?tab=kitchen">製造ケーキ一覧</a>
+        <a class="tab tab-link" href="./index.html?tab=reports">集計・CSV</a>
+        <a class="tab tab-link" href="./index.html?tab=settings">設定</a>
+        <a class="tab tab-link selected" href="./products.html" aria-current="page">商品</a>
+        <a class="tab tab-link" href="./index.html?tab=design">デザイン</a>
+        <a class="tab tab-link" href="./index.html?tab=support">サポート</a>
+      </nav>
+    </div>
 
     <div class="prod-filter hidden" id="prod-filter-row">
       <input type="search" id="prod-filter" placeholder="商品名で絞る" aria-label="商品名で絞る">
@@ -185,8 +200,9 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788768207"></script>
-<script src="edit-drafts.js?v=1788768207"></script>
-<script src="products.js?v=1788768207"></script>
+<script src="tips.js?v=1788768899"></script>
+<script src="edit-drafts.js?v=1788768899"></script>
+<script src="products-menu.js?v=1788768899"></script>
+<script src="products.js?v=1788768899"></script>
 </body>
 </html>

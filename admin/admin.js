@@ -143,6 +143,11 @@ async function showApp() {
   $("view-app").classList.remove("hidden");
   setDate(new Date());
   loadSettings();
+  // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
+  const requestedTab = new URLSearchParams(location.search).get("tab");
+  if (["pickup", "kitchen", "reports", "settings", "design", "support"].includes(requestedTab)) {
+    document.querySelector(`.tab[data-tab="${requestedTab}"]`)?.click();
+  }
 }
 
 /* ---------- 課金状態バナー（SaaS） ---------- */

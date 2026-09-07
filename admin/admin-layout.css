@@ -1,0 +1,57 @@
+/* Approved admin appearance. Existing labels, controls and business logic stay intact. */
+:root{--bg:#f7f8f6;--ink:#30372e;--mute:#646d5e;--boxbg:#fff;--box:#d7ddd1;--line:#dce1d7;--r:5px;--r-lg:7px}
+.admin-header{padding:26px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;gap:16px}
+.admin-header h1{font-weight:500;font-size:1.25rem}
+.link-btn,.back-link{color:var(--mute)}
+.admin .confirm-box{border:0;border-radius:7px;padding:24px;margin-bottom:26px;box-shadow:none;background:#fff}
+.admin .confirm-box>h3{font-size:1rem;font-weight:500;color:var(--ink);padding-bottom:14px;margin:0 0 20px;border-bottom:1px solid var(--line)}
+.admin .field{margin:18px 0;font-size:.9rem}
+.admin input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.admin textarea,.admin select{border-width:1px;border-radius:5px;font-family:inherit;color:var(--ink)}
+.admin input[type=text],.admin input[type=email],.admin input[type=password],.admin textarea{font-size:1rem}
+.admin .small,.admin .help{font-size:.82rem;color:var(--mute)}
+.admin .pill,.admin .btn-primary,.admin .btn-secondary,.admin .prod-tab,.admin .menu-btn{border-width:1px;border-radius:5px;font-family:inherit;box-shadow:none}
+.admin .pill{padding:9px 14px}
+.admin .tab{border:0;border-left:2px solid transparent;border-radius:0;background:transparent;color:var(--mute);font-weight:400}
+.admin .tab.selected{border-left-color:var(--accent);background:#fff;color:var(--ink);font-weight:500}
+.admin .tab-action{border-top:1px solid var(--line);padding-top:14px}
+.admin .tab-action+.tab-action{border-top:0}
+.admin .date-nav{justify-content:flex-start;margin-bottom:22px}
+.admin .save-bar,.save-bar{border-top:1px solid var(--line);box-shadow:none;background:#fff}
+.admin .order-card{border:0;border-bottom:1px solid var(--line);border-radius:4px;padding:18px 16px}
+.admin .order-time{font-size:1.15rem;font-weight:500;font-variant-numeric:tabular-nums}
+.admin .order-product{color:var(--mute);font-size:.86rem}
+.admin .status-badge{border-radius:4px;font-weight:500}
+.admin .kitchen-table th{background:#f1f3ed;font-weight:500}
+.admin .kitchen-table th,.admin .kitchen-table td{border-width:0 0 1px;padding:12px 10px}
+.admin .report-section{border:0;border-radius:7px;padding:22px}
+.admin .settings-jumps{background:#fff;border:1px solid var(--line);border-radius:5px;box-shadow:none}
+.admin .settings-jumps a{border-radius:4px}
+.products-page .prod-tabs{gap:6px;margin:0 0 10px}
+.products-page .prod-tab{padding:10px 14px;font-weight:400}
+.products-page .prod-tab.selected{background:var(--accent-soft);color:var(--ink);border-color:var(--primary-deep);font-weight:500}
+.products-page .prod-tab.unpublished{border-style:dashed}
+.products-page .grp,.products-page .q{border:1px solid var(--line);border-radius:7px;margin-bottom:26px}
+.products-page .grp-bar,.products-page .q-bar{background:#f1f3ee;border-left-width:2px;padding:14px 16px}
+.products-page .grp-body,.products-page .q-body{padding:18px}
+.products-page .inplace{border-bottom:1px solid var(--line);border-radius:0;font-size:.95rem}
+.products-page .opt{background:#fff;border-left:1px solid var(--line);border-radius:0;padding:12px;margin-bottom:12px}
+.products-page .opt.open{border-left:2px solid var(--primary-deep);box-shadow:none;background:#fafbf8}
+.products-page .opt:hover{background:#f5f7f1}
+.products-page .mk,.products-page .tag{border-radius:4px;background:#f0f3ea;color:#59634f}
+.products-page .fb .k,.products-page .meta,.products-page .opt-line .lbl{font-size:.83rem;color:var(--mute)}
+.products-page .cust{border:1px solid var(--line);border-radius:5px;background:#f7f8f5}
+.products-page .cust .card{border-width:1px;border-radius:5px;box-shadow:none}
+.products-page .cat-panel{border-radius:5px;border-color:var(--line)}
+.admin .th-type{border-width:1px;border-radius:5px;padding:14px 8px}
+.admin .th-type:has(input:checked){background:var(--accent-soft);border-color:var(--primary-deep)}
+.admin .th-type:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:3px}
+.admin .th-nm{font-weight:500}.admin .th-ds,.admin .th-hex,.admin .th-prev-cap,.admin .th-auto{color:var(--mute);font-size:.8rem}
+.admin .th-sw{gap:12px;margin:10px 0 18px}
+.admin .th-swatch{width:34px;height:34px}
+.admin .th-adv{border-radius:5px;margin:18px 0 24px}
+.admin .th-adv summary{font-weight:500;padding:12px}
+.admin .th-row{padding:9px 0}
+.admin #th-frame{border-radius:5px;border:1px solid var(--line);background:#fff}
+@media(min-width:1200px){#app.admin:not(.products-page){max-width:1280px}.admin .th-cols{grid-template-columns:minmax(0,1fr) 370px;gap:28px}}
+@media(max-width:540px){.admin .confirm-box{padding:18px 14px}.admin .th-types{gap:5px}.admin .th-type{padding:12px 4px}.admin .th-row{grid-template-columns:minmax(100px,1fr) 36px auto;gap:6px}.admin-header{flex-wrap:wrap}.admin .grp-body,.admin .q-body{padding:14px 10px}.admin .date-nav{flex-wrap:wrap}.admin .order-head{flex-wrap:wrap}}
+@media print{.admin .confirm-box{border:0}.admin .kitchen-table th,.admin .kitchen-table td{border-bottom:1px solid #999}}

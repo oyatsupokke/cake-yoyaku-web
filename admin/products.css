@@ -9,6 +9,13 @@
    これまでこの指定が効かず、商品設定は560px幅のまま出ていた（2026-08-30 に発見） */
 #app.products-page { max-width: 720px; padding-bottom: 90px; }
 .back-link { text-decoration: none; color: var(--primary-deep); }
+/* 商品設定は独立した編集レイアウト。狭い画面の管理メニューだけ共通化する。 */
+.product-navigation { display: none; }
+@media (max-width: 919px) {
+  .product-navigation { display: block; }
+  .products-page .admin-header { flex-wrap: wrap; }
+  .product-header-actions { flex-basis: 100%; text-align: right; }
+}
 .prod-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .prod-tab {
   border: 2px solid var(--line); background: #fff; border-radius: 12px;

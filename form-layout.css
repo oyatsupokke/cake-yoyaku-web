@@ -52,5 +52,15 @@
  .cards{display:block}
  .card{padding:16px 6px;display:flow-root;margin-bottom:0}
  .card .card-photo{width:96px;float:left;margin:0 14px 0 0}
- .card .card-name{margin-top:0}.card .card-desc{font-size:.82rem}.card .card-emoji{float:left;margin-right:14px;font-size:24px}
+.card .card-name{margin-top:0}.card .card-desc{font-size:.82rem}.card .card-emoji{float:left;margin-right:14px;font-size:24px}
 }
+
+/* Keep the existing shop theme controls effective in the redesigned form. */
+.card{border-radius:var(--r-lg) var(--r-lg) 0 0;border-bottom-color:var(--box)}
+.card .card-photo,.opt,.preview-canvas{border-radius:var(--r)}
+.pill,.btn-primary,.btn-secondary,.booking-expand,.booking-dialog-close{border-radius:var(--r)!important}
+.field input,.field textarea,.field select{border-radius:var(--r)!important}
+.group{background:var(--boxbg)}
+.preview-canvas,.booking-dialog-picture{background:var(--boxbg)}
+#booking-preview-dialog{border-radius:var(--r-lg)}
+.opt:hover{background:var(--sel);color:var(--selink)}

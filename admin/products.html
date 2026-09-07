@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788742673">
-<link rel="stylesheet" href="admin.css?v=1788742673">
-<link rel="stylesheet" href="products.css?v=1788742673">
+<link rel="stylesheet" href="../styles.css?v=1788743574">
+<link rel="stylesheet" href="admin.css?v=1788743574">
+<link rel="stylesheet" href="products.css?v=1788743574">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -52,7 +52,7 @@
     <!-- 商品エディタ -->
     <div id="editor" class="hidden">
 
-      <div class="confirm-box">
+      <div class="confirm-box product-compact-card">
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
         <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
@@ -93,7 +93,7 @@
         </div>
       </div>
 
-      <div class="confirm-box">
+      <div class="confirm-box product-compact-card">
         <h3>販売期間・受取できる日（季節商品の設定）</h3>
         <p class="small">クリスマスなどの季節限定の商品の場合は、フォームを分けずにここで期間を設定します。空欄=制限なし（通常商品）。</p>
         <div class="season-grid">
@@ -123,7 +123,7 @@
         </div>
       </div>
 
-      <div class="confirm-box">
+      <div class="confirm-box product-compact-card">
         <h3>サイズと価格<button type="button" class="tip" data-tip="サイズ名（例：12cm・4号）と税込価格を追加します。お客様が選ぶと金額は自動で計算されます。">？</button></h3>
         <div id="variants-list"></div>
         <div class="override-add">
@@ -184,8 +184,8 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788742673"></script>
-<script src="edit-drafts.js?v=1788742673"></script>
-<script src="products.js?v=1788742673"></script>
+<script src="tips.js?v=1788743574"></script>
+<script src="edit-drafts.js?v=1788743574"></script>
+<script src="products.js?v=1788743574"></script>
 </body>
 </html>

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788742673">
-<link rel="stylesheet" href="admin.css?v=1788742673">
+<link rel="stylesheet" href="../styles.css?v=1788743574">
+<link rel="stylesheet" href="admin.css?v=1788743574">
 </head>
 <body>
 <div id="app" class="admin">
@@ -84,7 +84,17 @@
     <!-- 設定（並びの考え方：前半=お店の受け方のルール／後半=お客様に見えるもの。
          商品ごとのこと（締切・公開・上限）はここに置かず商品ページに集約 -->
     <section id="tab-settings" class="hidden">
-      <div class="confirm-box">
+      <nav class="settings-jumps" aria-label="設定項目へ移動">
+        <span class="settings-jumps-label">どこを設定しますか？</span>
+        <div class="settings-jumps-links">
+          <a href="#settings-shop">店舗・見た目</a>
+          <a href="#settings-deadline">締切・上限</a>
+          <a href="#settings-pickup">受取日時</a>
+          <a href="#settings-customer">お客様設定</a>
+          <a href="#settings-notifications">通知文面</a>
+        </div>
+      </nav>
+      <div class="confirm-box settings-anchor" id="settings-shop">
         <h3>店舗の基本情報</h3>
         <label class="field">店名
           <input type="text" id="t-name">
@@ -146,7 +156,7 @@
           </div>
         </div>
       </div>
-      <div class="confirm-box">
+      <div class="confirm-box settings-anchor" id="settings-deadline">
         <h3>受付の締切</h3>
         <label class="field">基本の締切（受取日の何日前まで受け付けるか）
           <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
@@ -172,7 +182,7 @@
           <button type="button" class="pill" id="btn-rule-add">この上限にする</button>
         </div>
       </div>
-      <div class="confirm-box">
+      <div class="confirm-box settings-anchor" id="settings-pickup">
         <h3>受取時間</h3>
         <p class="small">枠は自由に追加できます（30分ごと・15分ごともOK）。上限が空欄の枠は台数無制限です。</p>
         <div class="override-add">
@@ -204,7 +214,7 @@
         </div>
         <div id="overrides-list"></div>
       </div>
-      <div class="confirm-box">
+      <div class="confirm-box settings-anchor" id="settings-customer">
         <h3>お客様の入力項目</h3>
         <p class="small">予約フォームでお客様に入力してもらう項目です。</p>
         <div class="field">
@@ -283,7 +293,7 @@
         </div>
       </div>
 
-      <div class="confirm-box">
+      <div class="confirm-box settings-anchor" id="settings-notifications">
         <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変えられません（消えません）。空欄にしておくと、下の見本に出ている文がそのまま送られます。">？</button></h3>
         <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変えられるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
         <label class="field">お支払いのご案内<button type="button" class="tip" data-tip="「■ お支払い」の行に出ます。振込のみのお店や、前払いのお店はここを書き換えてください。メールにもLINEにも同じ文が出ます。">？</button>
@@ -324,8 +334,8 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788742673"></script>
-<script src="edit-drafts.js?v=1788742673"></script>
-<script src="admin.js?v=1788742673"></script>
+<script src="tips.js?v=1788743574"></script>
+<script src="edit-drafts.js?v=1788743574"></script>
+<script src="admin.js?v=1788743574"></script>
 </body>
 </html>

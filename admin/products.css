@@ -247,6 +247,9 @@
 /* ---- 広い画面：左に設定・右にプレビューを貼り付け ---- */
 @media (min-width: 920px) {
   #app.products-page { max-width: 1180px; }
+  /* 基本情報などの単純な入力欄は横に伸ばしすぎない。
+     右に見本を置く選択グループ・共通質問だけは従来どおり全幅を使う。 */
+  .product-compact-card { max-width: 800px; margin-left: auto; margin-right: auto; }
   .grp-body, .q-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
   .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: 14px; }
   .qrow .k { flex: 0 0 118px; }

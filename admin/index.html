@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788756970">
-<link rel="stylesheet" href="admin.css?v=1788756970">
+<link rel="stylesheet" href="../styles.css?v=1788760718">
+<link rel="stylesheet" href="admin.css?v=1788760718">
 </head>
 <body>
 <div id="app" class="admin">
@@ -50,6 +50,7 @@
       <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
       <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
       <button type="button" class="tab" data-tab="kitchen">製造ケーキ一覧</button>
+      <button type="button" class="tab" data-tab="reports">集計・CSV</button>
       <button type="button" class="tab" data-tab="settings">設定</button>
       <a class="tab tab-link" href="./products.html">商品</a>
       <button type="button" class="tab" data-tab="design">デザイン</button>
@@ -80,6 +81,39 @@
       <h2 class="print-title" id="kitchen-title"></h2>
       <div id="kitchen-summary"></div>
       <div id="kitchen-detail"></div>
+    </section>
+
+    <section id="tab-reports" class="hidden">
+      <h2>集計・CSV</h2>
+      <p class="small">受取日を基準に、製造数と受取リストを同じ条件で確認できます。</p>
+      <div class="confirm-box no-print">
+        <div class="report-filters">
+          <label class="field">受取日（開始）<input type="date" id="report-from"></label>
+          <label class="field">受取日（終了）<input type="date" id="report-to"></label>
+          <button type="button" class="pill" id="report-load">この期間で集計・更新</button>
+        </div>
+        <div class="report-filters">
+          <label class="field">商品<select id="report-product"><option value="">すべての商品</option></select></label>
+          <label class="field">サイズ<select id="report-size"><option value="">すべてのサイズ</option></select></label>
+          <label class="field">予約状況<select id="report-status"><option value="active">キャンセル以外</option><option value="new">未確認</option><option value="confirmed">確認済</option><option value="in_production">製造中</option><option value="completed">受渡済</option><option value="canceled">キャンセルのみ</option><option value="all">すべて（キャンセル含む）</option></select></label>
+          <label class="field">注文内容で絞る<input type="search" id="report-query" placeholder="例：いちご、ピンク、プレートの言葉"></label>
+        </div>
+        <p class="small">注文内容は商品・サイズ・オプション・質問への回答を検索します。商品や回答は予約時の名前で表示します。</p>
+      </div>
+      <p id="report-message" role="status" aria-live="polite"></p>
+      <div id="report-results" class="hidden">
+        <p id="report-scope"></p>
+        <div class="report-section">
+          <div class="report-heading"><h3>商品・サイズごとの製造数</h3><button type="button" class="pill no-print" id="report-summary-csv">製造数CSV</button></div>
+          <p class="small">受取日ごとに集計します。キャンセルは製造数には含めません。表が収まらないときは横にスクロールできます。</p>
+          <div class="report-table-wrap" id="report-summary"></div>
+        </div>
+        <div class="report-section">
+          <div class="report-heading"><h3>受取時間順のリスト</h3><button type="button" class="pill no-print" id="report-detail-csv">受取リストCSV</button></div>
+          <p class="small">表を横にスクロールすると、お客様名や注文内容を確認できます。1行＝予約内の商品明細。CSVにはお客様名・電話番号・注文内容が含まれます。取り扱いにご注意ください。</p>
+          <div class="report-table-wrap" id="report-detail"></div>
+        </div>
+      </div>
     </section>
 
     <!-- 設定（並びの考え方：前半=お店の受け方のルール／後半=お客様に見えるもの。
@@ -338,8 +372,10 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788756970"></script>
-<script src="edit-drafts.js?v=1788756970"></script>
-<script src="admin.js?v=1788756970"></script>
+<script src="tips.js?v=1788760718"></script>
+<script src="edit-drafts.js?v=1788760718"></script>
+<script src="report-core.js?v=1788760718"></script>
+<script src="admin.js?v=1788760718"></script>
+<script src="reports.js?v=1788760718"></script>
 </body>
 </html>

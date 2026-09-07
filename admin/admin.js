@@ -81,6 +81,7 @@ async function refreshSession() {
   return true;
 }
 function logout() {
+  if (typeof resetReports === "function") resetReports();
   localStorage.removeItem("pokke_admin_session");
   state.session = null;
   showLogin();
@@ -982,11 +983,13 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("tab-kitchen").classList.toggle("hidden", state.tab !== "kitchen");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
     $("tab-design").classList.toggle("hidden", state.tab !== "design");
+    $("tab-reports").classList.toggle("hidden", state.tab !== "reports");
     const editing = state.tab === "settings" || state.tab === "design";
-    $("date-nav").classList.toggle("hidden", editing);
+    $("date-nav").classList.toggle("hidden", editing || state.tab === "reports");
     // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
     $("save-bar").classList.toggle("hidden", !editing);
     if (state.tab === "design") pushThemePreview();
+    if (state.tab === "reports") openReports();
     window.scrollTo(0, 0);
   };
 });

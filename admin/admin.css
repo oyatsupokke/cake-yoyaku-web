@@ -146,10 +146,32 @@
 @media print {
   body { background: #fff; }
   .no-print, .price-bar, .tabs, .admin-header, .date-nav { display: none !important; }
-  #tab-pickup, #tab-settings, #tab-design { display: none !important; }
+  #tab-pickup, #tab-settings, #tab-design, #tab-reports { display: none !important; }
   #tab-kitchen { display: block !important; }
   .admin { max-width: 100%; }
   .kcard, .kitchen-table th, .kitchen-table td { border-color: #999; }
+}
+
+/* 集計：条件・製造数・受取明細を別のまとまりにする。 */
+#tab-reports { min-width: 0; }
+.report-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.report-filters .field { flex: 1 1 180px; min-width: 0; margin-bottom: 12px; }
+.report-filters input, .report-filters select { width: 100%; min-width: 0; box-sizing: border-box; }
+.report-filters > button { margin-bottom: 12px; }
+.report-section { border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin: 22px 0; background: #fff; }
+.report-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.report-heading h3 { margin: 0; }
+.report-heading button { white-space: nowrap; }
+.report-table-wrap { overflow-x: auto; }
+.report-table-wrap td { white-space: pre-wrap; min-width: 65px; overflow-wrap: anywhere; }
+#report-summary table { min-width: 440px; }
+.report-table-wrap th { white-space: nowrap; }
+.report-table-wrap td:first-child, #report-detail td:nth-child(2) { white-space: nowrap; }
+#report-detail table { min-width: 1150px; }
+#report-scope { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .report-section { padding: 12px; }
+  .report-filters .field { flex-basis: 100%; }
 }
 
 /* 課金状態バナー（SaaS：トライアル・未払いなどがあるときだけ表示） */

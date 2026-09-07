@@ -16,6 +16,10 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 
+// 管理画面のデザイン見本。お客様の下書きや外側の画面位置に干渉しない。
+const THEME_PREVIEW = window.self !== window.top
+  && new URLSearchParams(location.search).get("preview") === "theme";
+
 /* ---------- 変更モード（?edit=<manage_token> で既存予約を読み込んで差し替え） ---------- */
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
 const EDIT_MODE = !!EDIT_TOKEN;
@@ -169,6 +173,7 @@ const SAVE_KEY = `cake_form_${CONFIG.shop}`;
 let RESTORING = false;
 
 function saveState() {
+  if (THEME_PREVIEW) return;
   if (RESTORING || EDIT_MODE || STAFF_MODE || !state.tenant) return;  // 変更・代行モードは自動保存を使わない（お客様の下書きを壊さない）
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -191,9 +196,10 @@ function saveState() {
 let _saveTimer = null;
 document.addEventListener("input", () => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveState, 400); });
 
-function clearSavedState() { try { localStorage.removeItem(SAVE_KEY); } catch {} }
+function clearSavedState() { if (THEME_PREVIEW) return; try { localStorage.removeItem(SAVE_KEY); } catch {} }
 
 async function restoreSaved() {
+  if (THEME_PREVIEW) return;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
   if (!saved || Date.now() - (saved.savedAt || 0) > 24 * 3600 * 1000) return;
@@ -551,7 +557,7 @@ function selectProduct(p) {
   renderSizes();
   $("sec-size").classList.remove("hidden");
   ["sec-groups", "sec-date", "sec-questions", "sec-customer"].forEach((s) => $(s).classList.add("hidden"));
-  $("sec-size").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (!THEME_PREVIEW) $("sec-size").scrollIntoView({ behavior: "smooth", block: "center" });
   updatePriceBar();
 }
 
@@ -805,7 +811,7 @@ async function selectDate(key) {
   renderSlots();
   saveState();
   $("slot-area").classList.remove("hidden");
-  $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (!THEME_PREVIEW) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function renderSlots() {
   const wrap = $("slot-pills");

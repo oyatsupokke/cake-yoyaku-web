@@ -761,7 +761,7 @@ async function loadTenantForm() {
     el.addEventListener(el.type === "checkbox" || el.type === "radio" ? "change" : "input", themeEvt);
   });
   const frame = $("th-frame");
-  const src = `../?shop=${encodeURIComponent(state.subdomain)}`;
+  const src = `../?shop=${encodeURIComponent(state.subdomain)}&preview=theme`;
   if (frame.getAttribute("src") !== src) frame.src = src;
   frame.onload = pushThemePreview;
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));

@@ -146,7 +146,7 @@
 @media print {
   body { background: #fff; }
   .no-print, .price-bar, .tabs, .admin-header, .date-nav { display: none !important; }
-  #tab-pickup, #tab-settings { display: none !important; }
+  #tab-pickup, #tab-settings, #tab-design { display: none !important; }
   #tab-kitchen { display: block !important; }
   .admin { max-width: 100%; }
   .kcard, .kitchen-table th, .kitchen-table td { border-color: #999; }
@@ -306,8 +306,8 @@
 .th-actions { margin-top: 6px; }
 .th-prev-cap { font-size: .8rem; color: #a08a8f; margin-bottom: 6px; }
 #th-frame { width: 100%; height: 640px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-@media (min-width: 920px) {
-  .th-cols { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+@media (min-width: 1200px) {
+  .th-cols { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
   .th-prev { position: sticky; top: 14px; }
 }
 

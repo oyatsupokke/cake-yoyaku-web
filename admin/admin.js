@@ -970,7 +970,7 @@ document.addEventListener("click", (e) => {
   $("admin-body").classList.remove("menu-open");
   $("menu-btn").setAttribute("aria-expanded", "false");
 });
-document.querySelectorAll(".tab:not(.tab-action)").forEach((b) => {
+document.querySelectorAll(".tab[data-tab]").forEach((b) => {
   b.onclick = () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("selected"));
     b.classList.add("selected");
@@ -981,9 +981,13 @@ document.querySelectorAll(".tab:not(.tab-action)").forEach((b) => {
     $("tab-pickup").classList.toggle("hidden", state.tab !== "pickup");
     $("tab-kitchen").classList.toggle("hidden", state.tab !== "kitchen");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
-    $("date-nav").classList.toggle("hidden", state.tab === "settings");
-    // 保存バーは設定タブでだけ出す
-    $("save-bar").classList.toggle("hidden", state.tab !== "settings");
+    $("tab-design").classList.toggle("hidden", state.tab !== "design");
+    const editing = state.tab === "settings" || state.tab === "design";
+    $("date-nav").classList.toggle("hidden", editing);
+    // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
+    $("save-bar").classList.toggle("hidden", !editing);
+    if (state.tab === "design") pushThemePreview();
+    window.scrollTo(0, 0);
   };
 });
 $("btn-login").onclick = async () => {

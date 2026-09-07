@@ -146,7 +146,7 @@
 @media print {
   body { background: #fff; }
   .no-print, .price-bar, .tabs, .admin-header, .date-nav { display: none !important; }
-  #tab-pickup, #tab-settings, #tab-design, #tab-reports { display: none !important; }
+  #tab-pickup, #tab-settings, #tab-design, #tab-reports, #tab-account, #tab-billing { display: none !important; }
   #tab-kitchen { display: block !important; }
   .admin { max-width: 100%; }
   .kcard, .kitchen-table th, .kitchen-table td { border-color: #999; }

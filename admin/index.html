@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788768899">
-<link rel="stylesheet" href="admin.css?v=1788768899">
-<link rel="stylesheet" href="admin-layout.css?v=1788768899">
-<link rel="stylesheet" href="support.css?v=1788768899">
+<link rel="stylesheet" href="../styles.css?v=1788769184">
+<link rel="stylesheet" href="admin.css?v=1788769184">
+<link rel="stylesheet" href="admin-layout.css?v=1788769184">
+<link rel="stylesheet" href="support.css?v=1788769184">
 </head>
 <body>
 <div id="app" class="admin">
@@ -56,6 +56,8 @@
       <button type="button" class="tab" data-tab="settings">設定</button>
       <a class="tab tab-link" href="./products.html">商品</a>
       <button type="button" class="tab" data-tab="design">デザイン</button>
+      <button type="button" class="tab" data-tab="account">アカウント</button>
+      <button type="button" class="tab" data-tab="billing">ご契約・お支払い</button>
       <button type="button" class="tab" data-tab="support">サポート</button>
       <!-- 画面切替ではなく操作：お客様フォームを代行モードで開く（旧「📞 電話予約を登録」。まりほ指示 2026-09-03でメニューへ移動・改名） -->
       <button type="button" class="tab tab-action" id="btn-staff-order">予約の直接登録</button>
@@ -302,11 +304,29 @@
         </div>
       </div>
 
-      <!-- ご契約・お支払い（自店=exemptのときはJSが隠す） -->
-      <div class="confirm-box" id="billing-settings-box">
-        <h3>ご契約・お支払い</h3>
-        <p class="small">カードの変更・請求書の確認・解約はこちらから（Stripeの安全なページが開きます）</p>
-        <button type="button" class="pill" id="btn-billing-portal-settings">お支払い管理をひらく</button>
+    </section>
+
+    <section id="tab-account" class="hidden">
+      <h2>アカウント</h2>
+      <div class="confirm-box">
+        <h3>ログイン情報</h3>
+        <p class="small">ログインに使うメールアドレスです。お客様への連絡先とは別に管理されます。</p>
+        <p id="account-email">読み込み中…</p>
+        <p id="account-message" class="small" role="status" aria-live="polite"></p>
+        <button type="button" class="pill" id="btn-account-reset" disabled>パスワード再設定メールを送る</button>
+        <p class="small">メールのリンクから新しいパスワードを設定できます。</p>
+      </div>
+    </section>
+
+    <section id="tab-billing" class="hidden">
+      <h2>ご契約・お支払い</h2>
+      <div class="confirm-box">
+        <h3>ご契約状況</h3>
+        <p id="billing-page-status"></p>
+        <p id="billing-page-trial" class="small"></p>
+        <p id="billing-page-help" class="small"></p>
+        <button type="button" class="pill hidden" id="btn-billing-page-checkout">お支払い登録へ進む</button>
+        <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
       </div>
     </section>
 
@@ -401,11 +421,11 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788768899"></script>
-<script src="edit-drafts.js?v=1788768899"></script>
-<script src="report-core.js?v=1788768899"></script>
-<script src="admin.js?v=1788768899"></script>
-<script src="reports.js?v=1788768899"></script>
-<script src="support.js?v=1788768899"></script>
+<script src="tips.js?v=1788769184"></script>
+<script src="edit-drafts.js?v=1788769184"></script>
+<script src="report-core.js?v=1788769184"></script>
+<script src="admin.js?v=1788769184"></script>
+<script src="reports.js?v=1788769184"></script>
+<script src="support.js?v=1788769184"></script>
 </body>
 </html>

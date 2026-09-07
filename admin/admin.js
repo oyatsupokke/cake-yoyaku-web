@@ -145,7 +145,7 @@ async function showApp() {
   loadSettings();
   // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
   const requestedTab = new URLSearchParams(location.search).get("tab");
-  if (["pickup", "kitchen", "reports", "settings", "design", "support"].includes(requestedTab)) {
+  if (["pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
     document.querySelector(`.tab[data-tab="${requestedTab}"]`)?.click();
   }
 }
@@ -165,13 +165,15 @@ function renderBillingBanner(t) {
   if (!el || !t) return;
   const status = t.billing_status || "exempt";
   state.billingStatus = status;
-  // 設定タブの「ご契約・お支払い」：自店(exempt)と未登録(none)では隠す
-  const box = $("billing-settings-box");
-  if (box) {
-    box.classList.toggle("hidden", status === "exempt" || status === "none");
-    const pb = $("btn-billing-portal-settings");
-    if (pb) pb.onclick = () => callBillingFn("create-portal-session").catch((e) => toast(e.message));
-  }
+  const labels = { exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
+  $("billing-page-status").textContent = labels[status] || "ご契約状況を確認してください";
+  $("billing-page-trial").textContent = status === "trialing" && t.trial_ends_at
+    ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}` : "";
+  $("billing-page-help").textContent = status === "exempt"
+    ? "この店舗は課金対象外です。お支払い登録は不要です。"
+    : "カードの変更・請求書の確認・解約は、Stripeのお支払い管理で行えます。";
+  $("btn-billing-page-checkout").classList.toggle("hidden", !["none", "canceled", "incomplete_expired"].includes(status));
+  $("btn-billing-page-portal").classList.toggle("hidden", ["exempt", "none", "incomplete_expired"].includes(status));
   const portalBtn = `<button type="button" class="pill" id="btn-billing-portal">お支払い管理</button>`;
   let html = "";
   if (status === "none") {
@@ -990,8 +992,11 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("tab-design").classList.toggle("hidden", state.tab !== "design");
     $("tab-reports").classList.toggle("hidden", state.tab !== "reports");
     $("tab-support").classList.toggle("hidden", state.tab !== "support");
+    $("tab-account").classList.toggle("hidden", state.tab !== "account");
+    $("tab-billing").classList.toggle("hidden", state.tab !== "billing");
+    if (state.tab === "account") openAccount();
     const editing = state.tab === "settings" || state.tab === "design";
-    $("date-nav").classList.toggle("hidden", editing || state.tab === "reports" || state.tab === "support");
+    $("date-nav").classList.toggle("hidden", editing || ["reports", "support", "account", "billing"].includes(state.tab));
     // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
     $("save-bar").classList.toggle("hidden", !editing);
     if (state.tab === "design") pushThemePreview();
@@ -1024,6 +1029,49 @@ $("link-forgot").onclick = async (e) => {
   // 存在しないメールでも同じ表示（メールアドレスの存在を漏らさない）
   $("forgot-sent").classList.remove("hidden");
 };
+
+/* ---------- アカウント・契約の専用画面 ---------- */
+async function openAccount() {
+  $("account-email").textContent = "読み込み中…";
+  $("account-message").textContent = "";
+  $("btn-account-reset").disabled = true;
+  state.accountEmail = null;
+  try {
+    const user = await api("GET", "/auth/v1/user");
+    state.accountEmail = user.email || null;
+    $("account-email").textContent = user.email || "メールアドレスが登録されていません";
+    $("btn-account-reset").disabled = !user.email;
+  } catch {
+    $("account-email").textContent = "ログイン情報を取得できませんでした。もう一度ログインしてください。";
+  }
+}
+$("btn-account-reset").onclick = async () => {
+  if (!state.accountEmail) return;
+  const button = $("btn-account-reset");
+  button.disabled = true;
+  $("account-message").textContent = "送信中…";
+  try {
+    const redirect = new URL("./reset.html", location.href).href;
+    const res = await fetch(`${CONFIG.url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`, {
+      method: "POST",
+      headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: state.accountEmail }),
+    });
+    if (!res.ok) throw new Error("送信できませんでした。時間をおいてもう一度お試しください。");
+    $("account-message").textContent = "再設定メールを送りました。メール内のリンクからパスワードを変更してください。";
+  } catch (e) {
+    $("account-message").textContent = e.message;
+    button.disabled = false;
+  }
+};
+for (const [id, name] of [["btn-billing-page-checkout", "create-checkout-session"], ["btn-billing-page-portal", "create-portal-session"]]) {
+  $(id).onclick = async () => {
+    $(id).disabled = true;
+    try { await callBillingFn(name); }
+    catch (e) { toast(e.message); }
+    finally { $(id).disabled = false; }
+  };
+}
 
 /* ---------- 起動 ---------- */
 (async () => {

@@ -2,7 +2,7 @@
  * 管理画面 v1（店頭・厨房・設定）
  * - 認証: Supabase Auth（メール+パスワード）。RLSによりログインスタッフの
  *   自店データのみ読める・書ける（テナント分離はDB層で強制）
- * - 受取リスト: ステータス変更（未確認→確認済→製造中→受渡済／キャンセル）
+ * - 受取リスト: 状態管理（未確認→確認済／キャンセル）。旧状態は確認済として表示。
  * - 厨房: 商品×サイズの製造集計＋製造カード＋印刷帳票
  * - 設定: 1日上限・臨時休業・商品の公開切替
  * ===================================================================== */
@@ -20,10 +20,9 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[ch]);
 const STATUS = {
-  new: "未確認", confirmed: "確認済", in_production: "製造中",
-  completed: "受渡済", canceled: "キャンセル",
+  new: "未確認", confirmed: "確認済", in_production: "確認済",
+  completed: "確認済", canceled: "キャンセル",
 };
-const NEXT = { new: "confirmed", confirmed: "in_production", in_production: "completed" };
 
 const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
@@ -248,7 +247,14 @@ function renderPickup() {
         ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
+      ${o.status === "new" ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
       <div class="order-body hidden"></div>`;
+    card.querySelector('.confirm-order-btn')?.addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      button.disabled = true;
+      try { await updateStatus(o, "confirmed"); }
+      catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); button.disabled = false; }
+    });
     const body = card.querySelector(".order-body");
     card.querySelector(".order-head").onclick = () => {
       if (body.classList.contains("hidden")) { fillOrderBody(body, o); body.classList.remove("hidden"); }
@@ -322,9 +328,6 @@ function fillOrderBody(el, o) {
   row("メール", o.customer_email);
   row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);
   let actions = "";
-  if (o.status !== "canceled" && o.status !== "completed") {
-    actions += `<button type="button" class="pill next-btn">→ ${STATUS[NEXT[o.status]]}にする</button>`;
-  }
   if (o.status !== "canceled") {
     actions += `<button type="button" class="pill danger cancel-btn">キャンセル</button>`;
   }
@@ -337,7 +340,6 @@ function fillOrderBody(el, o) {
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
-  el.querySelector(".next-btn")?.addEventListener("click", () => updateStatus(o, NEXT[o.status]));
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))

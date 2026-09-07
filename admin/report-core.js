@@ -12,7 +12,8 @@ globalThis.BookingReport = (() => {
     return orders.flatMap(order => (order.order_items || []).map(item => ({order, item})))
       .filter(({order, item}) => {
         const status = filters.status || "active";
-        return (status === "all" || (status === "active" ? order.status !== "canceled" : order.status === status)) &&
+        const shownStatus = ['in_production', 'completed'].includes(order.status) ? 'confirmed' : order.status;
+        return (status === "all" || (status === "active" ? order.status !== "canceled" : shownStatus === status)) &&
           (!filters.product || productKey(item) === filters.product) &&
           (!filters.size || item.variant_label_snapshot === filters.size) &&
           (!query || norm([item.product_name_snapshot, item.variant_label_snapshot, options(item), answers(order)].join("\n")).includes(query));

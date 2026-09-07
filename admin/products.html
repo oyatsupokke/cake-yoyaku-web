@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1788742136">
-<link rel="stylesheet" href="admin.css?v=1788742136">
-<link rel="stylesheet" href="products.css?v=1788742136">
+<link rel="stylesheet" href="../styles.css?v=1788742673">
+<link rel="stylesheet" href="admin.css?v=1788742673">
+<link rel="stylesheet" href="products.css?v=1788742673">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -40,7 +40,7 @@
     <details class="cat-panel" id="cat-panel">
       <summary>カテゴリでタブをまとめる<button type="button" class="tip" data-tip="商品が増えると上のタブが何行にもなって探しにくくなります。カテゴリを作ると、タブがカテゴリごとにまとまって、ふだん触らないものを畳んでおけます。お客様の画面には出ません。">？</button></summary>
       <div class="cat-panel-body">
-        <p class="small">作ると上のタブがカテゴリごとの帯になります。どのカテゴリに入れるかは、各商品の「基本情報」で選びます。<strong>お客様の画面には出ません。</strong></p>
+        <p class="small">商品をカテゴリに入れると、上のタブがカテゴリごとの帯になります。<strong>入れる操作は各商品の「基本情報」→「カテゴリ」で。</strong>ここは名前の変更・並べ替え・削除だけです。お客様の画面には出ません。</p>
         <div id="cat-list"></div>
         <div class="override-add">
           <input type="text" id="cat-name" placeholder="新しいカテゴリ名（例: 定番のケーキ）" style="width:230px">
@@ -55,9 +55,13 @@
       <div class="confirm-box">
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
-        <label class="field hidden" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。ページ下の「カテゴリ」で作ったものから選びます。お客様の画面には出ません。">？</button>
-          <select id="p-category" style="width:230px"></select>
-        </label>
+        <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
+          <div class="override-add" style="margin:4px 0 0">
+            <select id="p-category" style="width:230px"></select>
+            <input type="text" id="p-category-new" class="hidden" placeholder="新しいカテゴリ名（例: クリスマス）" style="width:220px">
+            <button type="button" class="pill hidden" id="btn-p-category-create">作ってこの商品に入れる</button>
+          </div>
+        </div>
         <div id="p-photo"></div>
         <div id="p-layer"></div>
         <div class="text-field">
@@ -180,8 +184,8 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788742136"></script>
-<script src="edit-drafts.js?v=1788742136"></script>
-<script src="products.js?v=1788742136"></script>
+<script src="tips.js?v=1788742673"></script>
+<script src="edit-drafts.js?v=1788742673"></script>
+<script src="products.js?v=1788742673"></script>
 </body>
 </html>

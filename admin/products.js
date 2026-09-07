@@ -633,16 +633,37 @@ function renderEditor() {
     },
   });
 
-  // カテゴリ（作っている店にだけ出す。商品タブのまとめ方であってお客様には出ない）
-  const catField = $("p-category-field");
-  catField.classList.toggle("hidden", !state.categories.length);
-  if (state.categories.length) {
-    $("p-category").innerHTML = `<option value="">未分類</option>` +
-      state.categories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
-    $("p-category").value = p.category_id || "";
-    regField("products", p.id, "category_id", $("p-category"),
-      { get: () => $("p-category").value || null });
-  }
+  // カテゴリ（商品タブのまとめ方であってお客様には出ない）。
+  // 商品を見ながら「これはクリスマス用」と決めるので、商品名の下に常に出す。
+  // その場で新しいカテゴリを作ってこの商品に入れられる（まりほ指摘 2026-09-07）
+  const catSel = $("p-category");
+  catSel.innerHTML = `<option value="">未分類</option>` +
+    state.categories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("") +
+    `<option value="__new__">＋ 新しいカテゴリを作る</option>`;
+  catSel.value = p.category_id || "";
+  regField("products", p.id, "category_id", catSel,
+    { get: () => (catSel.value === "__new__" ? (p.category_id || null) : (catSel.value || null)) });
+  const newName = $("p-category-new");
+  const newBtn = $("btn-p-category-create");
+  const paintNew = () => {
+    const making = catSel.value === "__new__";
+    newName.classList.toggle("hidden", !making);
+    newBtn.classList.toggle("hidden", !making);
+    if (making) newName.focus();
+  };
+  paintNew();
+  catSel.onchange = paintNew;
+  newBtn.onclick = async () => {
+    const name = newName.value.trim();
+    if (!name) { toast("カテゴリ名を入れてください"); return; }
+    const created = await api("POST", "/rest/v1/categories", [{
+      tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: state.categories.length,
+    }]);
+    await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { category_id: created[0].id });
+    toast(`カテゴリ「${name}」を作って「${p.name}」を入れました`);
+    newName.value = "";
+    reloadAll();
+  };
 
   // 商品写真
   const photoWrap = $("p-photo");

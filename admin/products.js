@@ -160,7 +160,12 @@ async function api(method, path, body) {
   let res = await doFetch();
   if (res.status === 401 && await refreshSession()) res = await doFetch();
   if (res.status === 401) { showLogin(); throw new Error("再ログインしてください"); }
-  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    const error = new Error(detail.code === "23514" ? detail.message : `操作できませんでした（${res.status}）`);
+    error.code = detail.code;
+    throw error;
+  }
   const t = await res.text();
   const data = t ? JSON.parse(t) : null;
   const table = path.match(/^\/rest\/v1\/([a-z_]+)(?:\?|$)/)?.[1];
@@ -584,6 +589,7 @@ const localToIso = (v) => (v ? new Date(v).toISOString() : null);
 
 /* ---------- エディタ描画 ---------- */
 function renderEditor() {
+  $("p-publish-error").classList.add("hidden");
   const p = state.current;
   $("editor").classList.toggle("hidden", !p);
   if (!p) return;
@@ -752,9 +758,23 @@ async function saveCapacityRule(c) {
 $("btn-save-all").onclick = saveAll;
 $("btn-p-publish").onclick = async () => {
   const p = state.current;
-  await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { is_published: !p.is_published });
-  toast(p.is_published ? "非公開にしました" : "公開しました");
-  reloadAll();
+  const message = $("p-publish-error");
+  message.classList.add("hidden");
+  if (!p.is_published && state.dirty) {
+    message.textContent = "入力内容を「保存する」で保存してから、公開してください。";
+    message.classList.remove("hidden");
+    return;
+  }
+  const btn = $("btn-p-publish");
+  btn.disabled = true;
+  try {
+    await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { is_published: !p.is_published });
+    toast(p.is_published ? "非公開にしました" : "公開しました");
+    await reloadAll();
+  } catch (e) {
+    message.textContent = e.message;
+    message.classList.remove("hidden");
+  } finally { btn.disabled = false; }
 };
 /* ---------- この商品をコピー（サーバー側 fn_duplicate_product が丸ごと写す） ---------- */
 $("btn-p-copy").onclick = async () => {
@@ -835,15 +855,17 @@ function renderVariants(p) {
     regField("product_variants", v.id, "size_label", row.querySelector(".o-name"));
     regField("product_variants", v.id, "price", row.querySelector(".v-price"), { number: true });
     row.querySelector(".v-toggle").onclick = async () => {
-      await api("PATCH", `/rest/v1/product_variants?id=eq.${v.id}`, { is_available: !v.is_available });
-      reloadAll();
+      try {
+        await api("PATCH", `/rest/v1/product_variants?id=eq.${v.id}`, { is_available: !v.is_available });
+        await reloadAll();
+      } catch (e) { toast(e.message); }
     };
     row.querySelector(".v-del").onclick = async () => {
       try {
         await api("DELETE", `/rest/v1/product_variants?id=eq.${v.id}`);
         toast("削除しました");
-      } catch {
-        toast("予約で使用されているため削除できません（停止をお使いください）");
+      } catch (e) {
+        toast(e.code === "23503" ? "予約で使用されているため削除できません（停止をお使いください）" : e.message);
       }
       reloadAll();
     };

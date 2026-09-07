@@ -173,6 +173,12 @@
 .save-bar.dirty #save-status { color: #b07d10; font-weight: bold; }
 .save-bar .btn-primary { width: auto; margin: 0; padding: 10px 28px; font-size: .95rem; }
 .save-bar .btn-primary:disabled { background: #ddcfd3; }
+.save-bar > div { min-width: 0; }
+.save-bar .btn-primary { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 480px) {
+  .save-bar { padding: 10px 12px; gap: 10px; }
+  .save-bar .btn-primary { padding: 10px 16px; }
+}
 
 /* 電話予約（代行登録）の目印（受取リストのバッジ） */
 .st-staff { background: #eef4ff; color: #3b6bb5; }

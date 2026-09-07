@@ -214,9 +214,9 @@ async function restoreSaved() {
       if ($("cust-postal")) { $("cust-postal").value = c.postal || ""; $("cust-address").value = c.address || ""; }
     }
     const p = state.products.find((x) => x.id === saved.product_id);
-    if (!p || !onSale(p)) return;   // 受付期間が終わった商品の下書きは復元しない
+    if (!p || !onSale(p) || !p.product_variants.some(validVariant)) return;
     selectProduct(p);
-    const v = p.product_variants.find((x) => x.id === saved.variant_id);
+    const v = p.product_variants.find((x) => x.id === saved.variant_id && validVariant(x));
     if (!v) return;
     selectVariant(v);
     // 選択肢: いまも存在するものだけ復元
@@ -453,22 +453,24 @@ function updatePriceBar() {
 
 /* ---------- 1. 商品 ---------- */
 const EMOJI = { "生クリームデコレーション": "🍰", "フルーツタルト": "🥧", "チョコレートケーキ": "🍫", "バスクチーズケーキ": "🧀" };
+const validVariant = (v) => v.is_available && Number.isInteger(v.price) && v.price >= 0 && !!v.size_label?.trim();
 function renderProducts() {
   const wrap = $("product-cards");
   wrap.innerHTML = "";
   for (const p of visibleProducts()) {
-    const prices = p.product_variants.filter((v) => v.is_available).map((v) => v.price);
+    const prices = p.product_variants.filter(validVariant).map((v) => v.price);
     const el = document.createElement("div");
     el.className = "card" + (state.sel.product?.id === p.id ? " selected" : "");
     const visual = p.photo_url
-      ? `<div class="card-photo"><img src="${p.photo_url}" alt="${p.name}" loading="lazy"></div>`
+      ? `<div class="card-photo"><img src="${esc(safeImageUrl(p.photo_url))}" alt="${esc(p.name)}" loading="lazy"></div>`
       : `<div class="card-emoji">${EMOJI[p.name] || "🎂"}</div>`;
     el.innerHTML = `
       ${visual}
-      <div class="card-name">${p.name}</div>
-      <div class="card-desc">${p.description || ""}</div>
-      <div class="card-price">${yen(Math.min(...prices))}〜</div>`;
-    el.onclick = () => selectProduct(p);
+      <div class="card-name">${esc(p.name)}</div>
+      <div class="card-desc">${esc(p.description || "")}</div>
+      <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>`;
+    el.setAttribute("aria-disabled", String(!prices.length));
+    if (prices.length) el.onclick = () => selectProduct(p);
     wrap.appendChild(el);
   }
 }
@@ -481,6 +483,8 @@ function renderProducts() {
 const LAYER_CANVAS = 800;
 const imgCache = new Map();
 function loadImg(url) {
+  url = safeImageUrl(url);
+  if (!url) return Promise.resolve(null);
   if (imgCache.has(url)) return imgCache.get(url);
   const p = new Promise((resolve) => {
     const img = new Image();
@@ -539,13 +543,14 @@ async function updatePreview() {
   }
 
   if (p?.photo_url) {
-    box.innerHTML = `<img src="${p.photo_url}" alt="${p.name}">`;
+    box.innerHTML = `<img src="${esc(safeImageUrl(p.photo_url))}" alt="${esc(p.name)}">`;
   } else {
     box.innerHTML = `<span class="preview-placeholder">${p ? (EMOJI[p.name] || "🎂") : "🎂"}</span>`;
   }
 }
 
 function selectProduct(p) {
+  if (!p.product_variants.some(validVariant)) { toast("この商品はただいま準備中です"); return; }
   state.sel.product = p;
   track("product_selected");
   state.sel.variant = null;
@@ -566,7 +571,7 @@ function renderSizes() {
   const wrap = $("size-pills");
   wrap.innerHTML = "";
   const vs = [...state.sel.product.product_variants]
-    .filter((v) => v.is_available)
+    .filter(validVariant)
     .sort((a, b) => a.display_order - b.display_order);
   for (const v of vs) {
     const el = document.createElement("button");
@@ -616,9 +621,9 @@ function renderGroups() {
   for (const g of sortedGroups(state.sel.product)) {
     const box = document.createElement("div");
     box.className = "group";
-    box.innerHTML = `<h3>${g.name}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
-      (g.description ? `<p class="group-desc">${g.description}</p>` : "") +
-      (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${g.note}</p>` : "") +
+    box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
+      (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
+      (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${esc(g.note)}</p>` : "") +
       sampleImageHtml(g.sample_image_url);
     wireSampleImage(box);
     for (const o of sortedOpts(g)) {
@@ -636,14 +641,14 @@ function renderGroups() {
       const qtyUi = (o.max_quantity || 1) > 1 && selected
         ? `<span class="qty-stepper" role="group" aria-label="枚数">
              <button type="button" class="qty-btn qty-minus" aria-label="減らす">−</button>
-             <span class="qty-count">${sel.qty}<small>枚</small></span>
+             <span class="qty-count">${esc(sel.qty)}<small>枚</small></span>
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
       row.innerHTML = `
-        <input type="${type}" name="g-${g.id}" ${selected ? "checked" : ""}>
-        ${o.photo_url ? `<span class="opt-photo"><img src="${o.photo_url}" alt="" loading="lazy"></span>` : ""}
-        <span class="opt-name">${optName(o)}${optDesc(o) ? `<span class="opt-desc">${optDesc(o)}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${optNote(o)}</span>` : ""}</span>
+        <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""}>
+        ${o.photo_url ? `<span class="opt-photo"><img src="${esc(safeImageUrl(o.photo_url))}" alt="" loading="lazy"></span>` : ""}
+        <span class="opt-name">${esc(optName(o))}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}</span>
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
@@ -679,7 +684,7 @@ function renderGroups() {
         // 移行前の店（options.text_prompt がまだ残っている）は従来どおりの記入欄を出す
         const tf = document.createElement("div");
         tf.className = "opt-textfield";
-        tf.innerHTML = `<input type="text" placeholder="${o.text_prompt}" value="${sel.text || ""}">`;
+        tf.innerHTML = `<input type="text" placeholder="${esc(o.text_prompt)}" value="${esc(sel.text || "")}">`;
         const ti = tf.querySelector("input");
         ti.oninput = () => { state.sel.options.get(o.id).text = ti.value; };
         box.appendChild(tf);
@@ -873,7 +878,7 @@ function answerInputsHtml(q) {
   const cs = qChoices(q);
   const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
   if (q.input_type === "image") {
-    return `<span class="img-box" id="img-box-${q.id}">` +
+    return `<span class="img-box" id="img-box-${esc(q.id)}">` +
       `<span class="img-list"></span>` +
       `<span class="img-pick"><input type="file" accept="image/*" multiple hidden>` +
       `<span class="img-pick-label">写真を選ぶ</span></span>` +
@@ -882,12 +887,12 @@ function answerInputsHtml(q) {
   if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
-      cs.map((c) => `<option value="${c.id}">${c.label}${plus(c)}</option>`).join("") + `</select>`;
+      cs.map((c) => `<option value="${esc(c.id)}">${esc(c.label)}${plus(c)}</option>`).join("") + `</select>`;
   }
   if (q.input_type === "radio" || q.input_type === "checkbox") {
     const t = q.input_type === "radio" ? "radio" : "checkbox";
     return `<span class="pick-list">` + cs.map((c) =>
-      `<label class="pick"><input type="${t}" name="q-${q.id}" value="${c.id}">${c.label}${plus(c)}</label>`).join("") + `</span>`;
+      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}">${esc(c.label)}${plus(c)}</label>`).join("") + `</span>`;
   }
   return `<input type="text">`;
 }
@@ -895,20 +900,21 @@ function answerInputsHtml(q) {
 /* 店が用意した「見本の画像」（色見本・仕上がりの例など）。
  * プレビュー合成には使わない、ただの見本（2026-09-06）。 */
 function sampleImageHtml(url) {
-  return url ? `<span class="sample-img"><img src="${url}" alt="見本" loading="lazy"></span>` : "";
+  const src = safeImageUrl(url);
+  return src ? `<span class="sample-img"><img src="${esc(src)}" alt="見本" loading="lazy"></span>` : "";
 }
 function wireSampleImage(el) {
   const s = el.querySelector(".sample-img");
   if (!s) return;
   // labelの中にあるので、押しただけで選択が変わらないように止めてから開く
-  s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.open(s.querySelector("img").src, "_blank"); };
+  s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.open(s.querySelector("img").src, "_blank", "noopener,noreferrer"); };
 }
 
 function buildQuestionField(q) {
   const field = document.createElement("label");
   field.className = "field";
-  field.innerHTML = `${q.label}${q.is_required ? '<span class="req">必須</span>' : ""}` +
-    (q.help_text ? `<span class="help">${q.help_text}</span>` : "") +
+  field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
+    (q.help_text ? `<span class="help">${esc(q.help_text)}</span>` : "") +
     sampleImageHtml(q.sample_image_url) + answerInputsHtml(q);
   wireSampleImage(field);
 
@@ -1064,7 +1070,7 @@ function paintImageAnswer(q) {
     } else {
       // 写真ごとにひとこと（「1枚目はこの形、2枚目はこの色」が書けるように）
       cell.innerHTML =
-        `<span class="img-thumb"><img src="${slot.url}" alt="">` +
+        `<span class="img-thumb"><img src="${esc(safeImageUrl(slot.url))}" alt="">` +
         `<button type="button" class="rm" title="外す">×</button></span>` +
         `<input type="text" class="img-note-input" maxlength="100" placeholder="この写真について（任意）">`;
       cell.querySelector(".rm").onclick = () => {
@@ -1171,7 +1177,7 @@ $("btn-back").onclick = () => {
 function renderConfirm() {
   const s = state.sel;
   const rows = [];
-  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${k}</span><span>${v}</span></div>`);
+  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
   row("価格", yen(s.variant.price));
   for (const [id, v] of s.options) {
@@ -1184,10 +1190,10 @@ function renderConfirm() {
     const a = normAnswer(s.answers.get(q.id));
     if (q.input_type === "image") {
       if (a.images.length) {
-        rows.push(`<div class="confirm-row"><span class="k">${q.label}</span>` +
+        rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span>` +
           `<span class="confirm-thumbs">` +
-          a.images.map((x) => `<span class="confirm-thumb"><img src="${x.url}" alt="">` +
-            ((x.note || "").trim() ? `<span class="cap">${(x.note || "").trim()}</span>` : "") +
+          a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(safeImageUrl(x.url))}" alt="">` +
+            ((x.note || "").trim() ? `<span class="cap">${esc((x.note || "").trim())}</span>` : "") +
             `</span>`).join("") + `</span></div>`);
       }
       continue;
@@ -1314,7 +1320,7 @@ $("btn-submit").onclick = async () => {
       const p2 = document.createElement("p");
       p2.className = "small";
       p2.id = "done-manage-link";
-      p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${r.manage_token}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
+      p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${encodeURIComponent(r.manage_token)}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
     // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）
@@ -1323,7 +1329,7 @@ $("btn-submit").onclick = async () => {
       div.id = "done-line-link";
       div.className = "line-invite";
       div.innerHTML =
-        `<a class="line-btn" href="${CONFIG.url}/functions/v1/line-link?t=${r.manage_token}">` +
+        `<a class="line-btn" href="${CONFIG.url}/functions/v1/line-link?t=${encodeURIComponent(r.manage_token)}">` +
         `LINEで通知を受け取る</a>` +
         `<p class="small">ご予約の控えやお知らせがLINEにも届きます（メールも変わらず届きます）</p>`;
       $("view-done").querySelector(".done-box").appendChild(div);
@@ -1362,7 +1368,7 @@ function applyTheme(th) {
   if (th.type) root.classList.add("type-" + th.type);
   const logo = document.getElementById("shop-logo"), name = document.getElementById("shop-name");
   if (logo && name) {
-    if (th.logo_url) { logo.src = th.logo_url; logo.classList.remove("hidden"); name.classList.add("hidden"); }
+    if (safeImageUrl(th.logo_url)) { logo.src = safeImageUrl(th.logo_url); logo.classList.remove("hidden"); name.classList.add("hidden"); }
     else { logo.classList.add("hidden"); name.classList.remove("hidden"); }
   }
   const sub = document.getElementById("shop-sub");

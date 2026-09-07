@@ -85,9 +85,9 @@ async function loadOrderImages() {
     const j = await res.json();
     if (!j?.ok || !j.images?.length) return;
     const thumbs = (list) => `<span class="manage-thumbs">` + list.map((x) =>
-      `<span class="manage-thumb"><a href="${x.url}" target="_blank" rel="noopener">` +
-      `<img src="${x.url}" alt="添付画像"></a>` +
-      (x.note ? `<span class="cap">${x.note}</span>` : "") + `</span>`).join("") + `</span>`;
+      `<span class="manage-thumb"><a href="${esc(safeImageUrl(x.url))}" target="_blank" rel="noopener">` +
+      `<img src="${esc(safeImageUrl(x.url))}" alt="添付画像"></a>` +
+      (x.note ? `<span class="cap">${esc(x.note)}</span>` : "") + `</span>`).join("") + `</span>`;
     // 質問ごとにまとめて、その質問の行（「2枚」と出ている行）を画像そのものに置き換える
     const rest = [];
     const byQ = new Map();
@@ -126,7 +126,7 @@ function renderOrder() {
   chip.classList.toggle("canceled", o.status === "canceled");
 
   const rows = [];
-  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${k}</span><span>${v}</span></div>`);
+  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("予約番号", `No.${o.order_number}`);
   row("ケーキ", `${o.product_name}（${o.variant_label}）`);
   for (const op of o.options) {
@@ -136,8 +136,8 @@ function renderOrder() {
   for (const a of o.answers) {
     const v = a.choice_label || a.answer_text;
     // 画像の回答は、あとで loadOrderImages がこの行にサムネイルを入れる
-    if (v) rows.push(`<div class="confirm-row" data-q="${a.question_id || ""}">` +
-      `<span class="k">${a.label}</span><span class="v">${v}</span></div>`);
+    if (v) rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
+      `<span class="k">${esc(a.label)}</span><span class="v">${esc(v)}</span></div>`);
   }
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);
@@ -380,7 +380,7 @@ $("btn-slot-save").onclick = async () => {
 function openCancelView() {
   const { order: o } = state.data;
   const rows = [];
-  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${k}</span><span>${v}</span></div>`);
+  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("予約番号", `No.${o.order_number}`);
   row("ケーキ", `${o.product_name}（${o.variant_label}）`);
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));

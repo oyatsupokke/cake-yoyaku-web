@@ -851,27 +851,7 @@ async function unusedTenantSave() {
 // 「商品ごとの上限」は商品エディタ（products.html）の各商品ページへ移設（まりほ指摘 2026-08-25：分類が変）
 
 function initLineSettings(t) {
-  const enabled = $("line-enabled"), button = $("line-save");
-  const provisioned = /^\d+$/.test(String(t.line_login_channel_id || ""));
-  enabled.checked = !!t.line_notify_enabled;
-  enabled.disabled = !provisioned;
-  button.disabled = true;
-  $("line-config-status").textContent = !provisioned ? "接続情報が未登録です。運営側の設定が必要です。" : `接続情報：登録あり ／ LINE通知の案内：${t.line_notify_enabled ? "ON" : "OFF"}`;
-  $("line-config-id").textContent = provisioned ? `LINEログインチャネルID：${t.line_login_channel_id}` : "";
-  enabled.onchange = () => { button.disabled = !provisioned || enabled.checked === !!t.line_notify_enabled; };
-  button.onclick = async () => {
-    const next = enabled.checked;
-    button.disabled = true; enabled.disabled = true;
-    $("line-result").textContent = "保存中…";
-    try {
-      await api("POST", "/rest/v1/rpc/fn_set_line_notify", { p_tenant_id: state.tenantId, p_enabled: next });
-      initLineSettings({ ...t, line_notify_enabled: next });
-      $("line-result").textContent = "LINEの設定を保存しました。実際の配信は動作確認の手順でご確認ください。";
-    } catch {
-      enabled.disabled = !provisioned; button.disabled = false;
-      $("line-result").textContent = "保存できませんでした。通信状態をご確認ください。接続設定やサーバー側の更新が未完了の場合はサポートへご連絡ください。";
-    }
-  };
+  if (window.loadLineConnectionSettings) window.loadLineConnectionSettings(t);
 }
 
 async function loadSettings() {

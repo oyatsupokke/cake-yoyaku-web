@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788848102">
-<link rel="stylesheet" href="admin.css?v=1788848102">
-<link rel="stylesheet" href="admin-layout.css?v=1788848102">
-<link rel="stylesheet" href="support.css?v=1788848102">
+<link rel="stylesheet" href="../styles.css?v=1788849789669">
+<link rel="stylesheet" href="admin.css?v=1788849789669">
+<link rel="stylesheet" href="admin-layout.css?v=1788849789669">
+<link rel="stylesheet" href="support.css?v=1788849789669">
 </head>
 <body>
 <div id="app" class="admin">
@@ -285,22 +285,34 @@
 
       <div class="confirm-box settings-anchor" id="settings-line">
         <h3>LINE連携</h3>
-        <p class="small">メールに加えて、希望するお客様へLINEでも予約のお知らせを送るための設定です。</p>
+        <p class="small">お店のLINE公式アカウントから、希望するお客様に予約のお知らせを送れます。メールも引き続き届きます。</p>
         <p id="line-config-status" role="status">設定を読み込み中…</p>
-        <p class="small" id="line-config-id"></p>
-        <p class="small">ここで表示するのは登録済みの設定です。LINEへの接続・実際の配信成功を確認した表示ではありません。</p>
+        <button type="button" class="pill" id="line-refresh">状態を更新</button>
+        <details id="line-setup-fields"><summary>1. LINEの準備・接続情報の入力</summary>
+          <ol>
+            <li><a href="https://manager.line.biz/" target="_blank" rel="noopener">LINE Official Account Manager</a>でお店のアカウントを開き、Messaging APIを有効にします。</li>
+            <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers</a>で、Messaging APIと<strong>同じプロバイダー</strong>にLINEログインチャネルを作成します。アプリタイプは「ウェブアプリ」を選びます。</li>
+            <li>LINEログイン設定のコールバックURLに、下のURLを登録します。「リンクされたボット」にお店の公式アカウントを指定し、チャネルを「公開済み」にします。</li>
+          </ol>
+          <label class="field">コールバックURL<input id="line-callback" type="text" readonly></label>
+          <button type="button" class="pill" id="line-copy-callback">URLをコピー</button>
+          <label class="field">LINEログインのチャネルID<input id="line-channel" type="text" inputmode="numeric" autocomplete="off"></label>
+          <label class="field">LINEログインのチャネルシークレット<input id="line-secret" type="password" autocomplete="new-password"><span class="help">LINEログインチャネルの「チャネル基本設定」からコピーします。</span></label>
+          <label class="field">Messaging APIのチャネルアクセストークン（長期）<input id="line-token" type="password" autocomplete="new-password"><span class="help">Messaging APIチャネルの「Messaging API設定」で発行します。秘密情報は保存後に表示しません。</span></label>
+          <p class="small">接続情報を保存し直すと、通知を一時停止して接続テストからやり直します。すでにお客様と連携している接続先の変更は、サポートへご相談ください。</p>
+          <button type="button" class="pill" id="line-credentials-save">接続情報を確認して保存</button>
+        </details>
+        <h4>2. 自分のLINEで接続を確認</h4>
+        <p class="small">先にお店の公式アカウントを友だち追加してください。LINEログイン画面で許可したら、ここへ戻って「状態を更新」を押します。予約は作成されません。</p>
+        <button type="button" class="pill" id="line-test-login" disabled>自分のLINEで接続を確認する</button>
+        <h4>3. テスト通知を受け取る</h4>
+        <button type="button" class="pill" id="line-test-send" disabled>自分へテスト通知を送る</button>
+        <p class="small">直前にログインした自分のLINEへ1通送ります。LINE公式アカウントの配信通数に含まれます。届かない場合は、友だち追加・ブロック・配信可能な通数をご確認ください。</p>
+        <h4>4. 利用開始・停止</h4>
         <label class="radio-line"><input type="checkbox" id="line-enabled" disabled>お客様にLINE通知の利用を案内する</label>
-        <p class="small">ONにすると、予約完了画面などに「LINEで通知を受け取る」が表示されます。メールは引き続き届きます。</p>
         <button type="button" class="pill" id="line-save" disabled>LINEの設定を保存する</button>
-        <p class="small">このボタンでLINEの設定だけを保存します。OFFは新しい連携や通知の作成を止める設定です。すでに送信待ちの通知は、停止後も届く場合があります。</p>
+        <p class="small">テスト通知が届いたことを確認してからONにしてください。OFFにすると通知を停止します。すでに送信処理が始まった通知は届く場合があります。</p>
         <p id="line-result" class="small" role="status"></p>
-        <details><summary>動作確認の手順</summary>
-          <ol><li>自分用のテスト予約を入れます（予約枠を使い、メールも届きます）。</li><li>予約完了画面の「LINEで通知を受け取る」から連携します。</li><li>LINEに予約の控えが届いたことを確認します。設定がONだけでは配信成功とは限りません。</li><li>テスト後は、不要な予約をキャンセルします。</li></ol>
-          <p class="small">届かない場合は、LINE公式アカウントのブロック状態や配信可能な通数をご確認のうえ、サポートへお問い合わせください。</p>
-        </details>
-        <details><summary>新しいLINE公式アカウントを接続したいとき</summary>
-          <p class="small">現在は運営側での接続設定が必要です。サポートへお問い合わせください。トークンやシークレットなどの秘密情報は、お問い合わせ欄に貼り付けないでください。</p>
-        </details>
       </div>
 
       <div class="confirm-box settings-anchor" id="settings-notifications">
@@ -438,11 +450,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788848102"></script>
-<script src="edit-drafts.js?v=1788848102"></script>
-<script src="report-core.js?v=1788848102"></script>
-<script src="admin.js?v=1788848102"></script>
-<script src="reports.js?v=1788848102"></script>
-<script src="support.js?v=1788848102"></script>
+<script src="tips.js?v=1788849789669"></script>
+<script src="edit-drafts.js?v=1788849789669"></script>
+<script src="report-core.js?v=1788849789669"></script>
+<script src="line-settings.js?v=1788849789669"></script>
+<script src="admin.js?v=1788849789669"></script>
+<script src="reports.js?v=1788849789669"></script>
+<script src="support.js?v=1788849789669"></script>
 </body>
 </html>

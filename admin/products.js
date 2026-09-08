@@ -1832,10 +1832,10 @@ window.addEventListener("beforeunload", (e) => {
     state.tenantId = tu[0].tenant_id;
     $("view-app").classList.remove("hidden");
     // お客様画面プレビューリンク
-    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone,closed_weekdays`);
+    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone,closed_weekdays,billing_status,trial_ends_at`);
     state.tenantTimezone = t[0].timezone || "Asia/Tokyo";
     state.closedWeekdays = t[0].closed_weekdays || [];
-    $("preview-link").href = `../?shop=${t[0].subdomain}`;
+    $("preview-link").href = `../?shop=${t[0].subdomain}${t[0].billing_status === "setup_trial" ? "&trial=1" : ""}`;
     await loadAll(false);
   } catch {
     showLogin();

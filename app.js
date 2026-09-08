@@ -21,20 +21,21 @@ const THEME_PREVIEW = window.self !== window.top
   && new URLSearchParams(location.search).get("preview") === "theme";
 
 /* ---------- 変更モード（?edit=<manage_token> で既存予約を読み込んで差し替え） ---------- */
+const TRIAL_MODE = new URLSearchParams(location.search).get("trial") === "1";
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
-const EDIT_MODE = !!EDIT_TOKEN;
+const EDIT_MODE = !TRIAL_MODE && !!EDIT_TOKEN;
 let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
 
 /* ---------- 代行登録モード（?staff=1・管理画面ログイン中のみ） ----------
  * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
  * 警告つきで選べる（サーバー側も fn_staff_place_order で店のログインを検証）。
  * メールアドレスは空欄OK＝空欄なら確認メールは送られない */
-const STAFF_MODE = !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
+const STAFF_MODE = !TRIAL_MODE && !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
 function staffSession() {
   try { return JSON.parse(localStorage.getItem("pokke_admin_session")); } catch { return null; }
 }
 
-const SUBMIT_LABEL = EDIT_MODE ? "この内容に変更する"
+const SUBMIT_LABEL = TRIAL_MODE ? "テスト予約を確認する" : EDIT_MODE ? "この内容に変更する"
   : STAFF_MODE ? "この内容で登録する" : "この内容で注文する";
 
 const state = {
@@ -56,13 +57,15 @@ const state = {
 
 /* ---------- API ---------- */
 async function api(path) {
+  if (TRIAL_MODE && path.startsWith("/rest/v1/v_public_tenant?")) return staffRpc("fn_trial_preview", { p_action: "catalog", p: { shop: CONFIG.shop } });
   const res = await fetch(CONFIG.url + path, {
-    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}` },
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${TRIAL_MODE ? staffSession()?.access_token : CONFIG.anonKey}` },
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   return res.json();
 }
 async function rpc(name, args) {
+  if (TRIAL_MODE) return staffRpc("fn_trial_preview", { p_action: name, p: { ...args, shop: CONFIG.shop } });
   const res = await fetch(`${CONFIG.url}/rest/v1/rpc/${name}`, {
     method: "POST",
     headers: {
@@ -150,7 +153,7 @@ const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
   : String(Date.now()) + Math.random().toString(16).slice(2));
 function track(step, detail) {
-  if (!state.tenant || RESTORING || EDIT_MODE || STAFF_MODE) return;  // 変更・代行モードは新規のファネル計測を汚さない
+  if (TRIAL_MODE || !state.tenant || RESTORING || EDIT_MODE || STAFF_MODE) return;  // 変更・代行モードは新規のファネル計測を汚さない
   fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
     method: "POST",
     headers: {
@@ -173,7 +176,7 @@ const SAVE_KEY = `cake_form_${CONFIG.shop}`;
 let RESTORING = false;
 
 function saveState() {
-  if (THEME_PREVIEW) return;
+  if (THEME_PREVIEW || TRIAL_MODE) return;
   if (RESTORING || EDIT_MODE || STAFF_MODE || !state.tenant) return;  // 変更・代行モードは自動保存を使わない（お客様の下書きを壊さない）
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -196,10 +199,10 @@ function saveState() {
 let _saveTimer = null;
 document.addEventListener("input", () => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveState, 400); });
 
-function clearSavedState() { if (THEME_PREVIEW) return; try { localStorage.removeItem(SAVE_KEY); } catch {} }
+function clearSavedState() { if (THEME_PREVIEW || TRIAL_MODE) return; try { localStorage.removeItem(SAVE_KEY); } catch {} }
 
 async function restoreSaved() {
-  if (THEME_PREVIEW) return;
+  if (THEME_PREVIEW || TRIAL_MODE) return;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
   if (!saved || Date.now() - (saved.savedAt || 0) > 24 * 3600 * 1000) return;
@@ -245,6 +248,12 @@ async function load() {
   const tenants = await api(`/rest/v1/v_public_tenant?subdomain=eq.${CONFIG.shop}&select=*`);
   if (!tenants.length) { $("shop-name").textContent = "店舗が見つかりません"; return; }
   state.tenant = tenants[0];
+  if (TRIAL_MODE) {
+    const note = document.createElement("p");
+    note.textContent = "店舗専用テスト：実予約は作成されず、メール・LINEは送信されません。画像は端末内で確認します。";
+    note.className = "confirm-box";
+    document.getElementById("app").prepend(note);
+  }
   track("form_open");
   // お客様情報の項目設定（住所を聞くか・必須か）は店の設定に従う
   const addrCfg = state.tenant.customer_form?.address ?? { enabled: false, required: false };
@@ -1004,6 +1013,7 @@ function shrinkImage(file, maxSide = IMG_MAX_SIDE, quality = 0.85) {
 
 async function uploadOneImage(file, q) {
   const { blob, w, h } = await shrinkImage(file);
+  if (TRIAL_MODE) return { id: crypto.randomUUID(), url: URL.createObjectURL(blob), note: "" };
   const res = await fetch(IMG_ENDPOINT(), {
     method: "POST",
     headers: {
@@ -1284,7 +1294,7 @@ $("btn-submit").onclick = async () => {
     if (!r.ok) throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）
-    fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
+    if (!TRIAL_MODE) fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
       method: "POST",
       headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}` },
     }).catch(() => {});
@@ -1306,6 +1316,11 @@ $("btn-submit").onclick = async () => {
            ? "「確認済」で登録し、お客様に確認メールをお送りします。"
            : "「確認済」で登録しました（メール未記入のため確認メールは送られません）。")
        : "確認のご連絡をお待ちください。");
+    if (TRIAL_MODE) {
+      $("view-done").querySelector("h2").textContent = "テスト予約を確認しました";
+      $("done-number").textContent = "テスト（保存なし）";
+      $("done-pickup").textContent = "この内容で予約できることを確認しました。実予約・メール・LINEは作成されていません。";
+    }
     $("view-confirm").classList.add("hidden");
     if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
     if (STAFF_MODE && !$("done-staff-back")) {

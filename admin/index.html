@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788784125">
-<link rel="stylesheet" href="admin.css?v=1788784125">
-<link rel="stylesheet" href="admin-layout.css?v=1788784125">
-<link rel="stylesheet" href="support.css?v=1788784125">
+<link rel="stylesheet" href="../styles.css?v=1788845860">
+<link rel="stylesheet" href="admin.css?v=1788845860">
+<link rel="stylesheet" href="admin-layout.css?v=1788845860">
+<link rel="stylesheet" href="support.css?v=1788845860">
 </head>
 <body>
 <div id="app" class="admin">
@@ -51,8 +51,7 @@
     <nav class="tabs no-print" id="admin-tabs">
       <!-- 狭い画面のドロワーだけに出る閉じるボタン（広い画面ではCSSで非表示） -->
       <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
-      <button type="button" class="tab selected" data-tab="pickup">受取リスト</button>
-      <button type="button" class="tab" data-tab="kitchen">製造ケーキ一覧</button>
+      <button type="button" class="tab selected" data-tab="pickup">予約・製造</button>
       <button type="button" class="tab" data-tab="reports">集計・CSV</button>
       <button type="button" class="tab" data-tab="settings">設定</button>
       <a class="tab tab-link" href="./products.html">商品</a>
@@ -75,19 +74,19 @@
       <button type="button" class="pill" id="date-today">今日</button>
     </div>
 
-    <!-- 受取リスト（店頭ビュー） -->
+    <!-- 予約・製造：同じ日の製造数と受取順を1画面で確認する -->
     <section id="tab-pickup">
-      <div id="pickup-list"></div>
-    </section>
-
-    <!-- 厨房ビュー -->
-    <section id="tab-kitchen" class="hidden">
-      <div class="no-print" style="text-align:right; margin-bottom:8px;">
-        <button type="button" class="pill" id="btn-print">🖨 印刷</button>
+      <div id="tab-kitchen">
+        <h2 class="print-title print-only" id="kitchen-title"></h2>
+        <div class="daily-section-heading no-print">
+          <div><h2>この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセルを除く）。</p></div>
+          <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
+        </div>
+        <div id="kitchen-summary"></div>
+        <div id="kitchen-detail" class="print-only"></div>
       </div>
-      <h2 class="print-title" id="kitchen-title"></h2>
-      <div id="kitchen-summary"></div>
-      <div id="kitchen-detail"></div>
+      <h2 class="daily-pickup-heading no-print">受取時間順の予約</h2>
+      <div id="pickup-list"></div>
     </section>
 
     <section id="tab-reports" class="hidden">
@@ -343,7 +342,7 @@
         <p id="billing-page-status"></p>
         <p id="billing-page-trial" class="small"></p>
         <p id="billing-page-help" class="small"></p>
-        <button type="button" class="pill hidden" id="btn-billing-page-checkout">お支払い登録へ進む</button>
+        <button type="button" class="pill hidden" id="btn-billing-page-checkout">有料契約へ進む（月額4,980円）</button>
         <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
       </div>
     </section>
@@ -439,11 +438,11 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788784125"></script>
-<script src="edit-drafts.js?v=1788784125"></script>
-<script src="report-core.js?v=1788784125"></script>
-<script src="admin.js?v=1788784125"></script>
-<script src="reports.js?v=1788784125"></script>
-<script src="support.js?v=1788784125"></script>
+<script src="tips.js?v=1788845860"></script>
+<script src="edit-drafts.js?v=1788845860"></script>
+<script src="report-core.js?v=1788845860"></script>
+<script src="admin.js?v=1788845860"></script>
+<script src="reports.js?v=1788845860"></script>
+<script src="support.js?v=1788845860"></script>
 </body>
 </html>

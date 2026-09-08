@@ -4,20 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>新規登録｜ケーキ予約システム</title>
-<link rel="stylesheet" href="styles.css?v=1788784125">
-<link rel="stylesheet" href="signup.css?v=1788784125">
+<link rel="stylesheet" href="styles.css?v=1788845860">
+<link rel="stylesheet" href="signup.css?v=1788845860">
 </head>
 <body>
 <div id="app">
   <header class="shop-header">
     <h1>🎂 ケーキ予約システム</h1>
-    <p class="shop-sub">新規登録（7日間無料でお試しいただけます）</p>
+    <p class="shop-sub">新規登録（カード不要・7日間無料）</p>
   </header>
 
   <!-- ステップ表示 -->
   <ol class="signup-steps no-print" id="steps-bar">
     <li data-step="account">お店の情報</li>
-    <li data-step="billing">お支払い登録</li>
     <li data-step="done">利用開始</li>
   </ol>
 
@@ -63,10 +62,10 @@
 
     <div class="trial-note">
       <p><strong>ご利用の流れ</strong></p>
-      <p>登録後、お支払い方法（クレジットカード）をご登録いただくと、その日から<strong>7日間無料</strong>でお使いいただけます。無料期間が終わると月額<strong>4,980円（税込）</strong>の課金が始まります。無料期間中に解約すれば料金はかかりません。</p>
+      <p><strong>カード登録なしで7日間</strong>、お店の設定とテスト予約をお試しいただけます。お試し中はお客様からの本予約を受け付けません。有料契約のお申し込み・決済が完了すると、月額<strong>4,980円（税込）</strong>の課金と本予約の受付が始まります。契約せず期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p>
     </div>
 
-    <button type="button" class="btn-primary btn-wide" id="btn-signup">登録してお支払い登録へ進む</button>
+    <button type="button" class="btn-primary btn-wide" id="btn-signup">カード登録なしで始める</button>
     <p id="signup-error" class="error hidden"></p>
   </main>
 
@@ -82,8 +81,8 @@
   <main id="view-billing" class="hidden">
     <div class="confirm-box center">
       <h3>お支払い登録がまだ完了していません</h3>
-      <p>カードを登録すると7日間の無料トライアルが始まります。<br>無料期間中に解約すれば料金はかかりません。</p>
-      <button type="button" class="btn-primary btn-wide" id="btn-checkout">お支払い登録へ進む（7日間無料）</button>
+      <p>有料契約の決済が完了すると、月額4,980円（税込）の課金と本予約の受付が始まります。</p>
+      <button type="button" class="btn-primary btn-wide" id="btn-checkout">有料契約へ進む（月額4,980円）</button>
       <p id="billing-error" class="error hidden"></p>
     </div>
   </main>
@@ -92,7 +91,7 @@
   <main id="view-done" class="hidden">
     <div class="confirm-box center">
       <h3>🎉 登録が完了しました！</h3>
-      <p>7日間の無料トライアルが始まりました。<br>さっそく管理画面から商品と受取時間を設定しましょう。</p>
+      <p>管理画面で現在の契約状況をご確認ください。商品と受取時間を設定できます。</p>
       <a class="btn-primary btn-wide btn-link" href="admin/">管理画面をひらく</a>
       <p><a href="help/start.html">はじめてガイドを開く</a></p>
       <div class="onboarding">
@@ -113,6 +112,6 @@
   </footer>
 </div>
 <div id="toast" class="hidden"></div>
-<script src="signup.js?v=1788784125"></script>
+<script src="signup.js?v=1788845860"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 /* =====================================================================
  * 新規登録（SaaSセルフサーブ）
  * 流れ：①アカウント作成（Supabase Auth）→ ②fn_signup_tenantで店舗作成
- *       → ③Edge Function経由でStripe Checkout（カード必須・7日無料）
- *       → ④Webhookが課金開始を反映（billing_status=trialing・フォーム公開）
+ *       → ③カード不要の7日間お試し（setup_trial・一般公開なし）
+ * 有料契約は管理画面から別途申込。決済完了で本受注開始。
  * メール確認がONのプロジェクトでは、確認リンクで本ページに戻ってから②③を続行
  * （入力内容は localStorage に退避しておく）
  * ===================================================================== */
@@ -17,6 +17,7 @@ const SESSION_KEY = "pokke_admin_session"; // 管理画面と共有（登録後�
 const PENDING_KEY = "cyb_signup_pending";
 
 let session = null;
+let registrationAuthenticated = false;
 try { session = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { /* noop */ }
 
 /* ---------- 表示切り替え ---------- */
@@ -120,8 +121,8 @@ function validate(info) {
   if (!info.name) return "店名を入力してください";
   if (!SUB_RE.test(info.subdomain) || info.subdomain.includes("--")) return "店舗IDの形式を確認してください";
   if (!info.address) return "住所を入力してください";
-  if (!$("s-email").value.trim()) return "メールアドレスを入力してください";
-  if ($("s-password").value.length < 8) return "パスワードは8文字以上にしてください";
+  if (!registrationAuthenticated && !$("s-email").value.trim()) return "メールアドレスを入力してください";
+  if (!registrationAuthenticated && $("s-password").value.length < 8) return "パスワードは8文字以上にしてください";
   if (!$("s-agree").checked) return "利用規約・プライバシーポリシーへの同意が必要です";
   return null;
 }
@@ -133,18 +134,23 @@ async function onSignup() {
   $("signup-error").classList.add("hidden");
   $("btn-signup").disabled = true;
   try {
+    if (registrationAuthenticated) {
+      await rpcSignupTenant(info); localStorage.removeItem(PENDING_KEY); location.href = "admin/"; return;
+    }
     const redirect = encodeURIComponent(location.origin + location.pathname);
     const body = await authFetch("signup", {
       email: $("s-email").value.trim(),
       password: $("s-password").value,
+      data: { registration: info },
     }, `?redirect_to=${redirect}`);
 
     if (body.access_token) {
       // メール確認OFF：そのまま続行
+      registrationAuthenticated = true;
       session = body;
       localStorage.setItem(SESSION_KEY, JSON.stringify(body));
       await rpcSignupTenant(info);
-      await gotoCheckout();
+      location.href = "admin/";
     } else {
       // メール確認ON：入力内容を退避して確認待ち画面
       localStorage.setItem(PENDING_KEY, JSON.stringify(info));
@@ -168,15 +174,23 @@ async function resumeFromEmailConfirm() {
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   history.replaceState(null, "", location.pathname); // トークンをURLから消す
-  const pending = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
-  if (!pending) { show("billing"); return true; }
+  let pending = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
+  if (!pending) {
+    const r = await fetch(`${CONFIG.url}/auth/v1/user`, { headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${at}` } });
+    if (r.ok) pending = (await r.json()).user_metadata?.registration;
+  }
+  if (!pending) { location.href = "admin/"; return true; }
   try {
     await rpcSignupTenant(pending);
     localStorage.removeItem(PENDING_KEY);
-    await gotoCheckout();
+    location.href = "admin/";
   } catch (e) {
-    show("billing");
-    showError("billing-error", e.message);
+    registrationAuthenticated = true;
+    for (const field of ["name", "subdomain", "address", "phone"]) $("s-" + field).value = pending[field] || "";
+    $("s-email").closest(".confirm-box").classList.add("hidden");
+    $("s-agree").checked = true;
+    show("account");
+    showError("signup-error", e.message + "。内容を確認して、もう一度お試しください。");
   }
   return true;
 }

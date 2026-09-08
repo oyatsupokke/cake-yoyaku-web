@@ -133,7 +133,7 @@ async function showApp() {
   // 電話予約の代行登録：お客様フォームを代行モードで開く（同じログインを使う）
   const staffBtn = $("btn-staff-order");
   if (staffBtn) staffBtn.onclick = () => {
-    window.open(`../?shop=${encodeURIComponent(state.subdomain)}&staff=1`, "_blank");
+    window.open(`../?shop=${encodeURIComponent(state.subdomain)}${state.billingStatus === "setup_trial" ? "&trial=1" : "&staff=1"}`, "_blank");
     $("admin-body").classList.remove("menu-open");
     $("menu-btn").setAttribute("aria-expanded", "false");
   };
@@ -145,7 +145,9 @@ async function showApp() {
   // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
   const requestedTab = new URLSearchParams(location.search).get("tab");
   if (["pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
-    document.querySelector(`.tab[data-tab="${requestedTab}"]`)?.click();
+    // 旧「製造ケーキ一覧」へのリンクも、統合後の「予約・製造」を開く。
+    const tab = requestedTab === "kitchen" ? "pickup" : requestedTab;
+    document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
   }
 }
 
@@ -164,20 +166,27 @@ function renderBillingBanner(t) {
   if (!el || !t) return;
   const status = t.billing_status || "exempt";
   state.billingStatus = status;
-  const labels = { exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
+  const labels = { setup_trial: "カード不要のお試し中", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
   $("billing-page-status").textContent = labels[status] || "ご契約状況を確認してください";
-  $("billing-page-trial").textContent = status === "trialing" && t.trial_ends_at
+  $("billing-page-trial").textContent = ["trialing", "setup_trial"].includes(status) && t.trial_ends_at
     ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}` : "";
   $("billing-page-help").textContent = status === "exempt"
     ? "この店舗は課金対象外です。お支払い登録は不要です。"
     : "カードの変更・請求書の確認・解約は、Stripeのお支払い管理で行えます。";
-  $("btn-billing-page-checkout").classList.toggle("hidden", !["none", "canceled", "incomplete_expired"].includes(status));
-  $("btn-billing-page-portal").classList.toggle("hidden", ["exempt", "none", "incomplete_expired"].includes(status));
+  $("btn-billing-page-checkout").classList.toggle("hidden", !["setup_trial", "none", "canceled", "incomplete_expired"].includes(status));
+  $("btn-billing-page-portal").classList.toggle("hidden", ["setup_trial", "exempt", "none", "incomplete_expired"].includes(status));
   const portalBtn = `<button type="button" class="pill" id="btn-billing-portal">お支払い管理</button>`;
   let html = "";
-  if (status === "none") {
+  if (status === "setup_trial") {
+    const expired = !t.trial_ends_at || new Date(t.trial_ends_at) <= new Date();
+    $("billing-page-status").textContent = expired ? "お試し終了・休止中" : "カード不要のお試し中";
+    $("billing-page-help").textContent = "有料契約の決済完了から月額4,980円（税込）がかかり、本予約の受付を開始します。自動課金はありません。";
+    html = expired ? "7日間のお試しが終了しました。設定は保存されています。" : "カード不要の7日間お試し中です。本予約は受け付けません。";
+    if (!expired) html += ` <a class="pill" href="../?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
+    html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（月額4,980円）</button>`;
+  } else if (status === "none") {
     html = `⚠️ お支払い登録が未完了のため、予約フォームはまだ公開されていません。
-      <button type="button" class="pill" id="btn-billing-checkout">お支払い登録へ（7日間無料）</button>`;
+      <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（月額4,980円）</button>`;
   } else if (status === "trialing") {
     const days = t.trial_ends_at
       ? Math.max(0, Math.ceil((new Date(t.trial_ends_at) - Date.now()) / 86400000)) : null;
@@ -238,7 +247,7 @@ function renderPickup() {
     card.innerHTML = `
       <div class="order-head">
         <span class="order-time">${esc(o.pickup_slot_label)}</span>
-        <span class="order-name">${esc(o.customer_name)} 様
+        <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>
         <span class="order-total">${yen(o.total_amount)}</span>
@@ -321,7 +330,6 @@ function fillOrderBody(el, o) {
     rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
       `<span class="k">${esc(a.label_snapshot)}</span><span class="v">${esc(v)}</span></div>`);
   }
-  if (o.customer_kana) row("フリガナ", o.customer_kana);
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
   rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
@@ -772,7 +780,7 @@ async function loadTenantForm() {
     el.addEventListener(el.type === "checkbox" || el.type === "radio" ? "change" : "input", themeEvt);
   });
   const frame = $("th-frame");
-  const src = `../?shop=${encodeURIComponent(state.subdomain)}&preview=theme`;
+  const src = `../?shop=${encodeURIComponent(state.subdomain)}&preview=theme${state.billingStatus === "setup_trial" ? "&trial=1" : ""}`;
   if (frame.getAttribute("src") !== src) frame.src = src;
   frame.onload = pushThemePreview;
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
@@ -1014,7 +1022,6 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("admin-body").classList.remove("menu-open");
     $("menu-btn").setAttribute("aria-expanded", "false");
     $("tab-pickup").classList.toggle("hidden", state.tab !== "pickup");
-    $("tab-kitchen").classList.toggle("hidden", state.tab !== "kitchen");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
     $("tab-design").classList.toggle("hidden", state.tab !== "design");
     $("tab-reports").classList.toggle("hidden", state.tab !== "reports");

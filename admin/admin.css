@@ -354,6 +354,13 @@
 
 /* ---- お客様の添付画像（2026-09-04） ---- */
 .st-image { background: #eef7ee; color: #3f7a45; }
+.st-preview { background: #f3edf8; color: #6f4b87; }
+.order-preview {
+  display: flex; align-items: center; gap: 14px; margin: 0 0 14px; padding: 12px;
+  border: 1px solid #e4d9ea; border-radius: 10px; background: #fbf8fd;
+  color: #74677a; font-size: .78rem;
+}
+.order-preview img { width: 160px; height: 160px; object-fit: contain; border-radius: 8px; display: block; background: #fff; }
 .order-images { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 10px; }
 .order-images img {
   width: 110px; height: 110px; object-fit: cover;
@@ -364,5 +371,11 @@
 }
 .order-image { display: flex; flex-direction: column; gap: 3px; width: 110px; }
 .order-image .cap { font-size: .72rem; color: #8a7a6a; line-height: 1.4; }
+.kpreview { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: .72rem; font-weight: bold; }
+.kpreview img { width: 120px; height: 120px; object-fit: contain; border: 1px solid #ddd; border-radius: 6px; }
+@media (max-width: 600px) {
+  .order-preview { align-items: flex-start; flex-direction: column; }
+  .order-preview img { width: min(220px, 100%); height: auto; aspect-ratio: 1; }
+}
 
 .save-help { display: block; font-size: .72rem; color: #786c70; margin-top: 4px; line-height: 1.5; }

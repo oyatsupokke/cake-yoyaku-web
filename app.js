@@ -1040,6 +1040,37 @@ async function uploadOneImage(file, q) {
   return { id: j.id, url: URL.createObjectURL(blob), note: "" };
 }
 
+/* レイヤー商品は、予約時点の完成イメージを1枚にして非公開保存する。
+ * 商品設定を後から変えても、過去予約の見た目を変えないためのスナップショット。 */
+async function uploadOrderPreview() {
+  if (TRIAL_MODE || !currentLayers()) return null;
+  await updatePreview();
+  const canvas = $("preview-canvas").querySelector("canvas");
+  if (!canvas) return null;
+  const blob = await new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error("完成イメージを作成できませんでした")), "image/webp", 0.9);
+    } catch { reject(new Error("完成イメージを作成できませんでした")); }
+  });
+  const contentType = ["image/webp", "image/png", "image/jpeg"].includes(blob.type) ? blob.type : "image/png";
+  const res = await fetch(IMG_ENDPOINT(), {
+    method: "POST",
+    headers: {
+      apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "upload_preview", tenant_id: state.tenant.id, product_id: state.sel.product.id,
+      content_type: contentType, bytes: blob.size, width: canvas.width, height: canvas.height,
+    }),
+  });
+  const j = await res.json().catch(() => null);
+  if (!j?.ok) throw new Error(j?.message || "完成イメージを保存できませんでした");
+  const put = await fetch(j.upload_url, { method: "PUT", headers: { "Content-Type": contentType }, body: blob });
+  if (!put.ok) throw new Error("完成イメージを保存できませんでした。通信状態を確認して、もう一度お試しください");
+  return j.id;
+}
+
 async function addImageFiles(q, files) {
   const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
   if (!list.length) { toast("画像ファイルをお選びください"); return; }
@@ -1244,6 +1275,7 @@ $("btn-submit").onclick = async () => {
   $("submit-error").classList.add("hidden");
   try {
     const s = state.sel;
+    const previewId = await uploadOrderPreview();
     const payload = {
       p: {
         tenant_id: state.tenant.id,
@@ -1261,6 +1293,7 @@ $("btn-submit").onclick = async () => {
           address: $("cust-address") ? $("cust-address").value.trim() || null : null,
         },
         payment_method: "store",
+        preview_id: previewId,
         options: [...s.options].map(([option_id, v]) => ({
           option_id, quantity: v.qty, text: (v.text || "").trim() || null,
         })),

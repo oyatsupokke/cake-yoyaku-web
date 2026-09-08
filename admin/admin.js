@@ -226,7 +226,7 @@ async function loadOrders() {
   state.orders = await api("GET",
     `/rest/v1/orders?tenant_id=eq.${state.tenantId}&pickup_date=eq.${state.date}` +
     `&order=pickup_slot_label.asc,order_number.asc` +
-    `&select=*,order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at)`);
+    `&select=*,order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at),order_previews(id,path,created_at)`);
   renderPickup();
   renderKitchen();
 }
@@ -254,6 +254,7 @@ function renderPickup() {
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
+        ${(o.order_previews || []).length ? `<span class="status-badge st-preview" title="予約時の完成イメージあり">🎨 完成イメージ</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
       ${o.status === "new" ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
@@ -287,6 +288,24 @@ async function signOrderImages(images) {
     } catch { /* 1枚読めなくても残りは見せる */ }
   }
   return out;
+}
+
+async function ensureOrderPreviewUrl(o) {
+  if (o._preview_url) return o._preview_url;
+  const preview = (o.order_previews || [])[0];
+  if (!preview?.path) return null;
+  try {
+    const r = await api("POST", `/storage/v1/object/sign/order-images/${preview.path}`, { expiresIn: 3600 });
+    if (r?.signedURL) o._preview_url = CONFIG.url + "/storage/v1" + r.signedURL;
+  } catch { /* 完成イメージだけ読めなくても予約詳細は見せる */ }
+  return o._preview_url || null;
+}
+
+async function paintOrderPreview(box, o) {
+  const url = await ensureOrderPreviewUrl(o);
+  if (!url) { box.remove(); return; }
+  box.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="予約時の完成イメージ"></a>` +
+    `<span>予約時にお客様が確認したイメージです</span>`;
 }
 /* 予約詳細に画像を並べる（タップで原寸を別タブ） */
 async function paintOrderImages(box, o) {
@@ -343,11 +362,13 @@ function fillOrderBody(el, o) {
     actions += `<button type="button" class="pill mail-btn">確認メールを再送</button>`;
   }
   const hasImages = (o.order_images || []).length > 0;
-  el.innerHTML = rows.join("") +
+  const hasPreview = (o.order_previews || []).length > 0;
+  el.innerHTML = (hasPreview ? `<div class="order-preview">読み込み中…</div>` : "") + rows.join("") +
     (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
+  if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
@@ -416,14 +437,21 @@ function renderKitchen() {
     card.className = "kcard";
     card.innerHTML = `
       <div class="khead"><span>${esc(o.pickup_slot_label)}</span>
-        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}</span>
+        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
+      ${o._preview_url ? `<div class="kpreview"><img src="${esc(o._preview_url)}" alt="予約時の完成イメージ"><span>完成イメージ</span></div>` : ""}
       <ul>${opts}${notes}</ul>
       ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
     wrap.appendChild(card);
   }
 }
-$("btn-print").onclick = () => window.print();
+$("btn-print").onclick = async () => {
+  await Promise.all(state.orders.filter((o) => o.status !== "canceled").map(ensureOrderPreviewUrl));
+  renderKitchen();
+  await Promise.all([...document.querySelectorAll("#kitchen-detail img")].map((img) =>
+    img.complete ? Promise.resolve() : new Promise((resolve) => { img.onload = img.onerror = resolve; })));
+  window.print();
+};
 
 /* ---------- 設定の保存（画面下の保存バー1つにまとめる） ---------- */
 state.fields = [];

@@ -27,11 +27,12 @@ async function loadLibrary(){
  $('saved-menu').innerHTML='<option value="">新しいメニュー</option>'+rows.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
  $('saved-menu').value=state.sheet?.id||'';
 }
-function newSheet(){return {id:null,revision:null,name:'ケーキのメニュー',title:'ケーキのご案内',intro:'',template_key:'photo_cards',accent_color:C.color(state.catalog.tenant.theme?.accent),items:[],footer_settings:{}};}
+function newSheet(){return {id:null,revision:null,name:'ケーキのメニュー',title:'ケーキのご案内',intro:'',template_key:'photo_cards',accent_color:C.color(state.catalog.tenant.theme?.accent),items:[],footer_settings:{},font_key:'standard'};}
 function setSheet(sheet){
  state.sheet=structuredClone(sheet);state.sheet.items ||= C.sort(state.sheet.menu_sheet_items);delete state.sheet.menu_sheet_items;
+ state.sheet.font_key ||= 'standard';
  state.dirty=false;
- for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color']]) $(id).value=state.sheet[key];
+ for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color'],['font','font_key']]) $(id).value=state.sheet[key];
  $('saved-menu').value=state.sheet.id||'';
  renderPicker();renderSelected();renderFooterEditor();updateSave();schedulePreview();
 }
@@ -101,7 +102,7 @@ async function renderPreview(){
  const footerVisible=f.show_footer&&((f.show_shop&&footer.shop.trim())||(f.show_schedule&&footer.schedule.trim())||(f.show_notice&&footer.notice.trim())||f.show_date||(f.show_pages&&f.page_format.trim())||f.show_qr);
  const pageReserve='8'.repeat(String(Math.max(1,m.cards.length)).length);
  function makePage(){
-  const p=document.createElement('section');p.className='menu-page '+s.template_key;p.style.setProperty('--accent',C.color(s.accent_color));
+  const p=document.createElement('section');p.className='menu-page '+s.template_key+' font-'+(['gothic','mincho'].includes(s.font_key)?s.font_key:'standard');p.style.setProperty('--accent',C.color(s.accent_color));
   p.innerHTML=`<header class="page-header"><div class="shop-mark">${imageURL(t.theme?.logo_url)?`<img class="shop-logo" src="${esc(imageURL(t.theme.logo_url))}" alt="店舗ロゴ" data-label="店舗ロゴ">`:''}<span>${esc(t.name)}</span></div><h2>${esc(s.title)}</h2>${s.intro?`<p class="intro">${esc(s.intro)}</p>`:''}</header><div class="page-content"></div>${footerVisible?`<footer class="page-footer"><div class="footer-copy">${line(f.show_shop,footer.shop)}${line(f.show_schedule,footer.schedule)}${line(f.show_notice,footer.notice)}${line(f.show_date,[f.date_label,day].filter(Boolean).join(' '),'page-date')}${f.show_pages?`<p class="page-index footer-text">${esc(f.page_format.replaceAll('{page}',pageReserve).replaceAll('{pages}',pageReserve))}</p>`:''}</div>${f.show_qr?`<div class="qr">${qr}<span class="footer-text">${esc(f.qr_label)}</span></div>`:''}</footer>`:''}`;
   pages.append(p);return p;
  }
@@ -176,7 +177,7 @@ $('selected-items').addEventListener('change',e=>{
  e.target.value='';
 });
 $('selected-items').addEventListener('input',e=>{const key=e.target.dataset.field,row=e.target.closest('[data-index]');if(!key||!row)return;state.sheet.items[Number(row.dataset.index)][key]=e.target.value;changed();});
-for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color']])$(id).addEventListener('input',()=>{state.sheet[key]=$(id).value;changed();});
+for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color'],['font','font_key']])$(id).addEventListener('input',()=>{state.sheet[key]=$(id).value;changed();});
 $('new-menu').onclick=()=>{if(confirmLeave())setSheet(newSheet());};
 $('saved-menu').onchange=()=>{const s=state.sheets.find(s=>s.id===$('saved-menu').value);if(confirmLeave())setSheet(s||newSheet());else $('saved-menu').value=state.sheet.id||'';};
 $('copy-menu').onclick=()=>{const s=structuredClone(state.sheet);s.id=null;s.revision=null;s.name=s.name.slice(0,74)+'（コピー）';setSheet(s);changed();say('コピーを作りました。「設定を保存」で別のメニューとして保存できます。');};
@@ -184,7 +185,7 @@ $('save-menu').onclick=()=>withBusy(async()=>{
  const s=state.sheet;
  if(!s.name.trim()||!s.title.trim())throw Error('管理用の名前と、印刷するタイトルを入れてください');
  if(s.items.some(i=>(i.description_override||'').length>160))throw Error('短い説明を160文字以内にしてください');
- const result=await rpc('fn_save_menu_sheet',{p_tenant:state.tenantId,p_id:s.id,p_revision:s.revision,p_sheet:{name:s.name,title:s.title,intro:s.intro,template_key:s.template_key,accent_color:s.accent_color,footer_settings:s.footer_settings||{}},p_items:s.items});
+ const result=await rpc('fn_save_menu_sheet',{p_tenant:state.tenantId,p_id:s.id,p_revision:s.revision,p_sheet:{name:s.name,title:s.title,intro:s.intro,template_key:s.template_key,accent_color:s.accent_color,footer_settings:s.footer_settings||{},font_key:s.font_key||'standard'},p_items:s.items});
  state.sheet.id=result.id;state.sheet.revision=result.revision;state.dirty=false;updateSave();say('メニューの設定を保存しました。');
  try{await loadLibrary();}catch{say('設定は保存できました。一覧の更新に失敗したため、ページを読み直してください。');}
 });

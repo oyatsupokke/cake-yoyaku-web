@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>メニュー表を作る｜ケーキ屋さんの予約帳</title>
-<link rel="stylesheet" href="menu-sheets.css?v=1788927789">
-<script defer src="../vendor/qrcode-generator.js?v=1788927789"></script>
-<script defer src="menu-sheet-core.js?v=1788927789"></script>
-<script defer src="menu-sheets.js?v=1788927789"></script>
+<link rel="stylesheet" href="menu-sheets.css?v=1788928183">
+<script defer src="../vendor/qrcode-generator.js?v=1788928183"></script>
+<script defer src="menu-sheet-core.js?v=1788928183"></script>
+<script defer src="menu-sheets.js?v=1788928183"></script>
 </head>
 <body>
 <header class="toolbar"><a href="products.html">← 商品の設定</a><h1>メニュー表を作る</h1><span id="shop-name"></span></header>
@@ -14,6 +14,10 @@
 <div id="login" hidden><p>ログインが必要です。<a href="index.html">管理画面でログインする</a></p></div>
 <main id="workspace" hidden>
  <div class="library"><label>保存したメニュー<select id="saved-menu"><option value="">新しいメニュー</option></select></label><button id="new-menu">＋ 新しく作る</button><button id="copy-menu">複製</button><button id="delete-menu">削除</button></div>
+ <div class="library-name">
+    <label>管理用の名前（印刷されません）<input id="name" maxlength="80" value="ケーキのメニュー" aria-describedby="name-help"></label>
+    <p id="name-help" class="hint">「保存したメニュー」の一覧で見分けるための名前です。例：クリスマス2026・店頭用</p>
+ </div>
  <nav class="mobile-tabs" aria-label="メニュー表の編集"><button id="show-editor" aria-pressed="true">編集</button><button id="show-preview" aria-pressed="false">仕上がり</button></nav>
  <div class="workspace-grid">
   <section class="editor" id="editor" aria-label="メニューの編集">
@@ -29,8 +33,6 @@
     <label class="color-label">アクセント色<input id="accent" type="color" value="#785b4a"></label>
    </fieldset>
    <fieldset><legend>3　案内を整える</legend>
-    <label>管理用の名前（印刷されません）<input id="name" maxlength="80" value="ケーキのメニュー" aria-describedby="name-help"></label>
-    <p id="name-help" class="hint">「保存したメニュー」の一覧で見分けるための名前です。例：クリスマス2026・店頭用</p>
     <label>印刷するタイトル<input id="title" maxlength="100" value="ケーキのご案内"></label>
     <label>はじめの案内文<textarea id="intro" maxlength="300" rows="3" placeholder="ご予約はQRコードからどうぞ"></textarea></label>
     <p class="hint">商品名・写真・価格は商品設定と連動します。配布済みの紙やPDFは更新されません。</p>

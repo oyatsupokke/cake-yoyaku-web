@@ -10,3 +10,5 @@
 .footer-setting{padding:12px 0;border-top:1px solid #e5ddd4}.footer-setting button{font-size:12px}.footer-text{white-space:pre-wrap;overflow-wrap:anywhere}.footer-copy{min-width:0}.page-footer .qr{width:29mm}.page-footer .qr svg{margin:auto}.page-index:empty{display:none}
 
 .menu-page.photo_cards_3 .card-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:4mm}.menu-page.photo_cards_3 .menu-photo{height:30mm}.menu-page.photo_cards_3 .menu-card h3{font-size:12pt}.menu-page.photo_cards_3 .price-list li{flex-wrap:wrap;column-gap:2mm}.menu-page.photo_cards_3 .price-list strong{margin-left:auto}
+
+.library-name{margin:0 24px 20px;max-width:360px}.library-name label{margin-bottom:4px}@media(max-width:800px){.library-name{margin:0 16px 20px;max-width:none}}

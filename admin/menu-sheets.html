@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>メニュー表を作る｜ケーキ屋さんの予約帳</title>
+<link rel="stylesheet" href="menu-sheets.css?v=1788926157">
+<script defer src="../vendor/qrcode-generator.js?v=1788926157"></script>
+<script defer src="menu-sheet-core.js?v=1788926157"></script>
+<script defer src="menu-sheets.js?v=1788926157"></script>
+</head>
+<body>
+<header class="toolbar"><a href="products.html">← 商品の設定</a><h1>メニュー表を作る</h1><span id="shop-name"></span></header>
+<div id="status" role="status" aria-live="polite">読み込み中…</div>
+<div id="login" hidden><p>ログインが必要です。<a href="index.html">管理画面でログインする</a></p></div>
+<main id="workspace" hidden>
+ <div class="library"><label>保存したメニュー<select id="saved-menu"><option value="">新しいメニュー</option></select></label><button id="new-menu">＋ 新しく作る</button><button id="copy-menu">複製</button><button id="delete-menu">削除</button></div>
+ <nav class="mobile-tabs" aria-label="メニュー表の編集"><button id="show-editor" aria-pressed="true">編集</button><button id="show-preview" aria-pressed="false">仕上がり</button></nav>
+ <div class="workspace-grid">
+  <section class="editor" id="editor" aria-label="メニューの編集">
+   <fieldset><legend>1　商品を選ぶ</legend>
+    <label>カテゴリ<select id="category"><option value="">すべて</option></select></label>
+    <label class="check"><input id="include-hidden" type="checkbox">準備中の商品も表示する</label>
+    <button id="select-visible">表示中の商品をすべて選ぶ</button>
+    <div id="product-picker"></div>
+    <details id="selected-details" open><summary>選んだ商品の順番と説明 <span id="selected-count"></span></summary><div id="selected-items"></div></details>
+   </fieldset>
+   <fieldset><legend>2　見た目を選ぶ</legend>
+    <label>レイアウト<select id="template"><option value="photo_cards">写真カード（2列）</option><option value="photo_cards_3">写真カード（3列）</option><option value="list">一覧（1列）</option></select></label>
+    <label class="color-label">アクセント色<input id="accent" type="color" value="#785b4a"></label>
+   </fieldset>
+   <fieldset><legend>3　案内を整える</legend>
+    <label>保存する名前<input id="name" maxlength="80" value="ケーキのメニュー"></label>
+    <label>メニューのタイトル<input id="title" maxlength="100" value="ケーキのご案内"></label>
+    <label>はじめの案内文<textarea id="intro" maxlength="300" rows="3" placeholder="ご予約はQRコードからどうぞ"></textarea></label>
+    <p class="hint">商品名・写真・価格は商品設定と連動します。配布済みの紙やPDFは更新されません。</p>
+   </fieldset>
+   <fieldset id="footer-editor"><legend>4　下の案内を整える</legend>
+    <label class="check"><input type="checkbox" data-footer="show_footer">下の案内全体を表示する</label>
+    <div id="footer-fields">
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_shop">店名を表示する</label><label>下に載せる店名<input data-footer="shop_text" maxlength="120"></label><button type="button" data-footer-auto="shop_text">店舗設定の店名に戻す</button></div>
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_schedule">受取・予約の案内を表示する</label><label>受取・予約の案内<textarea data-footer="schedule_text" maxlength="300" rows="3"></textarea></label><button type="button" data-footer-auto="schedule_text">商品設定から自動で表示</button><p class="hint">商品ごとに日程が異なる場合、自動の案内は各商品の下に表示されます。この設定はページ下の案内だけに適用されます。</p></div>
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_notice">価格・受付状況の案内を表示する</label><label>価格・受付状況の案内<textarea data-footer="notice_text" maxlength="300" rows="3"></textarea></label><button type="button" data-footer-auto="notice_text">標準の文章に戻す</button></div>
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_date">日付を表示する</label><label>日付の前の文字<input data-footer="date_label" maxlength="40"></label><label>載せる日付<input type="date" data-footer="date_value"></label><p class="hint">日付が空欄なら、出力する日を自動で入れます。</p></div>
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_pages">ページ番号を表示する</label><label>ページ番号の書き方<input data-footer="page_format" maxlength="80"></label><p class="hint">{page} が現在のページ、{pages} が総ページ数に置き換わります。例：{page} / {pages}</p></div>
+     <div class="footer-setting"><label class="check"><input type="checkbox" data-footer="show_qr">予約QRコードを表示する</label><label>QRコードの下の文字<input data-footer="qr_label" maxlength="80"></label></div>
+    </div>
+    <p class="hint">このメニューだけに反映されます。文章の改行もそのまま表示します。</p>
+   </fieldset>
+  </section>
+  <section class="preview-panel" id="preview-panel" aria-label="印刷プレビュー">
+   <div class="preview-heading"><div><strong>A4の仕上がり</strong><p id="page-count" class="hint"></p></div><span class="paper-label">A4・たて</span></div>
+   <div id="notices" role="status"></div>
+   <div id="preview-wrap"><div id="pages"></div></div>
+  </section>
+ </div>
+ <footer class="actions"><span id="save-status">新しいメニュー</span><button id="save-menu">設定を保存</button><button id="print-menu" class="primary">印刷・PDF保存</button></footer>
+</main>
+<dialog id="confirm-output"><h2>出力前の確認</h2><div id="output-notices"></div><p>印刷画面で用紙をA4、倍率を100%にしてください。PDFにする場合は「PDFに保存」を選びます。ブラウザのヘッダーとフッターはオフにしてください。</p><p id="photo-failure" hidden></p><div class="dialog-actions"><button id="cancel-output">戻って直す</button><button id="retry-images" hidden>写真を再読み込み</button><button id="continue-output" class="primary">確認して出力</button></div></dialog>
+<div id="print-guard">「印刷・PDF保存」ボタンから最新の商品情報を確認して出力してください。</div>
+</body></html>

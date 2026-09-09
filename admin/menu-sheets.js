@@ -182,7 +182,7 @@ $('saved-menu').onchange=()=>{const s=state.sheets.find(s=>s.id===$('saved-menu'
 $('copy-menu').onclick=()=>{const s=structuredClone(state.sheet);s.id=null;s.revision=null;s.name=s.name.slice(0,74)+'（コピー）';setSheet(s);changed();say('コピーを作りました。「設定を保存」で別のメニューとして保存できます。');};
 $('save-menu').onclick=()=>withBusy(async()=>{
  const s=state.sheet;
- if(!s.name.trim()||!s.title.trim())throw Error('保存する名前とタイトルを入れてください');
+ if(!s.name.trim()||!s.title.trim())throw Error('管理用の名前と、印刷するタイトルを入れてください');
  if(s.items.some(i=>(i.description_override||'').length>160))throw Error('短い説明を160文字以内にしてください');
  const result=await rpc('fn_save_menu_sheet',{p_tenant:state.tenantId,p_id:s.id,p_revision:s.revision,p_sheet:{name:s.name,title:s.title,intro:s.intro,template_key:s.template_key,accent_color:s.accent_color,footer_settings:s.footer_settings||{}},p_items:s.items});
  state.sheet.id=result.id;state.sheet.revision=result.revision;state.dirty=false;updateSave();say('メニューの設定を保存しました。');

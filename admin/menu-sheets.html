@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>メニュー表を作る｜ケーキ屋さんの予約帳</title>
-<link rel="stylesheet" href="menu-sheets.css?v=1788926157">
-<script defer src="../vendor/qrcode-generator.js?v=1788926157"></script>
-<script defer src="menu-sheet-core.js?v=1788926157"></script>
-<script defer src="menu-sheets.js?v=1788926157"></script>
+<link rel="stylesheet" href="menu-sheets.css?v=1788927789">
+<script defer src="../vendor/qrcode-generator.js?v=1788927789"></script>
+<script defer src="menu-sheet-core.js?v=1788927789"></script>
+<script defer src="menu-sheets.js?v=1788927789"></script>
 </head>
 <body>
 <header class="toolbar"><a href="products.html">← 商品の設定</a><h1>メニュー表を作る</h1><span id="shop-name"></span></header>
@@ -29,8 +29,9 @@
     <label class="color-label">アクセント色<input id="accent" type="color" value="#785b4a"></label>
    </fieldset>
    <fieldset><legend>3　案内を整える</legend>
-    <label>保存する名前<input id="name" maxlength="80" value="ケーキのメニュー"></label>
-    <label>メニューのタイトル<input id="title" maxlength="100" value="ケーキのご案内"></label>
+    <label>管理用の名前（印刷されません）<input id="name" maxlength="80" value="ケーキのメニュー" aria-describedby="name-help"></label>
+    <p id="name-help" class="hint">「保存したメニュー」の一覧で見分けるための名前です。例：クリスマス2026・店頭用</p>
+    <label>印刷するタイトル<input id="title" maxlength="100" value="ケーキのご案内"></label>
     <label>はじめの案内文<textarea id="intro" maxlength="300" rows="3" placeholder="ご予約はQRコードからどうぞ"></textarea></label>
     <p class="hint">商品名・写真・価格は商品設定と連動します。配布済みの紙やPDFは更新されません。</p>
    </fieldset>

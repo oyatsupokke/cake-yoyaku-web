@@ -173,6 +173,11 @@ function track(step, detail) {
 
 /* ---------- 入力途中の自動保存（更新しても続きから再開できる） ---------- */
 const SAVE_KEY = `cake_form_${CONFIG.shop}`;
+const RETRY_ENABLED = !EDIT_MODE && !STAFF_MODE && !TRIAL_MODE && !THEME_PREVIEW;
+let bookingRetry;
+function retryStore() {
+  return bookingRetry ||= new BookingRetry(sessionStorage, `cake_pending_${CONFIG.url}_${CONFIG.shop}`);
+}
 let RESTORING = false;
 
 function saveState() {
@@ -288,6 +293,13 @@ async function load() {
     enterStaffMode();
   } else {
     await restoreSaved();
+    if (RETRY_ENABLED && retryStore().pending()) {
+      $("view-form").classList.add("hidden");
+      $("view-confirm").classList.remove("hidden");
+      $("confirm-detail").textContent = "前回のお申し込みの送信結果を確認します。内容の変更は、確認後に予約の変更ページから行えます。";
+      $("btn-submit").textContent = "前回の送信結果を確認する";
+      $("btn-back").disabled = true;
+    }
   }
 }
 
@@ -1270,13 +1282,16 @@ function renderConfirm() {
 
 $("btn-submit").onclick = async () => {
   const btn = $("btn-submit");
+  if (btn.disabled) return;
   btn.disabled = true;
   btn.textContent = "送信中…";
   $("submit-error").classList.add("hidden");
   try {
     const s = state.sel;
-    const previewId = await uploadOrderPreview();
-    const payload = {
+    let pending = RETRY_ENABLED ? retryStore().pending() : null;
+    const previewId = pending ? null : await uploadOrderPreview();
+    let payload = pending?.payload;
+    if (!payload) payload = {
       p: {
         tenant_id: state.tenant.id,
         product_id: s.product.id,
@@ -1319,12 +1334,20 @@ $("btn-submit").onclick = async () => {
         })(),
       },
     };
+    if (RETRY_ENABLED && !pending) {
+      pending = retryStore().begin(payload, s.slot.label);
+      payload = pending.payload;
+    }
     const r = EDIT_MODE
       ? await rpc("fn_manage_replace", { p_token: EDIT_TOKEN, p: payload.p })
       : STAFF_MODE
         ? await staffPlaceOrder(payload.p)
         : await rpc("fn_place_order", payload);
-    if (!r.ok) throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
+    if (!r.ok) {
+      // A business rejection is definitive; transport errors remain pending.
+      if (RETRY_ENABLED && r.code !== "request_conflict") retryStore().clear();
+      throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
+    }
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）
     if (!TRIAL_MODE) fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
@@ -1341,9 +1364,9 @@ $("btn-submit").onclick = async () => {
     }
     $("done-number").textContent = `No.${r.order_number}`;
     $("done-total").textContent = yen(r.total_amount);
-    const [y, m, d] = s.date.split("-");
+    const [y, m, d] = payload.p.pickup_date.split("-");
     $("done-pickup").textContent =
-      `${y}年${+m}月${+d}日 ${s.slot.label} に${state.tenant.name}でお渡しします。` +
+      `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} に${state.tenant.name}でお渡しします。` +
       (EDIT_MODE ? "変更後の内容で確認メールをお送りします。"
        : STAFF_MODE ? ($("cust-email").value.trim()
            ? "「確認済」で登録し、お客様に確認メールをお送りします。"
@@ -1383,13 +1406,22 @@ $("btn-submit").onclick = async () => {
       $("view-done").querySelector(".done-box").appendChild(div);
     }
     $("view-done").classList.remove("hidden");
+    $("view-form").classList.add("hidden");
+    if (RETRY_ENABLED) retryStore().clear();
     window.scrollTo({ top: 0 });
   } catch (e) {
-    $("submit-error").textContent = e.message;
+    let uncertain = false;
+    try { uncertain = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage error */ }
+    $("submit-error").textContent = uncertain
+      ? "送信結果を確認できませんでした。もう一度押すと、前回と同じ申し込みの結果を確認します。入力を変更しても、新しい予約は作りません。"
+      : e.message;
     $("submit-error").classList.remove("hidden");
   } finally {
     btn.disabled = false;
-    btn.textContent = SUBMIT_LABEL;
+    let pending = false;
+    try { pending = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage unavailable */ }
+    btn.textContent = pending ? "前回の送信結果を確認する" : SUBMIT_LABEL;
+    $("btn-back").disabled = pending;
   }
 };
 

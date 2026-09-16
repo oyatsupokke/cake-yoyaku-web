@@ -247,6 +247,7 @@ async function restoreSaved() {
     // 選択肢: いまも存在するものだけ復元
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
     state.sel.options = sanitizeSavedOptions(p, (saved.options || []).filter(([id]) => validIds.has(id)));
+    ensureRequiredFallbacks();
     state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => [qid, normAnswer(a)]));
     renderGroups();
     updatePreview();
@@ -448,6 +449,17 @@ function conflictsWithSelected(id) {
     if (other && state.sel.options.has(other)) hits.push(other);
   }
   return hits;
+}
+// 「なし」を含む必須1択は、ほかの選択で現在値が外れたときも未選択にしない。
+// 現在は oyatsupokke の「フルーツの飾り方」で使用する。
+function ensureRequiredFallbacks() {
+  for (const g of sortedGroups(state.sel.product)) {
+    if (!g.is_required || g.selection_type !== "single") continue;
+    if (g.options.some((o) => state.sel.options.has(o.id))) continue;
+    const fallback = sortedOpts(g).find((o) =>
+      o.is_available && optName(o) === "上面のフルーツなし" && !conflictsWithSelected(o.id).length);
+    if (fallback) state.sel.options.set(fallback.id, { qty: 1, text: "" });
+  }
 }
 function toast(msg) {
   const t = $("toast");
@@ -697,6 +709,7 @@ function renderSizes() {
 function selectVariant(v) {
   state.sel.variant = v;
   track("size_selected");
+  ensureRequiredFallbacks();
   renderSizes();
   renderGroups();
   $("sec-groups").classList.toggle("hidden", !state.sel.product.option_groups.length);
@@ -833,6 +846,7 @@ function toggleOption(g, o, input) {
       toast(`「${optName(f.o)}」は「${optName(o)}」と組み合わせできないため外れました`);
     }
   }
+  ensureRequiredFallbacks();
   renderGroups();
   renderQuestions(); // 条件付き質問（選択肢トリガー）の表示を更新
   $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);

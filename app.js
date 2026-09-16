@@ -206,6 +206,23 @@ document.addEventListener("input", () => { clearTimeout(_saveTimer); _saveTimer 
 
 function clearSavedState() { if (THEME_PREVIEW || TRIAL_MODE) return; try { localStorage.removeItem(SAVE_KEY); } catch {} }
 
+// 商品設定が変わった後も、前回入力に「同じ1択グループの複数選択」や排他違反を持ち込まない。
+// 大分類から順に復元し、後段で矛盾する選択だけを落とす。
+function sanitizeSavedOptions(product, entries) {
+  const saved = new Map(entries || []), kept = new Map();
+  const pairs = product.option_exclusions || [];
+  for (const g of sortedGroups(product)) {
+    for (const o of sortedOpts(g)) {
+      if (!o.is_available || !saved.has(o.id)) continue;
+      if (g.selection_type === "single" && [...kept.keys()].some((id) => g.options.some((x) => x.id === id))) continue;
+      const conflict = pairs.some((e) =>
+        (e.option_a === o.id && kept.has(e.option_b)) || (e.option_b === o.id && kept.has(e.option_a)));
+      if (!conflict) kept.set(o.id, saved.get(o.id));
+    }
+  }
+  return kept;
+}
+
 async function restoreSaved() {
   if (THEME_PREVIEW || TRIAL_MODE) return;
   let saved = null;
@@ -229,7 +246,7 @@ async function restoreSaved() {
     selectVariant(v);
     // 選択肢: いまも存在するものだけ復元
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
-    state.sel.options = new Map((saved.options || []).filter(([id]) => validIds.has(id)));
+    state.sel.options = sanitizeSavedOptions(p, (saved.options || []).filter(([id]) => validIds.has(id)));
     state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => [qid, normAnswer(a)]));
     renderGroups();
     updatePreview();

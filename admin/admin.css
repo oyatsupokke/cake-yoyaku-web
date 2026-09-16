@@ -181,6 +181,7 @@
 #report-detail table { min-width: 1150px; }
 #report-scope { overflow-wrap: anywhere; }
 @media (max-width: 480px) {
+  .order-name { min-width: 140px; }
   .daily-section-heading { align-items: flex-start; }
   .daily-section-heading .pill { flex: 0 0 auto; }
   .report-section { padding: 12px; }

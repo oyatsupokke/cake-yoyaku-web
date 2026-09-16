@@ -442,12 +442,19 @@ function toast(msg) {
 }
 
 /* ---------- 金額 ---------- */
+function optionPrice(o) {
+  const price = o.size_prices?.[state.sel.variant?.size_label];
+  return Number.isInteger(price) ? price : o.price_delta;
+}
+function requiresReview() {
+  return [...state.sel.options.keys()].some(id => findOption(id)?.o.requires_review);
+}
 function currentTotal() {
   if (!state.sel.variant) return null;
   let total = state.sel.variant.price;
   for (const [id, v] of state.sel.options) {
     const f = findOption(id);
-    if (f) total += f.o.price_delta * v.qty;
+    if (f) total += optionPrice(f.o) * v.qty;
   }
   for (const [qid, raw] of state.sel.answers) {
     const q = state.questions.find((x) => x.id === qid);
@@ -468,7 +475,7 @@ function updatePriceBar() {
   } else {
     $("price-summary").textContent =
       `${state.sel.product.name} ${state.sel.variant.size_label}`;
-    $("price-total").textContent = yen(t) + "（税込）";
+    $("price-total").textContent = yen(t) + (requiresReview() ? "（選択分・追加希望は別途見積もり）" : "（税込）");
   }  saveState();
 }
 
@@ -657,7 +664,7 @@ function renderGroups() {
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
-      const price = o.price_delta ? `+${yen(o.price_delta)}` : "無料";
+      const price = o.requires_review ? `${optionPrice(o) ? '+'+yen(optionPrice(o))+'・' : ''}別途見積もり` : optionPrice(o) ? `+${yen(optionPrice(o))}` : "無料";
       // 枚数はステッパー（−/＋）で。数字入力欄だけだと枚数と気づけない（まりほ指摘 2026-08-24）
       const qtyUi = (o.max_quantity || 1) > 1 && selected
         ? `<span class="qty-stepper" role="group" aria-label="枚数">
@@ -1238,13 +1245,18 @@ $("btn-back").onclick = () => {
 
 function renderConfirm() {
   const s = state.sel;
+  const review = requiresReview();
+  $("btn-submit").textContent = review && !TRIAL_MODE ? "この内容で見積もりを依頼する" : SUBMIT_LABEL;
+  document.querySelector("#view-confirm .preview-note").textContent = review
+    ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
+    : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。" : "この内容で注文すると、ご注文が確定します。";
   const rows = [];
   const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
   row("価格", yen(s.variant.price));
   for (const [id, v] of s.options) {
     const f = findOption(id);
-    const price = f.o.price_delta ? `+${yen(f.o.price_delta * v.qty)}` : "無料";
+    const price = f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料";
     const text = (v.text || "").trim() ? `「${v.text.trim()}」` : "";
     row(f.g.name, `${optName(f.o)}${v.qty > 1 ? ` ×${v.qty}` : ""}${text}（${price}）`);
   }
@@ -1280,7 +1292,7 @@ function renderConfirm() {
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
   row("お支払い", "店頭でのお支払い");
-  rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(currentTotal())}</span></div>`);
+  rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
   // 特商法の表記。店が設定していれば確認画面に折りたたみで出す（未設定なら丸ごと非表示）
@@ -1386,6 +1398,11 @@ $("btn-submit").onclick = async () => {
       $("done-number").textContent = "テスト（保存なし）";
       $("done-pickup").textContent = "この内容で予約できることを確認しました。実予約・メール・LINEは作成されていません。";
     }
+    if (r.review_state === "requested" && !TRIAL_MODE) {
+      $("view-done").querySelector("h2").textContent = "追加希望を受け付けました（予約未確定）";
+      $("done-total").textContent = yen(r.total_amount) + "［選択分・追加希望分は未確定］";
+      $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取希望として受け付けました。対応内容と金額をご案内します。専用ページで承諾すると予約が確定します。`;
+    }
     $("view-confirm").classList.add("hidden");
     if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
     if (STAFF_MODE && !$("done-staff-back")) {
@@ -1400,7 +1417,7 @@ $("btn-submit").onclick = async () => {
       const p2 = document.createElement("p");
       p2.className = "small";
       p2.id = "done-manage-link";
-      p2.innerHTML = `ご予約の変更・キャンセルは<a href="manage.html?t=${encodeURIComponent(r.manage_token)}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
+      p2.innerHTML = `${r.review_state === 'requested' ? '依頼内容・お見積もりの確認は' : 'ご予約の変更・キャンセルは'}<a href="manage.html?t=${encodeURIComponent(r.manage_token)}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
     // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）
@@ -1429,7 +1446,7 @@ $("btn-submit").onclick = async () => {
     btn.disabled = false;
     let pending = false;
     try { pending = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage unavailable */ }
-    btn.textContent = pending ? "前回の送信結果を確認する" : SUBMIT_LABEL;
+    btn.textContent = pending ? "前回の送信結果を確認する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する" : SUBMIT_LABEL;
     $("btn-back").disabled = pending;
   }
 };

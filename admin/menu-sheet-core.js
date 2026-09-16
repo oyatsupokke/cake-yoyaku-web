@@ -12,8 +12,8 @@
       ((q.option_id||q.trigger_option_id) ? options.some(o=>o.id===(q.option_id||q.trigger_option_id)) :
       q.scope==='all' || list(q.common_question_products).some(cp=>cp.product_id===product.id)));
     // 日付・共有リストの休止で変わり得る選択肢も含め、加算の可能性を表示する。
-    const paid = options.some(o=>Number(o.price_delta)>0) || questions.some(q=>list(q.common_question_choices).some(c=>Number(c.price_delta)>0));
-    const required = groups.some(g=>g.is_required && list(g.options).length && list(g.options).every(o=>Number(o.price_delta)>0)) ||
+    const paid = options.some(o=>o.requires_review || Number(o.price_delta)>0 || Object.values(o.size_prices||{}).some(n=>Number(n)>0)) || questions.some(q=>list(q.common_question_choices).some(c=>Number(c.price_delta)>0));
+    const required = groups.some(g=>g.is_required && list(g.options).length && list(g.options).every(o=>list(product.product_variants).filter(v=>v.is_available!==false).every(v=>Number(o.size_prices?.[v.size_label]??o.price_delta)>0))) ||
       questions.some(q=>q.is_required && !q.option_id && !q.trigger_option_id && list(q.common_question_choices).length && list(q.common_question_choices).every(c=>Number(c.price_delta)>0));
     return {paid,required};
   }

@@ -23,6 +23,8 @@ const STATUS = {
   new: "未確認", confirmed: "確認済", in_production: "確認済",
   completed: "確認済", canceled: "キャンセル",
 };
+const REVIEW = {requested:"追加希望・確認待ち",quoted:"見積もり・承諾待ち",accepted:"追加希望・承諾済み"};
+const reviewPending = o => ['requested','quoted'].includes(o.review_state);
 
 const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
@@ -222,14 +224,27 @@ $("date-today").onclick = () => setDate(new Date());
 $("date-input").onchange = () => { if ($("date-input").value) setDate(new Date($("date-input").value)); };
 
 /* ---------- 注文ロード ---------- */
+let orderLoadGeneration = 0;
 async function loadOrders() {
-  state.orders = await api("GET",
-    `/rest/v1/orders?tenant_id=eq.${state.tenantId}&pickup_date=eq.${state.date}` +
-    `&order=pickup_slot_label.asc,order_number.asc` +
-    `&select=*,order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at),order_previews(id,path,created_at)`);
+  const filter = $("review-filter")?.value || "";
+  const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
+  $("tab-kitchen").classList.toggle("hidden", !!filter);
+  const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
+    (filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
+    `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at),order_previews(id,path,created_at)`;
+  const orders = [];
+  for (;;) {
+    const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
+    if (generation !== orderLoadGeneration || tenant !== state.tenantId) return;
+    orders.push(...page);
+    if (page.length < 500) break;
+  }
+  state.orders = orders;
   renderPickup();
   renderKitchen();
 }
+$("review-filter").onchange = () => loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
 
 /* ---------- 受取リスト ---------- */
 function renderPickup() {
@@ -237,7 +252,7 @@ function renderPickup() {
   wrap.innerHTML = "";
   const active = state.orders;
   if (!active.length) {
-    wrap.innerHTML = `<p class="empty-note">この日の予約はありません</p>`;
+    wrap.innerHTML = `<p class="empty-note">${$("review-filter")?.value ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
     return;
   }
   for (const o of active) {
@@ -246,18 +261,19 @@ function renderPickup() {
     card.className = "order-card" + (o.status === "canceled" ? " canceled" : "");
     card.innerHTML = `
       <div class="order-head">
-        <span class="order-time">${esc(o.pickup_slot_label)}</span>
+        <span class="order-time">${$("review-filter")?.value ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
         <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>
-        <span class="order-total">${yen(o.total_amount)}</span>
+        <span class="order-total">${yen(o.quote?.amount ?? o.total_amount)}${reviewPending(o) ? "（未確定）" : ""}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
+        ${REVIEW[o.review_state] ? `<span class="status-badge st-image">${REVIEW[o.review_state]}${o.review_state==='quoted' && new Date(o.quote?.expires_at)<=new Date() ? '・回答期限切れ' : ''}</span>` : ""}
         ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
         ${(o.order_previews || []).length ? `<span class="status-badge st-preview" title="予約時の完成イメージあり">🎨 完成イメージ</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
-      ${o.status === "new" ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
+      ${o.status === "new" && !reviewPending(o) ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
       <div class="order-body hidden"></div>`;
     card.querySelector('.confirm-order-btn')?.addEventListener('click', async (e) => {
       const button = e.currentTarget;
@@ -367,6 +383,7 @@ function fillOrderBody(el, o) {
     (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
+  if (o.review_state && o.review_state !== "none") renderQuoteEditor(el,o);
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
@@ -374,6 +391,39 @@ function fillOrderBody(el, o) {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
       updateStatus(o, "canceled");
   });
+}
+function renderQuoteEditor(el,o) {
+  const box = document.createElement('div'); box.className = 'confirm-box quote-editor';
+  const q = o.quote;
+  if (q) {
+    const detail = document.createElement('p'); detail.style.whiteSpace = 'pre-wrap';
+    detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額）\n${q.description}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
+    box.appendChild(detail);
+  }
+  if (reviewPending(o) && o.status !== 'canceled') {
+    const form = document.createElement('form');
+    form.innerHTML = `<p>追加希望を確認し、対応内容と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>
+      <label class="field">対応内容・仕上がりの条件<textarea class="quote-description" rows="4" maxlength="4000" required>${esc(q?.description || '')}</textarea></label>
+      <label class="field">ケーキ全体の税込総額（円）<input class="quote-amount" type="number" min="0" max="1000000" step="1" required value="${esc(q?.amount ?? '')}" placeholder="選択分 ${esc(o.total_amount)}円を含む総額"></label>
+      <label class="field">回答期限（この端末の時刻）<input class="quote-expiry" type="datetime-local" required></label>
+      <button class="btn-primary" type="submit">${q ? '見積もりを更新してメールで案内' : '見積もりをメールで案内'}</button><p class="quote-error error" role="status"></p>`;
+    form.onsubmit = async e => {
+      e.preventDefault(); if (!form.reportValidity()) return;
+      const description = form.querySelector('.quote-description').value.trim();
+      const amount = Number(form.querySelector('.quote-amount').value);
+      const expiry = new Date(form.querySelector('.quote-expiry').value);
+      if (!confirm(`税込総額 ${yen(amount)}\n回答期限 ${expiry.toLocaleString('ja-JP')}\n\n${description}\n\nこの内容をお客様へメールで案内しますか？`)) return;
+      const button = form.querySelector('button'); button.disabled = true;
+      try {
+        const r = await api('POST','/rest/v1/rpc/fn_issue_order_quote',{p_order:o.id,p_amount:amount,p_description:description,p_expires_at:expiry.toISOString(),p_expected_quote:o.current_quote_id || null});
+        if (!r.ok) throw new Error(r.message);
+        toast('見積もりを保存し、メール送信を受け付けました');
+        await loadOrders();
+      } catch (error) {form.querySelector('.quote-error').textContent=error.message;button.disabled=false;}
+    };
+    box.appendChild(form);
+  }
+  el.appendChild(box);
 }
 /** 確認メールの再送：送信待ちに戻して送信ワーカーを起こす（宛先・本文はサーバー側で組む） */
 async function resendMail(o) {
@@ -402,7 +452,7 @@ async function updateStatus(o, status) {
 function renderKitchen() {
   const [y, m, d] = state.date.split("-");
   $("kitchen-title").textContent = `${y}年${+m}月${+d}日 製造一覧（${state.tenantName}）`;
-  const active = state.orders.filter((o) => o.status !== "canceled");
+  const active = state.orders.filter((o) => o.status !== "canceled" && !reviewPending(o));
   // 集計: 商品×サイズ
   const agg = new Map();
   for (const o of active) for (const it of o.order_items) {
@@ -441,6 +491,7 @@ function renderKitchen() {
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       ${o._preview_url ? `<div class="kpreview"><img src="${esc(o._preview_url)}" alt="予約時の完成イメージ"><span>完成イメージ</span></div>` : ""}
       <ul>${opts}${notes}</ul>
+      ${o.review_state === 'accepted' && o.quote ? `<p style="white-space:pre-wrap"><strong>合意した追加希望：</strong>${esc(o.quote.description)}</p>` : ""}
       ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
     wrap.appendChild(card);
   }

@@ -71,6 +71,8 @@ function markDirty() {
   $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
 async function saveChange(c) {
+  if (c.table === "options" && c.patch.size_prices && Object.values(c.patch.size_prices).some(n =>
+      !Number.isInteger(n) || n < 0 || n > 1000000)) throw new Error("サイズ別追加料金は0〜1,000,000円の整数で入力してください");
   if (c.table === "options" && c.patch.order_deadline_days != null &&
       (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
     throw new Error("選択肢の締切は0〜365の整数で入力してください");
@@ -105,12 +107,12 @@ async function saveChange(c) {
 
 async function saveAll() {
   if (state.saving) return;
-  const invalidDeadline = [...document.querySelectorAll(".o-deadline")].find(el => !el.checkValidity());
+  const invalidDeadline = [...document.querySelectorAll(".o-deadline, .o-size-price")].find(el => !el.checkValidity());
   if (invalidDeadline) {
     const row = invalidDeadline.closest(".opt");
     if (!row.classList.contains("open")) row.querySelector(".o-more").click();
     invalidDeadline.reportValidity();
-    toast("選択肢の締切は0〜365の整数で入力してください");
+    toast("締切・サイズ別追加料金の入力値を確認してください");
     return;
   }
   const changes = collectChanges();
@@ -1288,7 +1290,9 @@ function marksHtml(o, ov) {
     + mk(!!(o.note || "").trim(), "注意書きあり", "注意書きなし")
     + mk(!!ov.q, "質問あり", "質問なし")
     + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし")
-    + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "");
+    + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "")
+    + (o.requires_review ? '<span class="mk">見積もり・承諾が必要</span>' : "")
+    + (Object.keys(o.size_prices || {}).length ? '<span class="mk">サイズ別料金あり</span>' : "");
 }
 
 function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
@@ -1309,6 +1313,10 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
+      <div class="fb"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
+        <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
+      <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
+        <p class="small">空欄のサイズは上の追加料金を使います。同じサイズ名には同じ金額を適用します。</p></div>
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
         <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
         <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
@@ -1332,6 +1340,30 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>`;
 
   const repaintMarks = () => { row.querySelector(".marks").innerHTML = marksHtml(o, ov); };
+  const reviewEl = row.querySelector(".o-review");
+  regField("options", o.id, "requires_review", reviewEl);
+  reviewEl.addEventListener("change", () => { o.requires_review = reviewEl.checked; repaintMarks(); });
+  const sizeBox = row.querySelector(".o-size-prices");
+  const sizeNames = [...new Set([
+    ...(g.product_id == null ? state.products : [p]).flatMap(product => (product.product_variants || []).map(v => v.size_label)),
+    ...Object.keys(o.size_prices || {}),
+  ])];
+  const priceInputs = sizeNames.map(name => {
+    const label = document.createElement("label");
+    label.textContent = `${name}：`;
+    const input = document.createElement("input");
+    input.type = "number"; input.className = "o-size-price";
+    input.min = "0"; input.max = "1000000"; input.step = "1";
+    input.placeholder = "共通の追加料金"; input.value = o.size_prices?.[name] ?? "";
+    label.appendChild(input); sizeBox.appendChild(label);
+    input.addEventListener("input", () => {
+      o.size_prices = Object.fromEntries(priceInputs.filter(x => x.input.value !== "").map(x => [x.name, Number(x.input.value)]));
+      markDirty(); repaintMarks();
+    });
+    return {name, input};
+  });
+  regField("options", o.id, "size_prices", sizeBox, { get: () => Object.fromEntries(
+    priceInputs.filter(x => x.input.value !== "").map(x => [x.name, Number(x.input.value)])) });
   const rowLight = () => row.closest(".grp").querySelector(`.pv-opts .crow[data-option-id="${o.id}"]`);
 
   const nameEl = row.querySelector(".oname");

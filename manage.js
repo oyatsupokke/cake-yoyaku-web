@@ -122,7 +122,7 @@ function renderOrder() {
   document.title = `ご予約の確認・変更・キャンセル | ${t.name}`;
 
   const chip = $("status-chip");
-  chip.textContent = STATUS_LABEL[o.status] || o.status;
+  chip.textContent = o.status === 'canceled' ? STATUS_LABEL[o.status] : ({requested:'追加希望の確認待ち・予約未確定',quoted:'見積もりへの承諾待ち・予約未確定',accepted:'追加希望・予約確定'}[o.review_state] || STATUS_LABEL[o.status] || o.status);
   chip.classList.toggle("canceled", o.status === "canceled");
 
   const rows = [];
@@ -141,7 +141,7 @@ function renderOrder() {
   }
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);
-  rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(o.total_amount)}</span></div>`);
+  rows.push(`<div class="confirm-row total"><span class="k">${['requested','quoted'].includes(o.review_state) ? '選択分（税込・仮）' : '合計（税込）'}</span><span>${yen(o.total_amount)}</span></div>`);
   $("order-detail").innerHTML = rows.join("");
   loadOrderImages();
 
@@ -166,6 +166,24 @@ function renderOrder() {
     });
   if (allowed.cancel)
     btn("このご予約をキャンセルする", "btn-danger", `${deadlines.cancel}受け付けています`, openCancelView);
+  if (o.quote) {
+    const q=o.quote,box=document.createElement('div');box.className='confirm-box';
+    box.style.whiteSpace='pre-wrap';
+    box.textContent=`お見積もり ${q.revision}\n\n${q.description}\n\nケーキ全体の税込総額：${yen(q.amount)}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}`;
+    list.prepend(box);
+    if (q.can_accept) btn('この内容と金額に同意して予約を確定する','btn-primary','承諾後は、上の対応内容・税込総額で予約が確定します。', async () => {
+      if (!confirm(`${q.description}\n\n税込総額 ${yen(q.amount)}\nこの内容と金額に同意して予約を確定しますか？`)) return;
+      await quoteAction('fn_accept_order_quote',{p_token:TOKEN,p_quote:q.id});
+    });
+    else if(o.review_state==='quoted' && o.status!=='canceled') {
+      const p=document.createElement('p');p.textContent='回答期限を過ぎています。お店へご連絡ください。';list.appendChild(p);
+    }
+  }
+  if (['requested','quoted'].includes(o.review_state) && o.status!=='canceled') {
+    btn('この依頼を取り下げる','btn-danger','予約確定前のご依頼を取り下げます。',async()=>{
+      if(confirm('この依頼を取り下げますか？')) await quoteAction('fn_decline_custom_order',{p_token:TOKEN});
+    });
+  }
 
   // 操作できない場合の案内
   const note = $("locked-note");
@@ -177,6 +195,8 @@ function renderOrder() {
       msg = "このご予約はお渡し済みです。ご利用ありがとうございました。";
     } else if (o.status === "in_production") {
       msg = "ご予約のケーキのご用意を進めております。ご変更・キャンセルをご希望の場合は、お手数ですがお店まで直接ご連絡ください。";
+    } else if (o.review_state && o.review_state !== 'none') {
+      msg = o.review_state === 'requested' ? 'お店が追加希望の対応内容と金額を確認しています。予約はまだ確定していません。' : '追加希望のあるご注文の内容・日時の変更は、お店へご連絡ください。';
     } else {
       msg = "この画面からのお手続きの受付期限を過ぎています。ご変更・キャンセルをご希望の場合は、お手数ですがお店まで直接ご連絡ください。";
     }
@@ -191,6 +211,11 @@ function renderOrder() {
   $("policy-box").classList.toggle("hidden", !t.cancel_policy);
   $("cancel-policy").textContent = t.cancel_policy || "";
   show("view-order");
+}
+async function quoteAction(name,args) {
+  const buttons=[...$("action-list").querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+  try {const r=await rpc(name,args);if(!r.ok)throw new Error(r.message);kickMailWorker();await load();}
+  catch(e){toast(e.message);buttons.forEach(b=>b.disabled=false);}
 }
 
 /* ---------- LINE通知（店側でONのときだけ表示。メールは変わらず届く） ---------- */

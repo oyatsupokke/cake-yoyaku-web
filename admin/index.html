@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1788933600">
-<link rel="stylesheet" href="admin.css?v=1788933600">
-<link rel="stylesheet" href="admin-layout.css?v=1788933600">
-<link rel="stylesheet" href="support.css?v=1788933600">
+<link rel="stylesheet" href="../styles.css?v=1785073013">
+<link rel="stylesheet" href="admin.css?v=20260916150000">
+<link rel="stylesheet" href="admin-layout.css?v=1788743100">
+<link rel="stylesheet" href="support.css?v=1">
 </head>
 <body>
 <div id="app" class="admin">
@@ -80,13 +80,14 @@
       <div id="tab-kitchen">
         <h2 class="print-title print-only" id="kitchen-title"></h2>
         <div class="daily-section-heading no-print">
-          <div><h2>この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセルを除く）。</p></div>
+          <div><h2>この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセル・追加希望の承諾前を除く）。</p></div>
           <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
         </div>
         <div id="kitchen-summary"></div>
         <div id="kitchen-detail" class="print-only"></div>
       </div>
       <h2 class="daily-pickup-heading no-print">受取時間順の予約</h2>
+      <label class="field no-print">表示する予約<select id="review-filter"><option value="">選んだ日のすべて</option><option value="requested">全日の追加希望・確認待ち</option><option value="quoted">全日の見積もり・承諾待ち</option></select></label>
       <div id="pickup-list"></div>
     </section>
 
@@ -102,7 +103,7 @@
         <div class="report-filters">
           <label class="field">商品<select id="report-product"><option value="">すべての商品</option></select></label>
           <label class="field">サイズ<select id="report-size"><option value="">すべてのサイズ</option></select></label>
-          <label class="field">予約状況<select id="report-status"><option value="active">キャンセル以外</option><option value="new">未確認</option><option value="confirmed">確認済</option><option value="canceled">キャンセルのみ</option><option value="all">すべて（キャンセル含む）</option></select></label>
+          <label class="field">予約状況<select id="report-status"><option value="active">キャンセル以外</option><option value="new">未確認</option><option value="confirmed">確認済</option><option value="requested">追加希望・確認待ち</option><option value="quoted">追加希望・承諾待ち</option><option value="accepted">追加希望・承諾済み</option><option value="canceled">キャンセルのみ</option><option value="all">すべて（キャンセル含む）</option></select></label>
           <label class="field">注文内容で絞る<input type="search" id="report-query" placeholder="例：いちご、ピンク、プレートの言葉"></label>
         </div>
         <p class="small">注文内容は商品・サイズ・オプション・質問への回答を検索します。商品や回答は予約時の名前で表示します。</p>
@@ -112,7 +113,7 @@
         <p id="report-scope"></p>
         <div class="report-section">
           <div class="report-heading"><h3>商品・サイズごとの製造数</h3><button type="button" class="pill no-print" id="report-summary-csv">製造数CSV</button></div>
-          <p class="small">受取日ごとに集計します。キャンセルは製造数には含めません。表が収まらないときは横にスクロールできます。</p>
+          <p class="small">受取日ごとに集計します。キャンセル・追加希望の承諾前は製造数には含めません。表が収まらないときは横にスクロールできます。</p>
           <div class="report-table-wrap" id="report-summary"></div>
         </div>
         <div class="report-section">
@@ -451,12 +452,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1788933600"></script>
-<script src="edit-drafts.js?v=1788933600"></script>
-<script src="report-core.js?v=1788933600"></script>
-<script src="line-settings.js?v=1788933600"></script>
-<script src="admin.js?v=1788933600"></script>
-<script src="reports.js?v=1788933600"></script>
-<script src="support.js?v=1788933600"></script>
+<script src="tips.js?v=1785073013"></script>
+<script src="edit-drafts.js?v=1785073013"></script>
+<script src="report-core.js?v=20260916150000"></script>
+<script src="line-settings.js?v=1"></script>
+<script src="admin.js?v=20260916150000"></script>
+<script src="reports.js?v=20260916150000"></script>
+<script src="support.js?v=1"></script>
 </body>
 </html>

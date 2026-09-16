@@ -642,6 +642,8 @@ function currentLayers() {
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
+      // トッピングを別添えにする場合、注文内容には残すがケーキ上には描かない。
+      if(selectedInGroup.some((o)=>optName(o)==='選んだトッピングを別添えにする'))continue;
       for (const o of selectedInGroup) {
         if (o.layer_url) {
           if(o.layer_url.includes('{digit}')){
@@ -1362,6 +1364,10 @@ function validate() {
   }
   for (const [id, v] of s.options) {
     const f = findOption(id);
+    if (f && optName(f.o)==='選んだトッピングを別添えにする') {
+      const hasTopping=f.g.options.some((o)=>o.id!==id&&state.sel.options.has(o.id));
+      if(!hasTopping)return '別添えにするトッピングを1つ以上お選びください';
+    }
     if (f?.o.text_prompt && !(v.text || "").trim())
       return `「${optName(f.o)}」：${f.o.text_prompt}`;
     if (f?.o.layer_url?.includes('{digit}')) {

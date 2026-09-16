@@ -539,6 +539,7 @@ function renderProducts() {
  */
 const LAYER_CANVAS = 800;
 const imgCache = new Map();
+const alphaBoundsCache = new Map();
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
  * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
@@ -601,6 +602,38 @@ function loadImg(url) {
   return p;
 }
 
+function imageAlphaBounds(img, key) {
+  if (alphaBoundsCache.has(key)) return alphaBoundsCache.get(key);
+  const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
+  const x=c.getContext('2d');x.drawImage(img,0,0);
+  const d=x.getImageData(0,0,c.width,c.height).data;
+  let left=c.width,top=c.height,right=-1,bottom=-1;
+  for(let py=0;py<c.height;py++)for(let px=0;px<c.width;px++)if(d[(py*c.width+px)*4+3]>8){
+    if(px<left)left=px;if(px>right)right=px;if(py<top)top=py;if(py>bottom)bottom=py;
+  }
+  const b=right<left?{x:0,y:0,w:c.width,h:c.height}:{x:left,y:top,w:right-left+1,h:bottom-top+1};
+  alphaBoundsCache.set(key,b);return b;
+}
+
+// 透過余白を除いた数字だけを、ケーキ上面の中央へ横並びにする。
+function drawNumberCookieLayers(ctx, entries) {
+  if(!entries.length)return;
+  const items=entries.map(({img,layer})=>{
+    const b=imageAlphaBounds(img,layer.url),h=layer.numberCookie.size==='L'?220:135;
+    return {img,b,h,w:h*b.w/b.h};
+  });
+  const gap=14,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
+  const scale=Math.min(1,560/Math.max(raw,1));
+  const total=raw*scale;
+  let x=(LAYER_CANVAS-total)/2;
+  const bottom=420;
+  for(const item of items){
+    const w=item.w*scale,h=item.h*scale;
+    ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);
+    x+=w+gap*scale;
+  }
+}
+
 // 今の選択内容から、重ねる素材を下から順に並べる
 function currentLayers() {
   const p = state.sel.product;
@@ -611,6 +644,16 @@ function currentLayers() {
     if (selectedInGroup.length) {
       for (const o of selectedInGroup) {
         if (o.layer_url) {
+          if(o.layer_url.includes('{digit}')){
+            const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
+            const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
+            const qty=Math.max(1,state.sel.options.get(o.id)?.qty||1);
+            for(const digit of digits.slice(0,qty))layers.push({
+              url:o.layer_url.replace('{digit}',digit),z:o.layer_z??80,
+              numberCookie:{size:optName(o).includes('小')?'S':'L'}
+            });
+            continue;
+          }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
           layers.push({ url: o.layer_url, z: o.layer_z ?? 50, tint });
@@ -644,8 +687,10 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
+    const numberEntries=[];
     for (let i=0;i<imgs.length;i++) {
       const img=imgs[i]; if(!img)continue;
+      if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
         const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
@@ -663,6 +708,7 @@ async function updatePreview() {
         ctx.drawImage(mask,0,0);
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
+    drawNumberCookieLayers(ctx,numberEntries);
     return;
   }
 
@@ -1110,6 +1156,7 @@ function buildQuestionField(q) {
       state.sel.answers.set(q.id, { text: inputs[0].value, choiceIds: [] });
     }
     updatePriceBar();
+    updatePreview();
   };
   inputs.forEach((i) => { i.oninput = onChange; i.onchange = onChange; });
   return field;
@@ -1317,6 +1364,11 @@ function validate() {
     const f = findOption(id);
     if (f?.o.text_prompt && !(v.text || "").trim())
       return `「${optName(f.o)}」：${f.o.text_prompt}`;
+    if (f?.o.layer_url?.includes('{digit}')) {
+      const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
+      const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
+      if(digits.length!==v.qty)return `「${optName(f.o)}」は、選んだ枚数分の数字をご記入ください`;
+    }
   }
   if (!s.date) return "受取日を選んでください";
   if (!s.slot) return "受取時間を選んでください";

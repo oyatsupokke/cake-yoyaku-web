@@ -522,7 +522,8 @@ function hslToHex(h, s, l) {
 }
 function pastelHex(hue, softness) {
   const t = Math.max(0, Math.min(100, Number(softness) || 0)) / 100;
-  return hslToHex((Number(hue) || 0) % 360, 45 - 15*t, 82 + 7*t);
+  // 淡さ100では、白と区別できる範囲を残しつつ、ごく淡い色まで選べるようにする。
+  return hslToHex((Number(hue) || 0) % 360, 45 - 27*t, 82 + 13*t);
 }
 function hexToHsl(hex) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return null;
@@ -535,7 +536,7 @@ function parsePastelAnswer(text) {
   const m=/^(#[0-9A-F]{6})(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
   if(!m)return {...DEFAULT_PASTEL,hex:pastelHex(DEFAULT_PASTEL.hue,DEFAULT_PASTEL.softness),note:""};
   const hsl=hexToHsl(m[1])||{};
-  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??85.5)-82)/7*100))),hex:m[1].toUpperCase(),note:m[2]||""};
+  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??88.5)-82)/13*100))),hex:m[1].toUpperCase(),note:m[2]||""};
 }
 const pastelAnswerText = (hex,note) => hex.toUpperCase() + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
 function loadImg(url) {

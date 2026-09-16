@@ -112,9 +112,12 @@ body {
 }
 .opt:hover { background: #fdf1f3; }
 .opt input { accent-color: var(--primary-deep); width: 18px; height: 18px; }
+.opt.opt-disabled { opacity: .58; cursor: not-allowed; }
+.opt.opt-disabled:hover { background: transparent; }
 .opt .opt-name { flex: 1; font-size: .92rem; }
 .opt .opt-note { display: block; font-size: .72rem; color: var(--mute); }
 .opt .opt-desc { display: block; font-size: .78rem; color: var(--ink); }
+.opt .opt-conflict { display: block; margin-top: 2px; font-size: .74rem; color: #b14558; }
 .opt .opt-photo {
   width: 44px; height: 44px; flex: 0 0 auto; border-radius: 8px; overflow: hidden;
   border: 1px solid var(--line);

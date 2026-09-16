@@ -3,7 +3,7 @@
  * - カタログ取得: PostgREST（anonキー・RLSで公開範囲のみ）
  * - 残枠: RPC fn_get_availability（open/few/full/closed）
  * - 注文確定: RPC fn_place_order（金額・制約はすべてサーバー側で最終検証）
- * - 排他ペア: 矛盾する選択肢は非表示。前の選択を変えて矛盾したら自動で外して通知
+ * - 排他ペア: 矛盾する選択肢は理由つきで無効表示。前段の選択を変えたら後段を自動で外して通知
  * ===================================================================== */
 
 const CONFIG = {
@@ -684,7 +684,7 @@ function selectVariant(v) {
   updatePriceBar();
 }
 
-/* ---------- 3. 選択グループ（排他＝非表示で強制） ---------- */
+/* ---------- 3. 選択グループ（排他＝理由つき無効表示） ---------- */
 function renderGroups() {
   const wrap = $("group-list");
   wrap.innerHTML = "";
@@ -707,9 +707,15 @@ function renderGroups() {
       if (!o.is_available) continue;
       // 共有リスト由来なのに項目が取れない=停止中（RLSで非表示）→ 出さない
       if (o.shared_list_item_id && !o.shared_list_items) continue;
-      if (conflictsWithSelected(o.id).length && !state.sel.options.has(o.id)) continue; // 排他→非表示
+      const conflictIds = conflictsWithSelected(o.id);
+      // 上にある大分類はいつでも変更できる。選ぶと、矛盾する後段の選択を toggleOption が外す。
+      // 後段側は無効表示にし、「なぜ選べないか」が分かるようにする。
+      const blockingIds = conflictIds.filter((id) => {
+        const f = findOption(id);
+        return f && (f.g.display_order ?? 0) <= (g.display_order ?? 0);
+      });
       const row = document.createElement("label");
-      row.className = "opt";
+      row.className = "opt" + (blockingIds.length && !state.sel.options.has(o.id) ? " opt-disabled" : "");
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
@@ -722,10 +728,13 @@ function renderGroups() {
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
+      const conflictNote = blockingIds.length && !selected
+        ? `「${blockingIds.map((id) => optName(findOption(id).o)).join("」「")}」とは組み合わせできません`
+        : "";
       row.innerHTML = `
-        <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""}>
+        <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""} ${conflictNote ? "disabled" : ""}>
         ${o.photo_url ? `<span class="opt-photo"><img src="${esc(safeImageUrl(o.photo_url))}" alt="" loading="lazy"></span>` : ""}
-        <span class="opt-name">${esc(optName(o))}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}</span>
+        <span class="opt-name">${esc(optName(o))}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");

@@ -601,7 +601,17 @@ async function updatePreview() {
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
         const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
-        mx.globalCompositeOperation='source-in';mx.fillStyle=layers[i].tint;mx.fillRect(0,0,LAYER_CANVAS,LAYER_CANVAS);
+        // 元画像のRGBを明暗情報として使う。白は選択色そのまま、薄い影や刷毛跡は
+        // 同系色の少し濃い色になり、透明度と輪郭も元画像のまま残る。
+        const rgb=[1,3,5].map(n=>parseInt(layers[i].tint.slice(n,n+2),16));
+        const pixels=mx.getImageData(0,0,LAYER_CANVAS,LAYER_CANVAS);
+        for(let p=0;p<pixels.data.length;p+=4){
+          if(!pixels.data[p+3])continue;
+          pixels.data[p]=Math.round(rgb[0]*pixels.data[p]/255);
+          pixels.data[p+1]=Math.round(rgb[1]*pixels.data[p+1]/255);
+          pixels.data[p+2]=Math.round(rgb[2]*pixels.data[p+2]/255);
+        }
+        mx.putImageData(pixels,0,0);
         ctx.drawImage(mask,0,0);
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }

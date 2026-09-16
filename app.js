@@ -510,6 +510,34 @@ function renderProducts() {
  */
 const LAYER_CANVAS = 800;
 const imgCache = new Map();
+const DEFAULT_PASTEL = { hue: 340, softness: 50 };
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return "#" + [f(0), f(8), f(4)].map(x => Math.round(255*x).toString(16).padStart(2,"0")).join("").toUpperCase();
+}
+function pastelHex(hue, softness) {
+  const t = Math.max(0, Math.min(100, Number(softness) || 0)) / 100;
+  return hslToHex((Number(hue) || 0) % 360, 45 - 15*t, 82 + 7*t);
+}
+function hexToHsl(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return null;
+  const [r,g,b]=[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16)/255),hi=Math.max(r,g,b),lo=Math.min(r,g,b),d=hi-lo;
+  let h=0,s=0,l=(hi+lo)/2;
+  if(d){s=d/(1-Math.abs(2*l-1));h=hi===r?((g-b)/d)%6:hi===g?(b-r)/d+2:(r-g)/d+4;h=Math.round(h*60);if(h<0)h+=360;}
+  return {h,s:s*100,l:l*100};
+}
+function parsePastelAnswer(text) {
+  const m=/^(#[0-9A-F]{6})(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
+  if(!m)return {...DEFAULT_PASTEL,hex:pastelHex(DEFAULT_PASTEL.hue,DEFAULT_PASTEL.softness),note:""};
+  const hsl=hexToHsl(m[1])||{};
+  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??85.5)-82)/7*100))),hex:m[1].toUpperCase(),note:m[2]||""};
+}
+const pastelAnswerText = (hex,note) => hex.toUpperCase() + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
 function loadImg(url) {
   url = safeImageUrl(url);
   if (!url) return Promise.resolve(null);
@@ -534,7 +562,11 @@ function currentLayers() {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
       for (const o of selectedInGroup) {
-        if (o.layer_url) layers.push({ url: o.layer_url, z: o.layer_z ?? 50 });
+        if (o.layer_url) {
+          const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
+          const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
+          layers.push({ url: o.layer_url, z: o.layer_z ?? 50, tint });
+        }
       }
     } else if (g.default_layer_url) {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
@@ -564,8 +596,14 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    for (const img of imgs) {
-      if (img) ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
+    for (let i=0;i<imgs.length;i++) {
+      const img=imgs[i]; if(!img)continue;
+      if(layers[i].tint){
+        const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
+        const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
+        mx.globalCompositeOperation='source-in';mx.fillStyle=layers[i].tint;mx.fillRect(0,0,LAYER_CANVAS,LAYER_CANVAS);
+        ctx.drawImage(mask,0,0);
+      } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
     return;
   }
@@ -921,6 +959,11 @@ function answerInputsHtml(q) {
       `<span class="img-pick-label">写真を選ぶ</span></span>` +
       `<span class="small img-note"></span></span>`;
   }
+  if(q.input_type==='pastel_color') return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
+    `<label>色合い<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
+    `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
+    `<span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
+    `<span class="help">選んだ色に近いパステルカラーで仕上げます。画面と実物の色には差が出る場合があります。</span></span>`;
   if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
@@ -954,6 +997,15 @@ function buildQuestionField(q) {
     (q.help_text ? `<span class="help">${esc(q.help_text)}</span>` : "") +
     sampleImageHtml(q.sample_image_url) + answerInputsHtml(q);
   wireSampleImage(field);
+
+  if(q.input_type==='pastel_color'){
+    field.classList.add('pastel-field');
+    const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note');
+    const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
+    hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;
+    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-value').textContent=hex;state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value),choiceIds:[]});updatePreview();updatePriceBar();};
+    [hue,soft,note].forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
+  }
 
   if (q.input_type === "image") {
     // labelの中にfileを置くと、サムネイルを消すボタンを押しただけでも
@@ -1279,7 +1331,9 @@ function renderConfirm() {
         return c ? c.label + (c.price_delta ? `（+${yen(c.price_delta)}）` : "") : "";
       }).filter(Boolean).join("、");
     }
-    if (v) row(q.label, v);
+    if (v && q.input_type === "pastel_color") {
+      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
+    } else if (v) row(q.label, v);
   }
   const [y, m, d] = s.date.split("-");
   row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);

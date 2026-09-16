@@ -137,7 +137,7 @@ function renderOrder() {
     const v = a.choice_label || a.answer_text;
     // 画像の回答は、あとで loadOrderImages がこの行にサムネイルを入れる
     if (v) rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
-      `<span class="k">${esc(a.label)}</span><span class="v">${esc(v)}</span></div>`);
+      `<span class="k">${esc(a.label)}</span><span class="v">${answerValueHtml(v)}</span></div>`);
   }
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);

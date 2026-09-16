@@ -927,6 +927,7 @@ const Q_TYPES = [
   { v: "radio", label: "ラジオボタン（1つ選ぶ）" },
   { v: "checkbox", label: "チェックボックス（複数選べる）" },
   { v: "image", label: "画像を貼ってもらう" },
+  { v: "pastel_color", label: "パステルカラー＋補足" },
 ];
 const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
 const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3);
@@ -968,6 +969,9 @@ function answerFieldHtml(view) {
   if (view.type === "image") {
     return `<span class="q-img-preview">📷 写真を選ぶ` +
       `<span class="mini">（お客様は${esc(view.imageMax || 3)}枚まで貼れます）</span></span>`;
+  }
+  if (view.type === "pastel_color") {
+    return `<span class="pastel-preview"><i></i>色相と淡さを選ぶ<span class="mini">＋補足を自由記入</span></span>`;
   }
   return `<input type="text" disabled>`;
 }

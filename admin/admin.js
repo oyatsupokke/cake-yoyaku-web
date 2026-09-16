@@ -19,6 +19,13 @@ const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[ch]);
+const answerValueHtml = (value) => {
+  const text = String(value ?? "");
+  const match = /^(#[0-9A-Fa-f]{6})(?:／補足：[^\n]{1,200})?$/.exec(text);
+  return match
+    ? `<i class="answer-swatch" style="background:${match[1]}" aria-hidden="true"></i>${esc(text)}`
+    : esc(text);
+};
 const STATUS = {
   new: "未確認", confirmed: "確認済", in_production: "確認済",
   completed: "確認済", canceled: "キャンセル",
@@ -363,7 +370,7 @@ function fillOrderBody(el, o) {
     if (!v) continue;
     // 画像の回答は、あとで paintOrderImages がこの行にサムネイルを入れる
     rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
-      `<span class="k">${esc(a.label_snapshot)}</span><span class="v">${esc(v)}</span></div>`);
+      `<span class="k">${esc(a.label_snapshot)}</span><span class="v">${answerValueHtml(v)}</span></div>`);
   }
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");

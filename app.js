@@ -556,6 +556,17 @@ function parsePastelAnswer(text) {
   return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??88.5)-82)/13*100))),hex:m[1].toUpperCase(),note:m[2]||""};
 }
 const pastelAnswerText = (hex,note) => hex.toUpperCase() + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
+function pastelHueName(hue) {
+  const h=((Number(hue)||0)%360+360)%360;
+  if(h<15||h>=345)return "赤系";
+  if(h<40)return "コーラル系";
+  if(h<70)return "黄色系";
+  if(h<150)return "緑系";
+  if(h<195)return "ミント系";
+  if(h<250)return "水色・青系";
+  if(h<295)return "紫系";
+  return "ピンク系";
+}
 function loadImg(url) {
   url = safeImageUrl(url);
   if (!url) return Promise.resolve(null);
@@ -997,9 +1008,10 @@ function answerInputsHtml(q) {
       `<span class="small img-note"></span></span>`;
   }
   if(q.input_type==='pastel_color') return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
-    `<label>色合い<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
+    `<label>色の種類<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
+    `<span class="pastel-hue-labels" aria-hidden="true"><i>赤</i><i>黄</i><i>緑</i><i>水色</i><i>青</i><i>紫</i><i>ピンク</i><i>赤</i></span>`+
     `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
-    `<span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
+    `<span class="pastel-name"></span><span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">選んだ色に近いパステルカラーで仕上げます。画面と実物の色には差が出る場合があります。</span></span>`;
   if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
   if (q.input_type === "select") {
@@ -1040,7 +1052,7 @@ function buildQuestionField(q) {
     const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note');
     const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
     hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;
-    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-value').textContent=hex;state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value),choiceIds:[]});updatePreview();updatePriceBar();};
+    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value),choiceIds:[]});updatePreview();updatePriceBar();};
     [hue,soft,note].forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
   }
 

@@ -71,6 +71,10 @@ function markDirty() {
   $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
 async function saveChange(c) {
+  if (c.table === "options" && c.patch.order_deadline_days != null &&
+      (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
+    throw new Error("選択肢の締切は0〜365の整数で入力してください");
+  }
   if (c.table === "_product_capacity") return saveCapacityRule(c);
   if (c.table === "products") {
     const source = state.products.find(p => p.id === c.id) || {};
@@ -101,6 +105,14 @@ async function saveChange(c) {
 
 async function saveAll() {
   if (state.saving) return;
+  const invalidDeadline = [...document.querySelectorAll(".o-deadline")].find(el => !el.checkValidity());
+  if (invalidDeadline) {
+    const row = invalidDeadline.closest(".opt");
+    if (!row.classList.contains("open")) row.querySelector(".o-more").click();
+    invalidDeadline.reportValidity();
+    toast("選択肢の締切は0〜365の整数で入力してください");
+    return;
+  }
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
   const btn = $("btn-save-all");
@@ -1275,7 +1287,8 @@ function marksHtml(o, ov) {
   return mk(!!(o.description || "").trim(), "説明あり", "説明なし")
     + mk(!!(o.note || "").trim(), "注意書きあり", "注意書きなし")
     + mk(!!ov.q, "質問あり", "質問なし")
-    + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし");
+    + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし")
+    + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "");
 }
 
 function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
@@ -1296,6 +1309,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
+      <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
+        <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
+        <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
       <div class="fb"><span class="k">説明</span>
         <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea></div>
       <div class="fb"><span class="k">注意書き</span>
@@ -1331,6 +1347,15 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   linkLight(priceEl, rowLight);
 
   regField("options", o.id, "max_quantity", row.querySelector(".o-maxq"), { number: true });
+
+  const deadlineEl = row.querySelector(".o-deadline");
+  regField("options", o.id, "order_deadline_days", deadlineEl, {
+    get: () => deadlineEl.value === "" ? null : Number(deadlineEl.value),
+  });
+  deadlineEl.addEventListener("input", () => {
+    o.order_deadline_days = deadlineEl.value === "" ? null : Number(deadlineEl.value);
+    repaintMarks();
+  });
 
   const descEl = row.querySelector(".o-desc");
   regField("options", o.id, "description", descEl);

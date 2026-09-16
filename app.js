@@ -669,7 +669,7 @@ function renderGroups() {
       row.innerHTML = `
         <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""}>
         ${o.photo_url ? `<span class="opt-photo"><img src="${esc(safeImageUrl(o.photo_url))}" alt="" loading="lazy"></span>` : ""}
-        <span class="opt-name">${esc(optName(o))}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}</span>
+        <span class="opt-name">${esc(optName(o))}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}</span>
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
@@ -740,7 +740,8 @@ function toggleOption(g, o, input) {
   updatePreview(); // 選択に応じてイラストを組み直す
   // 選択肢の「できない日」を反映してカレンダーを引き直す（表示中なら常に）
   if (state.sel.variant) {
-    loadCalendar().then(() => {
+    loadCalendar().then((loaded) => {
+      if (!loaded) return;
       if (state.sel.date && !STAFF_MODE) {   // 代行登録は満枠・締切の日も選べるので外さない
         const st = state.avail[state.sel.date];
         if (st !== "open" && st !== "few") {
@@ -748,6 +749,7 @@ function toggleOption(g, o, input) {
           state.sel.slot = null;
           $("slot-area").classList.add("hidden");
           renderCalendar();
+          saveState();
           toast("選んだ内容がご用意できない日のため、受取日を選び直してください");
         }
       }
@@ -758,7 +760,9 @@ function toggleOption(g, o, input) {
 /* ---------- 4. カレンダー・時間枠 ---------- */
 const fmtDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+let calendarRequest = 0;
 async function loadCalendar() {
+  const request = ++calendarRequest;
   const m = state.calMonth;
   const first = new Date(m.getFullYear(), m.getMonth(), 1);
   const last = new Date(m.getFullYear(), m.getMonth() + 1, 0);
@@ -774,10 +778,15 @@ async function loadCalendar() {
       p_to: fmtDate(last),
       p_options: optIds.length ? optIds : null, // 選択肢の「できない日」も反映
     });
+    if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
     renderCalendar();
+    return true;
   } catch (e) {
+    if (request !== calendarRequest) return false;
+    state.avail = {};
     $("cal-grid").innerHTML = '<div class="dow">読み込みに失敗しました</div>';
+    return false;
   }
 }
 function renderCalendar() {

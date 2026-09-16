@@ -231,12 +231,14 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .pastel-picker input[type="range"]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 50%; background: var(--pastel-thumb,var(--primary-deep)); box-shadow: 0 0 0 1px rgba(0,0,0,.2); cursor: pointer; }
 .pastel-picker input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 2px solid #fff; border-radius: 50%; background: var(--pastel-thumb,var(--primary-deep)); box-shadow: 0 0 0 1px rgba(0,0,0,.2); cursor: pointer; }
 .field .pastel-picker input.pastel-hue { background: linear-gradient(90deg,#e98585,#e8c56f,#83d091,#70ced0,#78aee8,#a18ae4,#e88abb,#e98585); }
-.field .pastel-picker input.pastel-soft { background: linear-gradient(90deg,#cdbdc4,#f5f1f3); }
-.pastel-swatch { grid-row: 1 / 4; width: 52px; height: 52px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px var(--line); }
+.field .pastel-picker input.pastel-soft { background: linear-gradient(90deg,#d9ced4,#f5f1f3); }
+.pastel-swatch { grid-row: 1 / 5; width: 52px; height: 52px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px var(--line); }
 .pastel-hue-labels { grid-column: 2; display: flex; justify-content: space-between; margin: -7px 0 0; color: var(--mute); font-size: .62rem; line-height: 1; }
 .pastel-hue-labels i { font-style: normal; transform: translateX(-50%); }
 .pastel-hue-labels i:first-child { transform: none; }
 .pastel-hue-labels i:last-child { transform: none; }
+.pastel-soft-labels { grid-column: 2; display: flex; justify-content: space-between; margin: -7px 0 0; color: var(--mute); font-size: .68rem; line-height: 1; }
+.pastel-soft-labels i { font-style: normal; }
 .pastel-name { grid-column: 1 / -1; text-align: center; font-size: .86rem; font-weight: 500; }
 .pastel-value { grid-column: 1 / -1; text-align: center; font-size: .8rem; color: var(--mute); font-family: ui-monospace, monospace; }
 .pastel-note { grid-column: 1 / -1; width: 100%; box-sizing: border-box; }

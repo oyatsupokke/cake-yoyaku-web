@@ -527,7 +527,12 @@ function renderProducts() {
  */
 const LAYER_CANVAS = 800;
 const imgCache = new Map();
-const DEFAULT_PASTEL = { hue: 340, softness: 50 };
+const DEFAULT_PASTEL = { hue: 340, softness: 0 };
+/* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
+ * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
+ * 従来の淡さ45相当（S33/L88＝#EAD6E3級）を新しい上限にした。
+ * 淡い側は彩度を落とさず、グレーではなく「色に白を足した」見え方にする。 */
+const PASTEL_RANGE = { sDark: 33, sPale: 50, lDark: 88, lPale: 95 };
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const a = s * Math.min(l, 1 - l);
@@ -539,8 +544,9 @@ function hslToHex(h, s, l) {
 }
 function pastelHex(hue, softness) {
   const t = Math.max(0, Math.min(100, Number(softness) || 0)) / 100;
-  // 淡さ100では、白と区別できる範囲を残しつつ、ごく淡い色まで選べるようにする。
-  return hslToHex((Number(hue) || 0) % 360, 45 - 27*t, 82 + 13*t);
+  // 淡くするほど明度と彩度を上げ、白っぽくても色味が残るようにする。
+  const { sDark, sPale, lDark, lPale } = PASTEL_RANGE;
+  return hslToHex((Number(hue) || 0) % 360, sDark + (sPale - sDark)*t, lDark + (lPale - lDark)*t);
 }
 function hexToHsl(hex) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return null;
@@ -553,7 +559,8 @@ function parsePastelAnswer(text) {
   const m=/^(#[0-9A-F]{6})(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
   if(!m)return {...DEFAULT_PASTEL,hex:pastelHex(DEFAULT_PASTEL.hue,DEFAULT_PASTEL.softness),note:""};
   const hsl=hexToHsl(m[1])||{};
-  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??88.5)-82)/13*100))),hex:m[1].toUpperCase(),note:m[2]||""};
+  const {lDark,lPale}=PASTEL_RANGE;
+  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??lDark)-lDark)/(lPale-lDark)*100))),hex:m[1].toUpperCase(),note:m[2]||""};
 }
 const pastelAnswerText = (hex,note) => hex.toUpperCase() + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
 function pastelHueName(hue) {
@@ -1011,8 +1018,9 @@ function answerInputsHtml(q) {
     `<label>色の種類<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
     `<span class="pastel-hue-labels" aria-hidden="true"><i>赤</i><i>黄</i><i>緑</i><i>水色</i><i>青</i><i>紫</i><i>ピンク</i><i>赤</i></span>`+
     `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
+    `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
     `<span class="pastel-name"></span><span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
-    `<span class="help">選んだ色に近いパステルカラーで仕上げます。画面と実物の色には差が出る場合があります。</span></span>`;
+    `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
   if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +

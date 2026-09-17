@@ -540,6 +540,11 @@ function renderProducts() {
 const LAYER_CANVAS = 800;
 const imgCache = new Map();
 const alphaBoundsCache = new Map();
+const CALENDAR_FONT = "oyatsupokkefont";
+const CALENDAR_OPTION_NAMES = new Set([
+  "カレンダーケーキに変更",
+  "わんこ・うさぎ付きカレンダーケーキに変更",
+]);
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
  * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
@@ -634,6 +639,91 @@ function drawNumberCookieLayers(ctx, entries) {
   }
 }
 
+function selectedCalendarOption() {
+  for (const g of sortedGroups(state.sel.product)) {
+    const option = g.options.find((o) => state.sel.options.has(o.id) && CALENDAR_OPTION_NAMES.has(optName(o)));
+    if (option) return option;
+  }
+  return null;
+}
+
+// 「8/18」「8月18日」のどちらでも受け付ける。月を省いた「18」は受取月として扱う。
+function parseCalendarDate(text) {
+  const value = String(text || "").trim();
+  const pickup = /^(\d{4})-(\d{2})-(\d{2})$/.exec(state.sel.date || "");
+  let month, day;
+  let m = /^(\d{1,2})\s*(?:\/|月)\s*(\d{1,2})(?:\s*日)?$/.exec(value);
+  if (m) {
+    month = Number(m[1]); day = Number(m[2]);
+  } else if ((m = /^(\d{1,2})(?:\s*日)?$/.exec(value)) && pickup) {
+    month = Number(pickup[2]); day = Number(m[1]);
+  } else return null;
+  const year = pickup ? Number(pickup[1]) : new Date().getFullYear();
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return { year, month, day };
+}
+
+function currentCalendarLayer() {
+  const option = selectedCalendarOption();
+  if (!option) return null;
+  const question = state.questions.find((q) => qLive(q) && qOptionId(q) === option.id);
+  const date = parseCalendarDate(normAnswer(state.sel.answers.get(question?.id)).text);
+  return date ? { ...date, optionId: option.id, questionId: question?.id } : null;
+}
+
+let calendarFontPromise;
+function loadCalendarFont() {
+  if (!document.fonts?.load) return Promise.resolve();
+  calendarFontPromise ||= document.fonts.load(`32px ${CALENDAR_FONT}`).catch(() => []);
+  return calendarFontPromise;
+}
+
+function drawHeartOutline(ctx, cx, cy, width, height) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + height * .43);
+  ctx.bezierCurveTo(cx - width * .08, cy + height * .34, cx - width * .48, cy + height * .08, cx - width * .48, cy - height * .16);
+  ctx.bezierCurveTo(cx - width * .48, cy - height * .50, cx - width * .10, cy - height * .55, cx, cy - height * .25);
+  ctx.bezierCurveTo(cx + width * .10, cy - height * .55, cx + width * .48, cy - height * .50, cx + width * .48, cy - height * .16);
+  ctx.bezierCurveTo(cx + width * .48, cy + height * .08, cx + width * .08, cy + height * .34, cx, cy + height * .43);
+  ctx.closePath();
+  ctx.strokeStyle = "#EFA8B7";
+  ctx.lineWidth = 9;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.restore();
+}
+
+// 参考写真の手絞りに合わせ、曜日見出しなしの7列カレンダーをケーキ上面に描く。
+function drawCalendarLayer(ctx, cal) {
+  const brown = "#9A6B55";
+  const monthNames = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  ctx.save();
+  ctx.fillStyle = brown;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `58px ${CALENDAR_FONT}, sans-serif`;
+  ctx.fillText(String(cal.month), 400, 132);
+  ctx.font = `25px ${CALENDAR_FONT}, sans-serif`;
+  ctx.fillText(monthNames[cal.month - 1], 400, 178);
+
+  const firstDay = new Date(cal.year, cal.month - 1, 1).getDay();
+  const days = new Date(cal.year, cal.month, 0).getDate();
+  const cellW = 55, rowH = 50, startX = 235, startY = 238;
+  ctx.font = `25px ${CALENDAR_FONT}, sans-serif`;
+  for (let day = 1; day <= days; day++) {
+    const index = firstDay + day - 1;
+    const col = index % 7, row = Math.floor(index / 7);
+    const x = startX + col * cellW, y = startY + row * rowH;
+    if (day === cal.day) drawHeartOutline(ctx, x, y + 1, 47, 40);
+    ctx.fillStyle = brown;
+    ctx.fillText(String(day), x, y);
+  }
+  ctx.restore();
+}
+
 // 今の選択内容から、重ねる素材を下から順に並べる
 function currentLayers() {
   const p = state.sel.product;
@@ -666,6 +756,8 @@ function currentLayers() {
       layers.push({ url: g.default_layer_url, z: g.default_layer_z ?? 50 });
     }
   }
+  const calendar = currentCalendarLayer();
+  if (calendar) layers.push({ z: 60, calendarCake: calendar });
   return layers.sort((a, b) => a.z - b.z);
 }
 
@@ -686,11 +778,13 @@ async function updatePreview() {
       box.appendChild(canvas);
     }
     const imgs = await Promise.all(layers.map((l) => loadImg(l.url)));
+    if (layers.some((l) => l.calendarCake)) await loadCalendarFont();
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
     const numberEntries=[];
     for (let i=0;i<imgs.length;i++) {
+      if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].tint){
@@ -993,6 +1087,7 @@ async function selectDate(key) {
   track("date_selected");
   state.sel.slot = null;
   renderCalendar();
+  updatePreview();
   // 枠ごとの満員状況を取得（満員の時間帯はグレーアウト）
   try {
     const rows = await rpc("fn_get_slot_availability", {
@@ -1374,6 +1469,11 @@ function validate() {
       const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
       const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
       if(digits.length!==v.qty)return `「${optName(f.o)}」は、選んだ枚数分の数字をご記入ください`;
+    }
+    if (f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {
+      const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
+      const value=normAnswer(state.sel.answers.get(q?.id)).text;
+      if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」は「8/18」のようにご記入ください`;
     }
   }
   if (!s.date) return "受取日を選んでください";

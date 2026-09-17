@@ -148,6 +148,12 @@ body {
   border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
 }
 
+@font-face {
+  font-family: "oyatsupokkefont";
+  src: url("assets/fonts/oyatsupokke.ttf") format("truetype");
+  font-display: swap;
+}
+
 /* カレンダー */
 .cal-header { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 10px 0 6px; font-weight: bold; }
 .cal-nav {

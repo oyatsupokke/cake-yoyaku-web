@@ -673,6 +673,17 @@ function numberCookieLayout(size, layouts, selectedNames) {
   return layouts[size];
 }
 
+function numberCookieScale(rawWidth, count, layoutMaxWidth) {
+  // 3桁までは1枚ごとの大きさを変えない。列を左右へずらして画面内に収める。
+  // 4枚以上、または3枚でもキャンバス自体に入らない場合だけ縮小する。
+  const available = count <= 3 ? LAYER_CANVAS - 40 : layoutMaxWidth;
+  return Math.min(1, available / Math.max(rawWidth, 1));
+}
+
+function numberCookieStartX(centerX, totalWidth) {
+  return Math.max(20, Math.min(centerX - totalWidth / 2, LAYER_CANVAS - 20 - totalWidth));
+}
+
 // 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
@@ -698,9 +709,9 @@ function drawNumberCookieLayers(ctx, entries) {
     });
     const gap=layout.gap,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
     // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
-    const scale=Math.min(1,layout.maxWidth/Math.max(raw,1));
+    const scale=numberCookieScale(raw,items.length,layout.maxWidth);
     const total=raw*scale,{centerX,bottom}=layout;
-    let x=centerX-total/2;
+    let x=numberCookieStartX(centerX,total);
     for(const item of items){
       const w=item.w*scale,h=item.h*scale;
       ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);

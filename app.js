@@ -637,12 +637,22 @@ function imageAlphaBounds(img, key) {
   alphaBoundsCache.set(key,b);return b;
 }
 
-// 透過余白を除いた数字だけを、ケーキ上面の中央へ横並びにする。
+function numberCookieLayout(size, layouts, selectedNames) {
+  if (size === 'L' && selectedNames.has('メッセージをケーキに直書き')) {
+    // 直書きの上面を空け、実物どおりケーキ手前の側面へ付ける。
+    return {height:270,maxWidth:440,centerX:400,bottom:780,gap:14};
+  }
+  if (size === 'L' && selectedNames.has('フルーツサイド寄せ')) {
+    return {height:250,maxWidth:350,centerX:265,bottom:330,gap:14};
+  }
+  return layouts[size];
+}
+
+// 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
-  const fruitSideLarge=selectedNames.has('フルーツサイド寄せ')&&entries.some(({layer})=>layer.numberCookie.size==='L');
   const layouts=product==='フルーツタルト'
     ? {L:{height:170,maxWidth:500,centerX:400,bottom:480,gap:12},S:{height:135,maxWidth:220,centerX:635,bottom:460,gap:7}}
     : product==='バスクチーズケーキ'
@@ -651,9 +661,7 @@ function drawNumberCookieLayers(ctx, entries) {
   for(const size of ['L','S']){
     const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
     if(!selected.length)continue;
-    const layout=size==='L'&&fruitSideLarge
-      ? {height:250,maxWidth:350,centerX:265,bottom:330,gap:14}
-      : layouts[size],height=layout.height;
+    const layout=numberCookieLayout(size,layouts,selectedNames),height=layout.height;
     const items=selected.map(({img,layer})=>{
       const b=imageAlphaBounds(img,layer.url),h=height;
       return {img,b,h,w:h*b.w/b.h};

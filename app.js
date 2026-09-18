@@ -545,6 +545,9 @@ const CALENDAR_OPTION_NAMES = new Set([
   "カレンダーケーキに変更",
   "わんこ・うさぎ付きカレンダーケーキに変更",
 ]);
+const ANIMAL_TOPPING_NAMES = new Set([
+  "わんこメレンゲ", "うさぎメレンゲ", "くまメレンゲ", "ねこクッキー",
+]);
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
  * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
@@ -623,20 +626,46 @@ function imageAlphaBounds(img, key) {
 // 透過余白を除いた数字だけを、ケーキ上面の中央へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
-  const items=entries.map(({img,layer})=>{
-    const b=imageAlphaBounds(img,layer.url),h=layer.numberCookie.size==='L'?220:135;
-    return {img,b,h,w:h*b.w/b.h};
-  });
-  const gap=14,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
-  const scale=Math.min(1,560/Math.max(raw,1));
-  const total=raw*scale;
-  let x=(LAYER_CANVAS-total)/2;
-  const bottom=420;
-  for(const item of items){
-    const w=item.w*scale,h=item.h*scale;
-    ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);
-    x+=w+gap*scale;
+  for(const size of ['L','S']){
+    const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
+    if(!selected.length)continue;
+    const height=size==='L'?220:170;
+    const items=selected.map(({img,layer})=>{
+      const b=imageAlphaBounds(img,layer.url),h=height;
+      return {img,b,h,w:h*b.w/b.h};
+    });
+    const gap=size==='L'?14:8,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
+    // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
+    const maxWidth=size==='L'?560:245,scale=Math.min(1,maxWidth/Math.max(raw,1));
+    const total=raw*scale,centerX=size==='L'?400:635,bottom=size==='L'?420:370;
+    let x=centerX-total/2;
+    for(const item of items){
+      const w=item.w*scale,h=item.h*scale;
+      ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);
+      x+=w+gap*scale;
+    }
   }
+}
+
+// まりほ作成の実物配置見本（2026-09-18）に合わせた定位置。
+// 選択順に関係なく、中央はメッセージプレート用に空ける。
+const ANIMAL_TOPPING_LAYOUT = {
+  "ねこクッキー":   { cx: 235, cy: 185, h: 230 },
+  "うさぎメレンゲ": { cx: 600, cy: 165, h: 205 },
+  "くまメレンゲ":   { cx: 215, cy: 420, h: 205 },
+  "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
+};
+
+function drawAnimalToppingLayers(ctx, entries) {
+  if (!entries.length) return;
+  entries.forEach(({img,layer}) => {
+    const b = imageAlphaBounds(img, layer.url);
+    const layout = ANIMAL_TOPPING_LAYOUT[layer.animalTopping];
+    if (!layout) return;
+    const {cx,cy,h} = layout;
+    const w = h * b.w / b.h;
+    ctx.drawImage(img, b.x, b.y, b.w, b.h, cx - w / 2, cy - h / 2, w, h);
+  });
 }
 
 function selectedCalendarOption() {
@@ -748,7 +777,10 @@ function currentLayers() {
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
-          layers.push({ url: o.layer_url, z: o.layer_z ?? 50, tint });
+          layers.push({
+            url: o.layer_url, z: o.layer_z ?? 50, tint,
+            animalTopping: ANIMAL_TOPPING_NAMES.has(optName(o)) ? optName(o) : null,
+          });
         }
       }
     } else if (g.default_layer_url) {
@@ -782,11 +814,12 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[];
+    const numberEntries=[],animalEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
+      if(layers[i].animalTopping){animalEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
         const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
@@ -804,6 +837,7 @@ async function updatePreview() {
         ctx.drawImage(mask,0,0);
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
+    drawAnimalToppingLayers(ctx,animalEntries);
     drawNumberCookieLayers(ctx,numberEntries);
     return;
   }

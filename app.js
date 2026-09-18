@@ -552,6 +552,9 @@ const PREVIEW_POSITION_NOTICE_NAMES = new Set([
   ...ANIMAL_TOPPING_NAMES, "ナンバークッキー大", "ナンバークッキー小",
 ]);
 const BACK_ANIMAL_TOPPING_NAMES = new Set(["ねこクッキー", "うさぎメレンゲ"]);
+const HERB_TOPPING_NAMES = new Set([
+  "ハーブ、エディブルフラワー1周", "ハーブ、エディブルフラワートッピング",
+]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
@@ -818,27 +821,31 @@ function currentLayers() {
       // トッピングを別添えにする場合、注文内容には残すがケーキ上には描かない。
       if(selectedInGroup.some((o)=>optName(o)==='選んだトッピングを別添えにする'))continue;
       for (const o of selectedInGroup) {
-        if (o.layer_url) {
-          if(dogNumberCombo && optName(o)==="わんこホイップ絞り")continue;
+        const name=optName(o);
+        // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
+        const layerUrl=CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
+          ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
+        if (layerUrl) {
+          if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
-          if(calendarCake && optName(o)==="クッキープレート")continue;
-          if(o.layer_url.includes('{digit}')){
+          if(calendarCake && name==="クッキープレート")continue;
+          if(layerUrl.includes('{digit}')){
             const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
             const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
             const qty=Math.max(1,state.sel.options.get(o.id)?.qty||1);
             for(const digit of digits.slice(0,qty))layers.push({
-              url:o.layer_url.replace('{digit}',digit),z:o.layer_z??80,
-              numberCookie:{size:optName(o).includes('小')?'S':'L'}
+              url:layerUrl.replace('{digit}',digit),z:o.layer_z??80,
+              numberCookie:{size:name.includes('小')?'S':'L'}
             });
             continue;
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
-          const animalName=ANIMAL_TOPPING_NAMES.has(optName(o))?optName(o):null;
+          const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
           layers.push({
-            url: o.layer_url, z: animalName?(BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
+            url: layerUrl, z: animalName?(BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
-            shiftedMessagePlate: optName(o)==="クッキープレート" && selectedNames.has("ナンバークッキー大"),
+            shiftedMessagePlate: name==="クッキープレート" && selectedNames.has("ナンバークッキー大"),
           });
         }
       }

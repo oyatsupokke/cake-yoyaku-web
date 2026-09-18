@@ -758,11 +758,65 @@ function currentCalendarLayer() {
   return date ? { ...date, optionId: option.id, questionId: question?.id } : null;
 }
 
-let calendarFontPromise;
-function loadCalendarFont() {
+let oyatsupokkeFontPromise;
+function loadOyatsupokkeFont() {
   if (!document.fonts?.load) return Promise.resolve();
-  calendarFontPromise ||= document.fonts.load(`32px ${CALENDAR_FONT}`).catch(() => []);
-  return calendarFontPromise;
+  oyatsupokkeFontPromise ||= document.fonts.load(`32px ${CALENDAR_FONT}`).catch(() => []);
+  return oyatsupokkeFontPromise;
+}
+
+function currentDirectMessageLayer() {
+  const p = state.sel.product;
+  if (!p) return null;
+  for (const g of sortedGroups(p)) {
+    const option = g.options.find((o) => state.sel.options.has(o.id) && optName(o) === "メッセージをケーキに直書き");
+    if (!option) continue;
+    const question = state.questions.find((q) => qLive(q) && qOptionId(q) === option.id);
+    const text = String(normAnswer(state.sel.answers.get(question?.id)).text || "").trim();
+    return text ? { text, optionId: option.id, questionId: question?.id } : null;
+  }
+  return null;
+}
+
+function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const words = clean.split(" ");
+  // 英単語は単語の途中で切らず、日本語など空白のない文章は1文字ずつ収める。
+  const units = words.length > 1 ? words : [...clean];
+  const joiner = words.length > 1 ? " " : "";
+  const lines = [];
+  let line = "";
+  for (const unit of units) {
+    const next = line ? line + joiner + unit : unit;
+    if (line && ctx.measureText(next).width > maxWidth && lines.length < maxLines - 1) {
+      lines.push(line);
+      line = unit;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, maxLines);
+}
+
+function drawDirectMessageLayer(ctx, message) {
+  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName));
+  const fruitSide = selectedNames.has("フルーツサイド寄せ");
+  const layout = fruitSide
+    ? { cx: 235, cy: 295, maxWidth: 320, size: 64, lineHeight: 88 }
+    : { cx: 400, cy: 315, maxWidth: 430, size: 48, lineHeight: 78 };
+  ctx.save();
+  ctx.fillStyle = "#49352F";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `${layout.size}px ${CALENDAR_FONT}, sans-serif`;
+  let lines = wrapDirectMessage(ctx, message.text, layout.maxWidth, 2);
+  // 片側寄せの英語2語は、参考見本どおり上下2段にする。
+  if (fruitSide && lines.length === 1 && message.text.trim().split(/\s+/).length === 2) {
+    lines = message.text.trim().split(/\s+/);
+  }
+  const firstY = layout.cy - (lines.length - 1) * layout.lineHeight / 2;
+  lines.forEach((line, i) => ctx.fillText(line, layout.cx, firstY + i * layout.lineHeight, layout.maxWidth));
+  ctx.restore();
 }
 
 function drawHeartOutline(ctx, cx, cy, width, height) {
@@ -874,6 +928,8 @@ function currentLayers() {
   }
   const calendar = currentCalendarLayer();
   if (calendar) layers.push({ z: 60, calendarCake: calendar });
+  const directMessage = currentDirectMessageLayer();
+  if (directMessage) layers.push({ z: 66, directMessage });
   return layers.sort((a, b) => a.z - b.z);
 }
 
@@ -894,13 +950,14 @@ async function updatePreview() {
       box.appendChild(canvas);
     }
     const imgs = await Promise.all(layers.map((l) => loadImg(l.url)));
-    if (layers.some((l) => l.calendarCake)) await loadCalendarFont();
+    if (layers.some((l) => l.calendarCake || l.directMessage)) await loadOyatsupokkeFont();
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
     const numberEntries=[],dogPawEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
+      if(layers[i].directMessage){drawDirectMessageLayer(ctx,layers[i].directMessage);continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}

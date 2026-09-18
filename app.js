@@ -450,6 +450,25 @@ function conflictsWithSelected(id) {
   }
   return hits;
 }
+function toppingsAreDetached() {
+  return [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "選んだトッピングを別添えにする");
+}
+function selectedAnimalToppingCount() {
+  return [...state.sel.options.keys()].filter((id) => ANIMAL_TOPPING_NAMES.has(optName(findOption(id)?.o || {}))).length;
+}
+// oyatsupokkeの実物サイズ上限：ナンバー大を載せる場合、動物は12/15/18cm共通で2匹まで。
+// 別添えならケーキ上の面積を使わないため、この制限はかけない。
+function toppingCapacityConflict(o) {
+  if (CONFIG.shop !== "pokke" || state.sel.options.has(o.id) || toppingsAreDetached()) return "";
+  const name = optName(o);
+  const largeSelected = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナンバークッキー大");
+  const animals = selectedAnimalToppingCount();
+  if (name === "ナンバークッキー大" && animals > 2)
+    return "動物トッピングを2匹までにすると選べます";
+  if (ANIMAL_TOPPING_NAMES.has(name) && largeSelected && animals >= 2)
+    return "ナンバークッキー大と一緒に載せられる動物は2匹までです";
+  return "";
+}
 // 「なし」を含む必須1択は、ほかの選択で現在値が外れたときも未選択にしない。
 // 現在は oyatsupokke の「フルーツの飾り方」で使用する。
 function ensureRequiredFallbacks() {
@@ -1093,8 +1112,9 @@ function renderGroups() {
         const f = findOption(id);
         return f && (f.g.display_order ?? 0) <= (g.display_order ?? 0);
       });
+      const capacityConflict = toppingCapacityConflict(o);
       const row = document.createElement("label");
-      row.className = "opt" + (blockingIds.length && !state.sel.options.has(o.id) ? " opt-disabled" : "");
+      row.className = "opt" + ((blockingIds.length || capacityConflict) && !state.sel.options.has(o.id) ? " opt-disabled" : "");
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
@@ -1107,9 +1127,11 @@ function renderGroups() {
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
-      const conflictNote = blockingIds.length && !selected
-        ? `「${blockingIds.map((id) => optName(findOption(id).o)).join("」「")}」とは組み合わせできません`
-        : "";
+      const conflictNote = !selected && capacityConflict
+        ? capacityConflict
+        : blockingIds.length && !selected
+          ? `「${blockingIds.map((id) => optName(findOption(id).o)).join("」「")}」とは組み合わせできません`
+          : "";
       row.innerHTML = `
         <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""} ${conflictNote ? "disabled" : ""}>
         ${o.photo_url ? `<span class="opt-photo"><img src="${esc(safeImageUrl(o.photo_url))}" alt="" loading="lazy"></span>` : ""}
@@ -1159,6 +1181,10 @@ function renderGroups() {
   }
 }
 function toggleOption(g, o, input) {
+  if (!state.sel.options.has(o.id)) {
+    const capacityConflict = toppingCapacityConflict(o);
+    if (capacityConflict) { input.checked = false; toast(capacityConflict); return; }
+  }
   if (g.selection_type === "single") {
     const wasSelected = state.sel.options.has(o.id);
     // 同グループの他選択を外す
@@ -1642,6 +1668,11 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
+  const selectedOptionNames = new Set([...s.options.keys()].map((id) => optName(findOption(id)?.o || {})));
+  if (CONFIG.shop === "pokke" && !selectedOptionNames.has("選んだトッピングを別添えにする")
+      && selectedOptionNames.has("ナンバークッキー大")
+      && [...selectedOptionNames].filter((name) => ANIMAL_TOPPING_NAMES.has(name)).length > 2)
+    return "ナンバークッキー大と一緒に載せる動物トッピングは2匹までにしてください";
   for (const g of s.product.option_groups) {
     if (g.is_required && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
       return `「${g.name}」を選択してください`;

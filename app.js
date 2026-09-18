@@ -578,7 +578,7 @@ const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
-  // タルトの果物はプレート別版を受領後に追加する（2026-09-18 まりほ指示）。
+  "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
@@ -912,8 +912,10 @@ function currentLayers() {
       for (const o of selectedInGroup) {
         const name=optName(o);
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const layerUrl=CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
-          ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
+        const layerUrl=CONFIG.shop==="pokke" && p.name==="フルーツタルト" && name==="クッキープレート"
+          ? cakeLayerAsset("tart-message-plate.png")
+          :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
+            ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。

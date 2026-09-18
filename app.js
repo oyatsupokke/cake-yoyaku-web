@@ -495,8 +495,9 @@ function optionPrice(o) {
   return Number.isInteger(price) ? price : o.price_delta;
 }
 function optionMaxQuantity(o) {
-  // タルト上に無理なく載せられるナンバークッキー大は2枚まで。
-  if (CONFIG.shop === "pokke" && state.sel.product?.name === "フルーツタルト" && optName(o) === "ナンバークッキー大") return 2;
+  // タルト・バスク上に無理なく載せられるナンバークッキー大は2枚まで。
+  if (CONFIG.shop === "pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(state.sel.product?.name)
+      && optName(o) === "ナンバークッキー大") return 2;
   return o.max_quantity || 1;
 }
 function requiresReview() {
@@ -683,7 +684,9 @@ function drawNumberCookieLayers(ctx, entries) {
         ? {height:150,maxWidth:220,centerX:400,bottom:440,gap:7}
         : {height:165,maxWidth:240,centerX:575,bottom:600,gap:7}}
     : product==='バスクチーズケーキ'
-      ? {L:{height:175,maxWidth:500,centerX:400,bottom:400,gap:12},S:{height:140,maxWidth:220,centerX:635,bottom:390,gap:7}}
+      ? {L:{height:250,maxWidth:390,centerX:280,bottom:380,gap:14},S:animalCount
+          ? {height:145,maxWidth:215,centerX:400,bottom:485,gap:7}
+          : {height:140,maxWidth:220,centerX:635,bottom:390,gap:7}}
       : {L:{height:220,maxWidth:560,centerX:400,bottom:420,gap:14},S:{height:170,maxWidth:245,centerX:635,bottom:370,gap:8}};
   for(const size of ['L','S']){
     const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
@@ -722,10 +725,10 @@ const ANIMAL_TOPPING_LAYOUTS = {
     "わんこメレンゲ": { cx: 635, cy: 375, h: 195 },
   },
   basque: {
-    "ねこクッキー":   { cx: 220, cy: 270, h: 180 },
-    "うさぎメレンゲ": { cx: 600, cy: 260, h: 165 },
-    "くまメレンゲ":   { cx: 220, cy: 440, h: 165 },
-    "わんこメレンゲ": { cx: 600, cy: 440, h: 155 },
+    "ねこクッキー":   { cx: 285, cy: 200, h: 210 },
+    "うさぎメレンゲ": { cx: 565, cy: 390, h: 170 },
+    "くまメレンゲ":   { cx: 185, cy: 405, h: 185 },
+    "わんこメレンゲ": { cx: 585, cy: 205, h: 180 },
   },
 };
 
@@ -743,15 +746,18 @@ function selectedAnimalToppingNames() {
     .filter(name=>ANIMAL_TOPPING_NAMES.has(name));
 }
 
-function tartLargeNumberSelected() {
-  return state.sel.product?.name==='フルーツタルト'
+function dynamicLargeNumberSelected() {
+  return ['フルーツタルト','バスクチーズケーキ'].includes(state.sel.product?.name)
     && [...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})==='ナンバークッキー大');
 }
 
 function animalToppingPlacement(name) {
-  if(tartLargeNumberSelected()){
+  if(dynamicLargeNumberSelected()){
     const index=selectedAnimalToppingNames().indexOf(name);
-    return [{cx:165,cy:405,h:205},{cx:635,cy:405,h:195}][index] || null;
+    const slots=state.sel.product?.name==='バスクチーズケーキ'
+      ? [{cx:585,cy:205,h:180},{cx:250,cy:395,h:175}]
+      : [{cx:165,cy:405,h:205},{cx:635,cy:405,h:195}];
+    return slots[index] || null;
   }
   return currentAnimalToppingLayout()[name];
 }
@@ -776,7 +782,8 @@ function drawShiftedMessagePlate(ctx, img, url, mode) {
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
-      :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
+    :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
+    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
   ctx.drawImage(img,b.x,b.y,b.w,b.h,cx-w/2,cy-h/2,w,h);
 }
@@ -941,8 +948,8 @@ function currentLayers() {
       for (const o of selectedInGroup) {
         const name=optName(o);
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const layerUrl=CONFIG.shop==="pokke" && p.name==="フルーツタルト" && name==="クッキープレート"
-          ? cakeLayerAsset("tart-message-plate.png")
+        const layerUrl=CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
+          ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
         if (layerUrl) {
@@ -967,11 +974,11 @@ function currentLayers() {
               :selectedNames.has("ナンバークッキー大")?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
-          const tartLargeAnimal=animalName && p.name==="フルーツタルト" && selectedNames.has("ナンバークッキー大");
+          const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
-            url: layerUrl, z: animalName?(tartLargeAnimal?70:BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
+            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
-            tartLargeAnimal,
+            dynamicLargeAnimal,
             messagePlatePlacement,
           });
         }
@@ -1014,7 +1021,7 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],dogPawEntries=[],tartLargeAnimalEntries=[];
+    const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       if(layers[i].directMessage){drawDirectMessageLayer(ctx,layers[i].directMessage);continue;}
@@ -1024,7 +1031,7 @@ async function updatePreview() {
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
       if(layers[i].animalTopping){
-        if(layers[i].tartLargeAnimal)tartLargeAnimalEntries.push({img,layer:layers[i]});
+        if(layers[i].dynamicLargeAnimal)dynamicLargeAnimalEntries.push({img,layer:layers[i]});
         else drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
         continue;
       }
@@ -1046,7 +1053,7 @@ async function updatePreview() {
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
     drawNumberCookieLayers(ctx,numberEntries);
-    drawAnimalToppingLayers(ctx,tartLargeAnimalEntries);
+    drawAnimalToppingLayers(ctx,dynamicLargeAnimalEntries);
     for(const img of dogPawEntries)ctx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
     return;
   }

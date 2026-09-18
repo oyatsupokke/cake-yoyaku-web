@@ -552,7 +552,7 @@ const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
-  "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
+  // タルトの果物はプレート別版を受領後に追加する（2026-09-18 まりほ指示）。
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
@@ -633,18 +633,24 @@ function imageAlphaBounds(img, key) {
 // 透過余白を除いた数字だけを、ケーキ上面の中央へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
+  const product=state.sel.product?.name;
+  const layouts=product==='フルーツタルト'
+    ? {L:{height:170,maxWidth:500,centerX:400,bottom:480,gap:12},S:{height:135,maxWidth:220,centerX:635,bottom:460,gap:7}}
+    : product==='バスクチーズケーキ'
+      ? {L:{height:175,maxWidth:500,centerX:400,bottom:400,gap:12},S:{height:140,maxWidth:220,centerX:635,bottom:390,gap:7}}
+      : {L:{height:220,maxWidth:560,centerX:400,bottom:420,gap:14},S:{height:170,maxWidth:245,centerX:635,bottom:370,gap:8}};
   for(const size of ['L','S']){
     const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
     if(!selected.length)continue;
-    const height=size==='L'?220:170;
+    const layout=layouts[size],height=layout.height;
     const items=selected.map(({img,layer})=>{
       const b=imageAlphaBounds(img,layer.url),h=height;
       return {img,b,h,w:h*b.w/b.h};
     });
-    const gap=size==='L'?14:8,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
+    const gap=layout.gap,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
     // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
-    const maxWidth=size==='L'?560:245,scale=Math.min(1,maxWidth/Math.max(raw,1));
-    const total=raw*scale,centerX=size==='L'?400:635,bottom=size==='L'?420:370;
+    const scale=Math.min(1,layout.maxWidth/Math.max(raw,1));
+    const total=raw*scale,{centerX,bottom}=layout;
     let x=centerX-total/2;
     for(const item of items){
       const w=item.w*scale,h=item.h*scale;
@@ -656,23 +662,52 @@ function drawNumberCookieLayers(ctx, entries) {
 
 // まりほ作成の実物配置見本（2026-09-18）に合わせた定位置。
 // 選択順に関係なく、中央はメッセージプレート用に空ける。
-const ANIMAL_TOPPING_LAYOUT = {
-  "ねこクッキー":   { cx: 235, cy: 185, h: 230 },
-  "うさぎメレンゲ": { cx: 600, cy: 165, h: 205 },
-  "くまメレンゲ":   { cx: 215, cy: 420, h: 205 },
-  "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
+const ANIMAL_TOPPING_LAYOUTS = {
+  round: {
+    "ねこクッキー":   { cx: 235, cy: 185, h: 230 },
+    "うさぎメレンゲ": { cx: 600, cy: 165, h: 205 },
+    "くまメレンゲ":   { cx: 215, cy: 420, h: 205 },
+    "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
+  },
+  tart: {
+    "ねこクッキー":   { cx: 235, cy: 350, h: 180 },
+    "うさぎメレンゲ": { cx: 600, cy: 335, h: 170 },
+    "くまメレンゲ":   { cx: 215, cy: 510, h: 170 },
+    "わんこメレンゲ": { cx: 600, cy: 520, h: 160 },
+  },
+  basque: {
+    "ねこクッキー":   { cx: 220, cy: 270, h: 180 },
+    "うさぎメレンゲ": { cx: 600, cy: 260, h: 165 },
+    "くまメレンゲ":   { cx: 220, cy: 440, h: 165 },
+    "わんこメレンゲ": { cx: 600, cy: 440, h: 155 },
+  },
 };
+
+function currentAnimalToppingLayout() {
+  if(state.sel.product?.name==='フルーツタルト')return ANIMAL_TOPPING_LAYOUTS.tart;
+  if(state.sel.product?.name==='バスクチーズケーキ')return ANIMAL_TOPPING_LAYOUTS.basque;
+  return ANIMAL_TOPPING_LAYOUTS.round;
+}
 
 function drawAnimalToppingLayers(ctx, entries) {
   if (!entries.length) return;
+  const layouts=currentAnimalToppingLayout();
   entries.forEach(({img,layer}) => {
     const b = imageAlphaBounds(img, layer.url);
-    const layout = ANIMAL_TOPPING_LAYOUT[layer.animalTopping];
+    const layout = layouts[layer.animalTopping];
     if (!layout) return;
     const {cx,cy,h} = layout;
     const w = h * b.w / b.h;
     ctx.drawImage(img, b.x, b.y, b.w, b.h, cx - w / 2, cy - h / 2, w, h);
   });
+}
+
+function drawShiftedMessagePlate(ctx, img, url) {
+  const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
+  const layout=product==='フルーツタルト'?{cx:150,cy:440,w:180}
+    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
+  const {cx,cy,w}=layout,h=w*b.h/b.w;
+  ctx.drawImage(img,b.x,b.y,b.w,b.h,cx-w/2,cy-h/2,w,h);
 }
 
 function selectedCalendarOption() {
@@ -772,6 +807,7 @@ function currentLayers() {
   }
   const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName));
   const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && selectedNames.has("ナンバークッキー大");
+  const calendarCake = selectedNames.has("カレンダーケーキに変更") || selectedNames.has("わんこ・うさぎ付きカレンダーケーキに変更");
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
@@ -780,6 +816,8 @@ function currentLayers() {
       for (const o of selectedInGroup) {
         if (o.layer_url) {
           if(dogNumberCombo && optName(o)==="わんこホイップ絞り")continue;
+          // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
+          if(calendarCake && optName(o)==="クッキープレート")continue;
           if(o.layer_url.includes('{digit}')){
             const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
             const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
@@ -795,6 +833,7 @@ function currentLayers() {
           layers.push({
             url: o.layer_url, z: o.layer_z ?? 50, tint,
             animalTopping: ANIMAL_TOPPING_NAMES.has(optName(o)) ? optName(o) : null,
+            shiftedMessagePlate: optName(o)==="クッキープレート" && selectedNames.has("ナンバークッキー大"),
           });
         }
       }
@@ -838,6 +877,7 @@ async function updatePreview() {
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
+      if(layers[i].shiftedMessagePlate){drawShiftedMessagePlate(ctx,img,layers[i].url);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].animalTopping){animalEntries.push({img,layer:layers[i]});continue;}

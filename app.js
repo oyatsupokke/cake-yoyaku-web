@@ -494,6 +494,11 @@ function optionPrice(o) {
   const price = o.size_prices?.[state.sel.variant?.size_label];
   return Number.isInteger(price) ? price : o.price_delta;
 }
+function optionMaxQuantity(o) {
+  // タルト上に無理なく載せられるナンバークッキー大は2枚まで。
+  if (CONFIG.shop === "pokke" && state.sel.product?.name === "フルーツタルト" && optName(o) === "ナンバークッキー大") return 2;
+  return o.max_quantity || 1;
+}
 function requiresReview() {
   return [...state.sel.options.keys()].some(id => findOption(id)?.o.requires_review);
 }
@@ -672,8 +677,11 @@ function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
+  const animalCount=selectedAnimalToppingCount();
   const layouts=product==='フルーツタルト'
-    ? {L:{height:170,maxWidth:500,centerX:400,bottom:480,gap:12},S:{height:135,maxWidth:220,centerX:635,bottom:460,gap:7}}
+    ? {L:{height:250,maxWidth:420,centerX:400,bottom:375,gap:14},S:animalCount
+        ? {height:150,maxWidth:220,centerX:400,bottom:440,gap:7}
+        : {height:165,maxWidth:240,centerX:575,bottom:600,gap:7}}
     : product==='バスクチーズケーキ'
       ? {L:{height:175,maxWidth:500,centerX:400,bottom:400,gap:12},S:{height:140,maxWidth:220,centerX:635,bottom:390,gap:7}}
       : {L:{height:220,maxWidth:560,centerX:400,bottom:420,gap:14},S:{height:170,maxWidth:245,centerX:635,bottom:370,gap:8}};
@@ -708,10 +716,10 @@ const ANIMAL_TOPPING_LAYOUTS = {
     "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
   },
   tart: {
-    "ねこクッキー":   { cx: 235, cy: 350, h: 180 },
-    "うさぎメレンゲ": { cx: 600, cy: 335, h: 170 },
-    "くまメレンゲ":   { cx: 215, cy: 510, h: 170 },
-    "わんこメレンゲ": { cx: 600, cy: 520, h: 160 },
+    "ねこクッキー":   { cx: 245, cy: 510, h: 210 },
+    "うさぎメレンゲ": { cx: 550, cy: 510, h: 200 },
+    "くまメレンゲ":   { cx: 165, cy: 375, h: 210 },
+    "わんこメレンゲ": { cx: 635, cy: 375, h: 195 },
   },
   basque: {
     "ねこクッキー":   { cx: 220, cy: 270, h: 180 },
@@ -727,12 +735,32 @@ function currentAnimalToppingLayout() {
   return ANIMAL_TOPPING_LAYOUTS.round;
 }
 
+function selectedAnimalToppingNames() {
+  if (!state.sel.product) return [];
+  // ナンバー大との組み合わせでは、選んだ順に左枠→右枠へ入れる。
+  return [...state.sel.options.keys()]
+    .map(id=>optName(findOption(id)?.o||{}))
+    .filter(name=>ANIMAL_TOPPING_NAMES.has(name));
+}
+
+function tartLargeNumberSelected() {
+  return state.sel.product?.name==='フルーツタルト'
+    && [...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})==='ナンバークッキー大');
+}
+
+function animalToppingPlacement(name) {
+  if(tartLargeNumberSelected()){
+    const index=selectedAnimalToppingNames().indexOf(name);
+    return [{cx:165,cy:405,h:205},{cx:635,cy:405,h:195}][index] || null;
+  }
+  return currentAnimalToppingLayout()[name];
+}
+
 function drawAnimalToppingLayers(ctx, entries) {
   if (!entries.length) return;
-  const layouts=currentAnimalToppingLayout();
   entries.forEach(({img,layer}) => {
     const b = imageAlphaBounds(img, layer.url);
-    const layout = layouts[layer.animalTopping];
+    const layout = animalToppingPlacement(layer.animalTopping);
     if (!layout) return;
     const {cx,cy,h} = layout;
     const w = h * b.w / b.h;
@@ -746,6 +774,7 @@ function drawShiftedMessagePlate(ctx, img, url, mode) {
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
   const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
+    :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
       :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
@@ -938,9 +967,11 @@ function currentLayers() {
               :selectedNames.has("ナンバークッキー大")?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
+          const tartLargeAnimal=animalName && p.name==="フルーツタルト" && selectedNames.has("ナンバークッキー大");
           layers.push({
-            url: layerUrl, z: animalName?(BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
+            url: layerUrl, z: animalName?(tartLargeAnimal?70:BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
+            tartLargeAnimal,
             messagePlatePlacement,
           });
         }
@@ -983,7 +1014,7 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],dogPawEntries=[];
+    const numberEntries=[],dogPawEntries=[],tartLargeAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       if(layers[i].directMessage){drawDirectMessageLayer(ctx,layers[i].directMessage);continue;}
@@ -992,7 +1023,11 @@ async function updatePreview() {
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
-      if(layers[i].animalTopping){drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);continue;}
+      if(layers[i].animalTopping){
+        if(layers[i].tartLargeAnimal)tartLargeAnimalEntries.push({img,layer:layers[i]});
+        else drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
+        continue;
+      }
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
         const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
@@ -1011,6 +1046,7 @@ async function updatePreview() {
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
     drawNumberCookieLayers(ctx,numberEntries);
+    drawAnimalToppingLayers(ctx,tartLargeAnimalEntries);
     for(const img of dogPawEntries)ctx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
     return;
   }
@@ -1120,9 +1156,10 @@ function renderGroups() {
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
+      const maxQty = optionMaxQuantity(o);
       const price = o.requires_review ? `${optionPrice(o) ? '+'+yen(optionPrice(o))+'・' : ''}別途見積もり` : optionPrice(o) ? `+${yen(optionPrice(o))}` : "無料";
       // 枚数はステッパー（−/＋）で。数字入力欄だけだと枚数と気づけない（まりほ指摘 2026-08-24）
-      const qtyUi = (o.max_quantity || 1) > 1 && selected
+      const qtyUi = maxQty > 1 && selected
         ? `<span class="qty-stepper" role="group" aria-label="枚数">
              <button type="button" class="qty-btn qty-minus" aria-label="減らす">−</button>
              <span class="qty-count">${esc(sel.qty)}<small>枚</small></span>
@@ -1148,17 +1185,17 @@ function renderGroups() {
         const countEl = stepper.querySelector(".qty-count");
         const step = (delta) => {
           const cur = state.sel.options.get(o.id).qty;
-          const v = Math.max(1, Math.min(o.max_quantity, cur + delta));
+          const v = Math.max(1, Math.min(maxQty, cur + delta));
           state.sel.options.get(o.id).qty = v;
           countEl.innerHTML = `${v}<small>枚</small>`;
           stepper.querySelector(".qty-minus").disabled = v <= 1;
-          stepper.querySelector(".qty-plus").disabled = v >= o.max_quantity;
+          stepper.querySelector(".qty-plus").disabled = v >= maxQty;
           updatePriceBar();
         };
         stepper.querySelector(".qty-minus").onclick = (e) => { e.stopPropagation(); step(-1); };
         stepper.querySelector(".qty-plus").onclick = (e) => { e.stopPropagation(); step(1); };
         stepper.querySelector(".qty-minus").disabled = sel.qty <= 1;
-        stepper.querySelector(".qty-plus").disabled = sel.qty >= o.max_quantity;
+        stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty;
       }
       box.appendChild(row);
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
@@ -1681,6 +1718,8 @@ function validate() {
   }
   for (const [id, v] of s.options) {
     const f = findOption(id);
+    if (f && v.qty > optionMaxQuantity(f.o))
+      return `「${optName(f.o)}」は${optionMaxQuantity(f.o)}枚までです`;
     if (f && optName(f.o)==='選んだトッピングを別添えにする') {
       const hasTopping=f.g.options.some((o)=>o.id!==id&&state.sel.options.has(o.id));
       if(!hasTopping)return '別添えにするトッピングを1つ以上お選びください';

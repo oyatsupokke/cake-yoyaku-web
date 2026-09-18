@@ -147,6 +147,14 @@ body {
   font-size: .92rem; font-family: inherit; color: var(--ink);
 }
 .opt-textfield input:focus { outline: none; border-color: var(--primary); }
+.detached-picker {
+  margin: 2px 6px 12px 34px; padding: 12px 14px;
+  border-left: 3px solid var(--primary); background: var(--accent-soft); border-radius: 0 var(--r) var(--r) 0;
+}
+.detached-picker-title { margin: 0 0 8px; font-size: .9rem; font-weight: 700; }
+.detached-picker-empty { margin: 0; color: var(--mute); font-size: .85rem; }
+.detached-picker-choice { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: .9rem; cursor: pointer; }
+.detached-picker-choice input { width: 18px; height: 18px; accent-color: var(--primary-deep); }
 .req {
   background: var(--primary-deep); color: var(--on); font-size: .68rem;
   border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;

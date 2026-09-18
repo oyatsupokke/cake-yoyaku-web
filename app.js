@@ -450,18 +450,49 @@ function conflictsWithSelected(id) {
   }
   return hits;
 }
-function toppingsAreDetached() {
-  return [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "選んだトッピングを別添えにする");
+const DETACHED_TOPPING_OPTION = "選んだトッピングを別添えにする";
+function detachedOptionEntry() {
+  for (const [id, value] of state.sel.options) {
+    const f=findOption(id);
+    if (f && optName(f.o) === DETACHED_TOPPING_OPTION) return { id, value, ...f };
+  }
+  return null;
 }
+function detachedToppingNames() {
+  const text=detachedOptionEntry()?.value?.text || "";
+  return new Set(text.split("、").map(x=>x.trim()).filter(Boolean));
+}
+function setDetachedToppingNames(names) {
+  const entry=detachedOptionEntry();
+  if(entry)entry.value.text=[...names].join("、");
+}
+function sanitizeDetachedToppingNames() {
+  const entry=detachedOptionEntry();
+  if(!entry)return;
+  const valid=new Set(entry.g.options.filter(o=>o.id!==entry.id&&state.sel.options.has(o.id)).map(optName));
+  setDetachedToppingNames([...detachedToppingNames()].filter(name=>valid.has(name)));
+}
+function optionIsDetached(name) { return detachedToppingNames().has(name); }
 function selectedAnimalToppingCount() {
-  return [...state.sel.options.keys()].filter((id) => ANIMAL_TOPPING_NAMES.has(optName(findOption(id)?.o || {}))).length;
+  return [...state.sel.options.keys()].filter((id) => {
+    const name=optName(findOption(id)?.o || {});
+    return ANIMAL_TOPPING_NAMES.has(name) && !optionIsDetached(name);
+  }).length;
+}
+function toppingCapacityError() {
+  if(CONFIG.shop!=="pokke")return "";
+  const names=[...state.sel.options.keys()].map(id=>optName(findOption(id)?.o||{}));
+  const largeOnCake=names.includes("ナンバークッキー大")&&!optionIsDetached("ナンバークッキー大");
+  return largeOnCake&&selectedAnimalToppingCount()>2
+    ? "ナンバークッキー大と一緒に載せる動物トッピングは2匹までにしてください" : "";
 }
 // oyatsupokkeの実物サイズ上限：ナンバー大を載せる場合、動物は12/15/18cm共通で2匹まで。
-// 別添えならケーキ上の面積を使わないため、この制限はかけない。
+// 個別に別添えにしたものはケーキ上の面積を使わないため、載せる分だけを数える。
 function toppingCapacityConflict(o) {
-  if (CONFIG.shop !== "pokke" || state.sel.options.has(o.id) || toppingsAreDetached()) return "";
+  if (CONFIG.shop !== "pokke" || state.sel.options.has(o.id)) return "";
   const name = optName(o);
-  const largeSelected = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナンバークッキー大");
+  const largeSelected = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナンバークッキー大")
+    && !optionIsDetached("ナンバークッキー大");
   const animals = selectedAnimalToppingCount();
   if (name === "ナンバークッキー大" && animals > 2)
     return "動物トッピングを2匹までにすると選べます";
@@ -754,7 +785,7 @@ function selectedAnimalToppingNames() {
   // ナンバー大との組み合わせでは、選んだ順に左枠→右枠へ入れる。
   return [...state.sel.options.keys()]
     .map(id=>optName(findOption(id)?.o||{}))
-    .filter(name=>ANIMAL_TOPPING_NAMES.has(name));
+    .filter(name=>ANIMAL_TOPPING_NAMES.has(name)&&!optionIsDetached(name));
 }
 
 function dynamicLargeNumberSelected() {
@@ -880,7 +911,9 @@ function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
 }
 
 function drawDirectMessageLayer(ctx, message) {
-  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName));
+  const detachedNames=detachedToppingNames();
+  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
+    .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const fruitSide = selectedNames.has("フルーツサイド寄せ");
   const layout = fruitSide
     ? { cx: 235, cy: 295, maxWidth: 320, size: 64, lineHeight: 88 }
@@ -955,16 +988,18 @@ function currentLayers() {
       layers.push({ url: cakeLayerAsset(x.file), z: x.z });
     }
   }
-  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName));
+  const detachedNames=detachedToppingNames();
+  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
+    .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && selectedNames.has("ナンバークッキー大");
   const calendarCake = selectedNames.has("カレンダーケーキに変更") || selectedNames.has("わんこ・うさぎ付きカレンダーケーキに変更");
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
-      // トッピングを別添えにする場合、注文内容には残すがケーキ上には描かない。
-      if(selectedInGroup.some((o)=>optName(o)==='選んだトッピングを別添えにする'))continue;
       for (const o of selectedInGroup) {
         const name=optName(o);
+        // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
+        if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
         const layerUrl=CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
           ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
@@ -1143,6 +1178,44 @@ function selectVariant(v) {
 }
 
 /* ---------- 3. 選択グループ（排他＝理由つき無効表示） ---------- */
+function buildDetachedToppingPicker(g, detachedId) {
+  const wrap=document.createElement("div");
+  wrap.className="detached-picker";
+  const candidates=sortedOpts(g).filter(o=>o.id!==detachedId&&state.sel.options.has(o.id));
+  const title=document.createElement("p");
+  title.className="detached-picker-title";
+  title.textContent="別添えにするものを選んでください";
+  wrap.appendChild(title);
+  if(!candidates.length){
+    const empty=document.createElement("p");
+    empty.className="detached-picker-empty";
+    empty.textContent="先にメレンゲまたはクッキーを選んでください。";
+    wrap.appendChild(empty);
+    return wrap;
+  }
+  const detached=detachedToppingNames();
+  for(const option of candidates){
+    const name=optName(option),label=document.createElement("label"),input=document.createElement("input");
+    label.className="detached-picker-choice";
+    input.type="checkbox";
+    input.checked=detached.has(name);
+    label.append(input,document.createTextNode(name));
+    input.onchange=()=>{
+      const next=detachedToppingNames();
+      if(input.checked)next.add(name);else next.delete(name);
+      const previous=detachedToppingNames();
+      setDetachedToppingNames(next);
+      const capacityError=toppingCapacityError();
+      if(capacityError){setDetachedToppingNames(previous);toast(capacityError);}
+      renderGroups();
+      updatePriceBar();
+      updatePreview();
+    };
+    wrap.appendChild(label);
+  }
+  return wrap;
+}
+
 function renderGroups() {
   const wrap = $("group-list");
   wrap.innerHTML = "";
@@ -1223,6 +1296,9 @@ function renderGroups() {
         stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty;
       }
       box.appendChild(row);
+      if(selected && optName(o)===DETACHED_TOPPING_OPTION){
+        box.appendChild(buildDetachedToppingPicker(g,o.id));
+      }
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
       const oq = selected ? state.questions.find((x) => qLive(x) && qOptionId(x) === o.id) : null;
       if (oq) {
@@ -1267,6 +1343,7 @@ function toggleOption(g, o, input) {
       toast(`「${optName(f.o)}」は「${optName(o)}」と組み合わせできないため外れました`);
     }
   }
+  sanitizeDetachedToppingNames();
   ensureRequiredFallbacks();
   renderGroups();
   renderQuestions(); // 条件付き質問（選択肢トリガー）の表示を更新
@@ -1732,11 +1809,8 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
-  const selectedOptionNames = new Set([...s.options.keys()].map((id) => optName(findOption(id)?.o || {})));
-  if (CONFIG.shop === "pokke" && !selectedOptionNames.has("選んだトッピングを別添えにする")
-      && selectedOptionNames.has("ナンバークッキー大")
-      && [...selectedOptionNames].filter((name) => ANIMAL_TOPPING_NAMES.has(name)).length > 2)
-    return "ナンバークッキー大と一緒に載せる動物トッピングは2匹までにしてください";
+  const capacityError=toppingCapacityError();
+  if(capacityError)return capacityError;
   for (const g of s.product.option_groups) {
     if (g.is_required && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
       return `「${g.name}」を選択してください`;
@@ -1745,9 +1819,10 @@ function validate() {
     const f = findOption(id);
     if (f && v.qty > optionMaxQuantity(f.o))
       return `「${optName(f.o)}」は${optionMaxQuantity(f.o)}枚までです`;
-    if (f && optName(f.o)==='選んだトッピングを別添えにする') {
-      const hasTopping=f.g.options.some((o)=>o.id!==id&&state.sel.options.has(o.id));
-      if(!hasTopping)return '別添えにするトッピングを1つ以上お選びください';
+    if (f && optName(f.o)===DETACHED_TOPPING_OPTION) {
+      const selectedNames=new Set(f.g.options.filter(o=>o.id!==id&&state.sel.options.has(o.id)).map(optName));
+      const detached=[...detachedToppingNames()].filter(name=>selectedNames.has(name));
+      if(!detached.length)return '別添えにするものを1つ以上お選びください';
     }
     if (f?.o.text_prompt && !(v.text || "").trim())
       return `「${optName(f.o)}」：${f.o.text_prompt}`;

@@ -548,6 +548,10 @@ const CALENDAR_OPTION_NAMES = new Set([
 const ANIMAL_TOPPING_NAMES = new Set([
   "わんこメレンゲ", "うさぎメレンゲ", "くまメレンゲ", "ねこクッキー",
 ]);
+const PREVIEW_POSITION_NOTICE_NAMES = new Set([
+  ...ANIMAL_TOPPING_NAMES, "ナンバークッキー大", "ナンバークッキー小",
+]);
+const BACK_ANIMAL_TOPPING_NAMES = new Set(["ねこクッキー", "うさぎメレンゲ"]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
@@ -830,9 +834,10 @@ function currentLayers() {
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
+          const animalName=ANIMAL_TOPPING_NAMES.has(optName(o))?optName(o):null;
           layers.push({
-            url: o.layer_url, z: o.layer_z ?? 50, tint,
-            animalTopping: ANIMAL_TOPPING_NAMES.has(optName(o)) ? optName(o) : null,
+            url: o.layer_url, z: animalName?(BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
+            animalTopping: animalName,
             shiftedMessagePlate: optName(o)==="クッキープレート" && selectedNames.has("ナンバークッキー大"),
           });
         }
@@ -873,14 +878,15 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],animalEntries=[],dogPawEntries=[];
+    const numberEntries=[],dogPawEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].shiftedMessagePlate){drawShiftedMessagePlate(ctx,img,layers[i].url);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
-      if(layers[i].animalTopping){animalEntries.push({img,layer:layers[i]});continue;}
+      // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
+      if(layers[i].animalTopping){drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);continue;}
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
         const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
@@ -898,7 +904,6 @@ async function updatePreview() {
         ctx.drawImage(mask,0,0);
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
     }
-    drawAnimalToppingLayers(ctx,animalEntries);
     drawNumberCookieLayers(ctx,numberEntries);
     for(const img of dogPawEntries)ctx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
     return;
@@ -986,6 +991,9 @@ function renderGroups() {
     box.className = "group";
     box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
       (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
+      (g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
+        state.sel.options.has(o.id) && PREVIEW_POSITION_NOTICE_NAMES.has(optName(o)))
+        ? '<p class="group-preview-note">※実際の配置はプレビュー通りではなく、全体のバランスを見て調整いたします。</p>' : "") +
       (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${esc(g.note)}</p>` : "") +
       sampleImageHtml(g.sample_image_url);
     wireSampleImage(box);

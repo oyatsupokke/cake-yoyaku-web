@@ -1218,6 +1218,35 @@ function selectVariant(v) {
   updatePriceBar();
 }
 
+function resetDesign() {
+  if (!state.sel.product || !state.sel.variant) return;
+  if (!confirm("選んだ装飾・色・メッセージをすべて初期状態に戻しますか？\nケーキの種類とサイズはそのままです。")) return;
+  const productOptionIds=new Set(state.sel.product.option_groups.flatMap(g=>g.options.map(o=>o.id)));
+  state.sel.options.clear();
+  // 色・数字・メッセージ・写真など、商品内の選択肢に付いた回答だけ消す。
+  // 店全体の質問やお客様情報、受取日時はそのまま残す。
+  for(const q of state.questions)if(productOptionIds.has(qOptionId(q)))state.sel.answers.delete(q.id);
+  const preferredDefaults=["通常デザイン","つけない","上面のフルーツなし"];
+  for(const g of sortedGroups(state.sel.product)){
+    if(!g.is_required||g.selection_type!=="single")continue;
+    const available=sortedOpts(g).filter(o=>o.is_available!==false&&(!o.shared_list_item_id||o.shared_list_items));
+    const fallback=preferredDefaults.map(name=>available.find(o=>optName(o)===name)).find(Boolean)
+      ||available.find(o=>!conflictsWithSelected(o.id));
+    if(fallback&&!conflictsWithSelected(fallback.id).length)state.sel.options.set(fallback.id,{qty:1,text:""});
+  }
+  ensureRequiredFallbacks();
+  renderGroups();
+  renderQuestions();
+  $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);
+  updatePriceBar();
+  updatePreview();
+  saveState();
+  track("design_reset");
+  toast("デザインを初期状態に戻しました");
+}
+
+$("btn-reset-design").onclick=resetDesign;
+
 /* ---------- 3. 選択グループ（排他＝理由つき無効表示） ---------- */
 function buildDetachedToppingPicker(g, detachedId) {
   const wrap=document.createElement("div");

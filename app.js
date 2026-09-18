@@ -600,6 +600,8 @@ const CALENDAR_FONT = "oyatsupokkefont";
 const CALENDAR_OPTION_NAMES = new Set([
   "カレンダーケーキに変更",
   "わんこ・うさぎ付きカレンダーケーキに変更",
+  "カレンダーケーキ（動物なし）",
+  "カレンダーケーキ（動物付き）",
 ]);
 const ANIMAL_TOPPING_NAMES = new Set([
   "わんこメレンゲ", "うさぎメレンゲ", "くまメレンゲ", "ねこクッキー",
@@ -893,9 +895,23 @@ function selectedCalendarOption() {
   return null;
 }
 
-// 「8/18」「8月18日」のどちらでも受け付ける。月を省いた「18」は受取月として扱う。
-function parseCalendarDate(text) {
+function parseIsoDate(text) {
   const value = String(text || "").trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return null;
+  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return { year, month, day };
+}
+
+// 新しい日付選択は YYYY-MM-DD。以前の「8/18」「8月18日」も予約変更時のために読み続ける。
+function parseCalendarDate(text) {
+  const value = String(text || "").trim()
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/／/g, "/");
+  const iso = parseIsoDate(value);
+  if (iso) return iso;
   const pickup = /^(\d{4})-(\d{2})-(\d{2})$/.exec(state.sel.date || "");
   let month, day;
   let m = /^(\d{1,2})\s*(?:\/|月)\s*(\d{1,2})(?:\s*日)?$/.exec(value);
@@ -1612,6 +1628,7 @@ function answerInputsHtml(q) {
     `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
     `<span class="pastel-name"></span><span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
+  if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q)))
     return `<textarea rows="3" placeholder="例：Happy Birthday&#10;まりちゃん"></textarea>`;
   if (q.input_type === "select") {
@@ -1913,7 +1930,7 @@ function validate() {
     if (f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {
       const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
       const value=normAnswer(state.sel.answers.get(q?.id)).text;
-      if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」は「8/18」のようにご記入ください`;
+      if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」をカレンダーからお選びください`;
     }
   }
   if (!s.date) return "受取日を選んでください";
@@ -1926,6 +1943,8 @@ function validate() {
       if (a.images.length > imgMax(q)) return `「${q.label}」の画像は${imgMax(q)}枚までです`;
       continue;
     }
+    if ((a.text || "").trim() && q.input_type === "date" && !parseIsoDate(a.text))
+      return `「${q.label}」をカレンダーからお選びください`;
     if (!q.is_required) continue;
     if (!a.choiceIds.length && !(a.text || "").trim()) return `「${q.label}」にご記入ください`;
   }
@@ -2000,7 +2019,11 @@ function renderConfirm() {
         return c ? c.label + (c.price_delta ? `（+${yen(c.price_delta)}）` : "") : "";
       }).filter(Boolean).join("、");
     }
-    if (v && q.input_type === "pastel_color") {
+    if (v && q.input_type === "date") {
+      const date = parseIsoDate(v);
+      if (date) v = `${date.year}年${date.month}月${date.day}日`;
+      row(q.label, v);
+    } else if (v && q.input_type === "pastel_color") {
       rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
   }

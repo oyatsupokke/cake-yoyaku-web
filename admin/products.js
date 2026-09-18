@@ -923,6 +923,7 @@ $("btn-v-add").onclick = async () => {
 const Q_TYPES = [
   { v: "text", label: "入力欄（1行）" },
   { v: "textarea", label: "入力欄（複数行）" },
+  { v: "date", label: "日付を選んでもらう" },
   { v: "select", label: "プルダウン" },
   { v: "radio", label: "ラジオボタン（1つ選ぶ）" },
   { v: "checkbox", label: "チェックボックス（複数選べる）" },
@@ -958,6 +959,7 @@ function linkLight(el, target) {
 function answerFieldHtml(view) {
   const cs = view.choices;
   if (view.type === "textarea") return `<textarea rows="2" disabled></textarea>`;
+  if (view.type === "date") return `<input type="date" disabled>`;
   if (view.type === "select") {
     return `<select disabled>${cs.map((c) => `<option>${esc(c.label || "（未入力）")}</option>`).join("")}</select>`;
   }

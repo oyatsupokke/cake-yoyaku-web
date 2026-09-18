@@ -833,7 +833,7 @@ function messagePlateLayout(img, url, mode) {
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
     :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
-    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
+    :product==='バスクチーズケーキ'?{cx:400,cy:520,w:330}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
   return {b,cx,cy,w,h};
 }
@@ -1065,13 +1065,15 @@ function currentLayers() {
               :selectedNames.has("ナンバークッキー大")?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
+          const effectiveMessagePlatePlacement=messagePlatePlacement
+            ||(name==="クッキープレート"&&p.name==="バスクチーズケーキ"?"default":null);
           const messagePlateText=name==="クッキープレート"?currentOptionMessage(o):null;
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
             url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
             dynamicLargeAnimal,
-            messagePlatePlacement,
+            messagePlatePlacement:effectiveMessagePlatePlacement,
             messagePlateText,
           });
         }

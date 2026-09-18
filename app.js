@@ -719,9 +719,9 @@ const ANIMAL_TOPPING_LAYOUTS = {
     "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
   },
   tart: {
-    "ねこクッキー":   { cx: 245, cy: 510, h: 210 },
+    "ねこクッキー":   { cx: 245, cy: 375, h: 210 },
     "うさぎメレンゲ": { cx: 550, cy: 510, h: 200 },
-    "くまメレンゲ":   { cx: 165, cy: 375, h: 210 },
+    "くまメレンゲ":   { cx: 165, cy: 510, h: 210 },
     "わんこメレンゲ": { cx: 635, cy: 375, h: 195 },
   },
   basque: {
@@ -749,6 +749,13 @@ function selectedAnimalToppingNames() {
 function dynamicLargeNumberSelected() {
   return ['フルーツタルト','バスクチーズケーキ'].includes(state.sel.product?.name)
     && [...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})==='ナンバークッキー大');
+}
+
+function animalToppingIsBack(name, productName) {
+  // 丸ケーキと、タルト・バスクでは奥側に置く動物が異なる。
+  if (["フルーツタルト","バスクチーズケーキ"].includes(productName))
+    return name === "ねこクッキー" || name === "わんこメレンゲ";
+  return BACK_ANIMAL_TOPPING_NAMES.has(name);
 }
 
 function animalToppingPlacement(name) {
@@ -976,7 +983,7 @@ function currentLayers() {
             :null;
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
-            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
+            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,

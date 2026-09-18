@@ -548,6 +548,13 @@ const CALENDAR_OPTION_NAMES = new Set([
 const ANIMAL_TOPPING_NAMES = new Set([
   "わんこメレンゲ", "うさぎメレンゲ", "くまメレンゲ", "ねこクッキー",
 ]);
+const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
+// oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
+// 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
+const OYATSU_PRODUCT_EXTRA_LAYERS = {
+  "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
+  "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
+};
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
  * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
@@ -758,6 +765,13 @@ function currentLayers() {
   const p = state.sel.product;
   if (!p?.layer_url) return null;
   const layers = [{ url: p.layer_url, z: 0 }];
+  if (CONFIG.shop === "pokke") {
+    for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
+      layers.push({ url: cakeLayerAsset(x.file), z: x.z });
+    }
+  }
+  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName));
+  const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && selectedNames.has("ナンバークッキー大");
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
@@ -765,6 +779,7 @@ function currentLayers() {
       if(selectedInGroup.some((o)=>optName(o)==='選んだトッピングを別添えにする'))continue;
       for (const o of selectedInGroup) {
         if (o.layer_url) {
+          if(dogNumberCombo && optName(o)==="わんこホイップ絞り")continue;
           if(o.layer_url.includes('{digit}')){
             const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
             const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
@@ -787,6 +802,11 @@ function currentLayers() {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
       layers.push({ url: g.default_layer_url, z: g.default_layer_z ?? 50 });
     }
+  }
+  if (dogNumberCombo) {
+    layers.push({ url: cakeLayerAsset("dog-number-face.png"), z: 76 });
+    layers.push({ url: cakeLayerAsset("dog-number-left-paw.png"), z: 85, dogPaw: true });
+    layers.push({ url: cakeLayerAsset("dog-number-right-paw.png"), z: 85, dogPaw: true });
   }
   const calendar = currentCalendarLayer();
   if (calendar) layers.push({ z: 60, calendarCake: calendar });
@@ -814,10 +834,11 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],animalEntries=[];
+    const numberEntries=[],animalEntries=[],dogPawEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
+      if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].animalTopping){animalEntries.push({img,layer:layers[i]});continue;}
       if(layers[i].tint){
@@ -839,6 +860,7 @@ async function updatePreview() {
     }
     drawAnimalToppingLayers(ctx,animalEntries);
     drawNumberCookieLayers(ctx,numberEntries);
+    for(const img of dogPawEntries)ctx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
     return;
   }
 

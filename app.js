@@ -709,10 +709,13 @@ function drawAnimalToppingLayers(ctx, entries) {
   });
 }
 
-function drawShiftedMessagePlate(ctx, img, url) {
+function drawShiftedMessagePlate(ctx, img, url, mode) {
   const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
-  const layout=product==='フルーツタルト'?{cx:150,cy:440,w:180}
-    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
+  // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
+  // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
+  const layout=mode==='fruit-side'?{cx:265,cy:275,w:410}
+    :product==='フルーツタルト'?{cx:150,cy:440,w:180}
+      :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
   ctx.drawImage(img,b.x,b.y,b.w,b.h,cx-w/2,cy-h/2,w,h);
 }
@@ -842,10 +845,14 @@ function currentLayers() {
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
           const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
+          const messagePlatePlacement=name==="クッキープレート"
+            ? selectedNames.has("ナンバークッキー大")?"number-large"
+              :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
+            :null;
           layers.push({
             url: layerUrl, z: animalName?(BACK_ANIMAL_TOPPING_NAMES.has(animalName)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
-            shiftedMessagePlate: name==="クッキープレート" && selectedNames.has("ナンバークッキー大"),
+            messagePlatePlacement,
           });
         }
       }
@@ -889,7 +896,7 @@ async function updatePreview() {
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       const img=imgs[i]; if(!img)continue;
-      if(layers[i].shiftedMessagePlate){drawShiftedMessagePlate(ctx,img,layers[i].url);continue;}
+      if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。

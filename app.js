@@ -641,6 +641,8 @@ function imageAlphaBounds(img, key) {
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
   const product=state.sel.product?.name;
+  const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
+  const fruitSideLarge=selectedNames.has('フルーツサイド寄せ')&&entries.some(({layer})=>layer.numberCookie.size==='L');
   const layouts=product==='フルーツタルト'
     ? {L:{height:170,maxWidth:500,centerX:400,bottom:480,gap:12},S:{height:135,maxWidth:220,centerX:635,bottom:460,gap:7}}
     : product==='バスクチーズケーキ'
@@ -649,7 +651,9 @@ function drawNumberCookieLayers(ctx, entries) {
   for(const size of ['L','S']){
     const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
     if(!selected.length)continue;
-    const layout=layouts[size],height=layout.height;
+    const layout=size==='L'&&fruitSideLarge
+      ? {height:250,maxWidth:350,centerX:265,bottom:330,gap:14}
+      : layouts[size],height=layout.height;
     const items=selected.map(({img,layer})=>{
       const b=imageAlphaBounds(img,layer.url),h=height;
       return {img,b,h,w:h*b.w/b.h};
@@ -713,7 +717,8 @@ function drawShiftedMessagePlate(ctx, img, url, mode) {
   const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
-  const layout=mode==='fruit-side'?{cx:265,cy:275,w:410}
+  const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
+    :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
       :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
@@ -846,7 +851,8 @@ function currentLayers() {
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
           const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=name==="クッキープレート"
-            ? selectedNames.has("ナンバークッキー大")?"number-large"
+            ? selectedNames.has("ナンバークッキー大")&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
+              :selectedNames.has("ナンバークッキー大")?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
           layers.push({

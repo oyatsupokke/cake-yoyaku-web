@@ -823,10 +823,11 @@ function drawAnimalToppingLayers(ctx, entries) {
   });
 }
 
-function drawShiftedMessagePlate(ctx, img, url, mode) {
+function messagePlateLayout(img, url, mode) {
   const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
+  if(!mode)return {b,cx:b.x+b.w/2,cy:b.y+b.h/2,w:b.w,h:b.h};
   const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
@@ -834,7 +835,54 @@ function drawShiftedMessagePlate(ctx, img, url, mode) {
     :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
     :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
+  return {b,cx,cy,w,h};
+}
+
+function drawShiftedMessagePlate(ctx, img, url, mode) {
+  const {b,cx,cy,w,h}=messagePlateLayout(img,url,mode);
   ctx.drawImage(img,b.x,b.y,b.w,b.h,cx-w/2,cy-h/2,w,h);
+}
+
+function wrapMessageParagraph(ctx, text, maxWidth) {
+  const clean=String(text||"").replace(/[\t ]+/g," ").trim();
+  if(!clean)return [""];
+  const words=clean.split(" "),units=words.length>1?words:[...clean],joiner=words.length>1?" ":"";
+  const lines=[];let line="";
+  for(const unit of units){
+    const next=line?line+joiner+unit:unit;
+    if(line&&ctx.measureText(next).width>maxWidth){lines.push(line);line=unit;}else line=next;
+  }
+  if(line)lines.push(line);
+  return lines;
+}
+
+function messageLines(ctx, text, maxWidth, maxLines) {
+  const lines=[];
+  for(const paragraph of String(text||"").split(/\r?\n/)){
+    for(const line of wrapMessageParagraph(ctx,paragraph,maxWidth)){
+      if(lines.length>=maxLines)return lines;
+      lines.push(line);
+    }
+  }
+  return lines.slice(0,maxLines);
+}
+
+function drawMessagePlateText(ctx,img,url,mode,text){
+  if(!String(text||"").trim())return;
+  const {cx,cy,w,h}=messagePlateLayout(img,url,mode);
+  const maxWidth=w*.72,maxHeight=h*.52,maxLines=3;
+  let size=Math.max(18,Math.min(38,h*.23)),lines=[];
+  ctx.save();
+  ctx.fillStyle="#49352F";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(;size>=16;size-=2){
+    ctx.font=`${size}px ${CALENDAR_FONT}, sans-serif`;
+    lines=messageLines(ctx,text,maxWidth,maxLines);
+    const lineHeight=size*1.18;
+    if(lines.length*lineHeight<=maxHeight&&lines.every(line=>ctx.measureText(line).width<=maxWidth))break;
+  }
+  const lineHeight=size*1.18,firstY=cy-(lines.length-1)*lineHeight/2;
+  lines.forEach((line,i)=>ctx.fillText(line,cx,firstY+i*lineHeight,maxWidth));
+  ctx.restore();
 }
 
 function selectedCalendarOption() {
@@ -890,24 +938,14 @@ function currentDirectMessageLayer() {
   return null;
 }
 
+function currentOptionMessage(option) {
+  const question=state.questions.find((q)=>qLive(q)&&qOptionId(q)===option.id);
+  if(question)return String(normAnswer(state.sel.answers.get(question.id)).text||"").trim();
+  return String(state.sel.options.get(option.id)?.text||"").trim();
+}
+
 function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
-  const clean = String(text || "").replace(/\s+/g, " ").trim();
-  if (!clean) return [];
-  const words = clean.split(" ");
-  // 英単語は単語の途中で切らず、日本語など空白のない文章は1文字ずつ収める。
-  const units = words.length > 1 ? words : [...clean];
-  const joiner = words.length > 1 ? " " : "";
-  const lines = [];
-  let line = "";
-  for (const unit of units) {
-    const next = line ? line + joiner + unit : unit;
-    if (line && ctx.measureText(next).width > maxWidth && lines.length < maxLines - 1) {
-      lines.push(line);
-      line = unit;
-    } else line = next;
-  }
-  if (line) lines.push(line);
-  return lines.slice(0, maxLines);
+  return messageLines(ctx,text,maxWidth,maxLines);
 }
 
 function drawDirectMessageLayer(ctx, message) {
@@ -1027,12 +1065,14 @@ function currentLayers() {
               :selectedNames.has("ナンバークッキー大")?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
+          const messagePlateText=name==="クッキープレート"?currentOptionMessage(o):null;
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
             url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,
+            messagePlateText,
           });
         }
       }
@@ -1070,7 +1110,7 @@ async function updatePreview() {
       box.appendChild(canvas);
     }
     const imgs = await Promise.all(layers.map((l) => loadImg(l.url)));
-    if (layers.some((l) => l.calendarCake || l.directMessage)) await loadOyatsupokkeFont();
+    if (layers.some((l) => l.calendarCake || l.directMessage || l.messagePlateText)) await loadOyatsupokkeFont();
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
@@ -1079,7 +1119,7 @@ async function updatePreview() {
       if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
       if(layers[i].directMessage){drawDirectMessageLayer(ctx,layers[i].directMessage);continue;}
       const img=imgs[i]; if(!img)continue;
-      if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);continue;}
+      if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
@@ -1104,6 +1144,7 @@ async function updatePreview() {
         mx.putImageData(pixels,0,0);
         ctx.drawImage(mask,0,0);
       } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
+      if(layers[i].messagePlateText)drawMessagePlateText(ctx,img,layers[i].url,null,layers[i].messagePlateText);
     }
     drawNumberCookieLayers(ctx,numberEntries);
     drawAnimalToppingLayers(ctx,dynamicLargeAnimalEntries);
@@ -1517,6 +1558,12 @@ function optionQuestions() {   // いま選ばれている選択肢にぶら下�
 }
 const askedQuestions = () => [...visibleQuestions(), ...optionQuestions()];
 
+function isMessageQuestion(q){
+  const option=qOptionId(q)?findOption(qOptionId(q))?.o:null;
+  return ["クッキープレート","メッセージをケーキに直書き"].includes(optName(option||{}))
+    || /メッセージ/.test(String(q.label||""));
+}
+
 function answerInputsHtml(q) {
   const cs = qChoices(q);
   const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
@@ -1534,7 +1581,8 @@ function answerInputsHtml(q) {
     `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
     `<span class="pastel-name"></span><span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
-  if (q.input_type === "textarea") return `<textarea rows="3"></textarea>`;
+  if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q)))
+    return `<textarea rows="3" placeholder="例：Happy Birthday&#10;まりちゃん"></textarea>`;
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
       cs.map((c) => `<option value="${esc(c.id)}">${esc(c.label)}${plus(c)}</option>`).join("") + `</select>`;

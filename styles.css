@@ -71,9 +71,9 @@ body {
   font-size: .9rem; flex-shrink: 0;
 }
 .btn-reset-design {
-  margin-left: auto; border: 1px solid var(--primary-deep); background: transparent;
-  color: var(--primary-deep); border-radius: 999px; padding: 5px 10px;
-  font-size: .73rem; font-weight: normal; cursor: pointer; white-space: nowrap;
+  display: block; width: fit-content; margin: 10px auto 0; border: 1px solid var(--primary-deep); background: transparent;
+  color: var(--primary-deep); border-radius: var(--r); padding: 8px 13px;
+  min-height: 40px; font: inherit; font-size: .8rem; font-weight: normal; cursor: pointer; white-space: nowrap;
 }
 .btn-reset-design:hover { background: var(--sel); }
 .hidden { display: none !important; }

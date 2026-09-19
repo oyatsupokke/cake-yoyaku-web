@@ -16,7 +16,8 @@ function safeImageUrl(value) {
 /* パステルカラー回答だけ、安全なHEXを小さな色見本として添える。 */
 function answerValueHtml(value) {
   const text = String(value ?? "");
-  const match = /^(#[0-9A-Fa-f]{6})(?:／補足：[^\n]{1,200})?$/.exec(text);
+  const match = /^(#[0-9A-Fa-f]{6})(／連動：同色)?(?:／補足：([^\n]{1,200}))?$/.exec(text);
   if (!match) return esc(text);
-  return `<i class="answer-swatch" style="background:${match[1]}" aria-hidden="true"></i>${esc(text)}`;
+  const shown=match[1]+(match[2]?'／連動する装飾も同色':'')+(match[3]?`／補足：${match[3]}`:'');
+  return `<i class="answer-swatch" style="background:${match[1]}" aria-hidden="true"></i>${esc(shown)}`;
 }

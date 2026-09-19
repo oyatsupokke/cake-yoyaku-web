@@ -3,8 +3,9 @@ globalThis.BookingReport = (() => {
   const norm = value => String(value ?? "").normalize("NFKC").toLowerCase()
     .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
   const productKey = item => JSON.stringify([item.product_id, item.product_name_snapshot || ""]);
+  const displayAnswer = value => String(value || "").replace("／連動：同色", "／連動する装飾も同色");
   const answers = order => (order.order_answers || []).map(a =>
-    `${a.label_snapshot || ""}: ${a.answer_text || a.choice_label_snapshot || ""}`).join("\n");
+    `${a.label_snapshot || ""}: ${displayAnswer(a.answer_text || a.choice_label_snapshot || "")}`).join("\n");
   const options = item => (item.order_item_options || []).map(o =>
     `${o.group_name_snapshot || ""}: ${o.option_name_snapshot || ""} ×${o.quantity ?? 1}${o.option_text ? `「${o.option_text}」` : ""}`).join("\n");
   function rows(orders, filters = {}) {

@@ -266,6 +266,8 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .pastel-name { grid-column: 1 / -1; text-align: center; font-size: .86rem; font-weight: 500; }
 .pastel-value { grid-column: 1 / -1; text-align: center; font-size: .8rem; color: var(--mute); font-family: ui-monospace, monospace; }
 .pastel-note { grid-column: 1 / -1; width: 100%; box-sizing: border-box; }
+.pastel-picker .pastel-link { grid-column: 1 / -1; display: flex; grid-template-columns: none; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 8px; background: var(--surface-soft,#f8f5f6); font-size: .9rem; }
+.field .pastel-picker .pastel-link input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin: 0; padding: 0; }
 .pastel-picker > .help { grid-column: 1 / -1; }
 .pastel-preview { display: inline-flex; align-items: center; gap: 7px; color: var(--mute); }
 .pastel-preview i { width: 34px; height: 18px; border-radius: 999px; background: linear-gradient(90deg,#efb5b5,#eee3a8,#b7e6be,#afdfe8,#c5b9ed,#edb5d9); }

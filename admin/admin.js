@@ -21,9 +21,10 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
 })[ch]);
 const answerValueHtml = (value) => {
   const text = String(value ?? "");
-  const match = /^(#[0-9A-Fa-f]{6})(?:／補足：[^\n]{1,200})?$/.exec(text);
+  const match = /^(#[0-9A-Fa-f]{6})(／連動：同色)?(?:／補足：([^\n]{1,200}))?$/.exec(text);
+  const shown = match ? match[1]+(match[2]?'／連動する装飾も同色':'')+(match[3]?`／補足：${match[3]}`:'') : text;
   return match
-    ? `<i class="answer-swatch" style="background:${match[1]}" aria-hidden="true"></i>${esc(text)}`
+    ? `<i class="answer-swatch" style="background:${match[1]}" aria-hidden="true"></i>${esc(shown)}`
     : esc(text);
 };
 const STATUS = {

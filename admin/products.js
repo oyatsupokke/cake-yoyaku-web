@@ -973,7 +973,8 @@ function answerFieldHtml(view) {
       `<span class="mini">（お客様は${esc(view.imageMax || 3)}枚まで貼れます）</span></span>`;
   }
   if (view.type === "pastel_color") {
-    return `<span class="pastel-preview"><i></i>色相と淡さを選ぶ<span class="mini">＋補足を自由記入</span></span>`;
+    return `<span class="pastel-preview"><i></i>色相と淡さを選ぶ<span class="mini">＋補足を自由記入</span></span>`+
+      (view.linkLabel?`<label class="pick"><input type="checkbox" disabled>${esc(view.linkLabel)}</label>`:'');
   }
   return `<input type="text" disabled>`;
 }
@@ -984,6 +985,7 @@ function answerFieldHtml(view) {
 function buildQuestionFields(q, view, onPaint, opts = {}) {
   const box = document.createElement("div");
   box.className = "sub q-fields";
+  const linkNames=[...new Set([...state.products.flatMap(p=>p.option_groups.flatMap(g=>g.options)),...state.globalGroups.flatMap(g=>g.options)].map(optDisplayName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
   box.innerHTML = `
     <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
     <select class="q-type">${typeOptions(q.input_type)}</select>
@@ -992,6 +994,15 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
         `<option value="${n}" ${n === imgMaxOf(q) ? "selected" : ""}>${n}枚まで</option>`).join("")}</select>
     </label>
+    <div class="sub q-pastel-link ${q.input_type === "pastel_color" ? "" : "hidden"}">
+      <label>同じ色にできる選択肢
+        <select class="q-pastel-link-option"><option value="">連動なし</option>${linkNames.map(name=>`<option value="${esc(name)}" ${name===q.pastel_link_option_name?'selected':''}>${esc(name)}</option>`).join('')}</select>
+      </label>
+      <label>お客様に見せる文言
+        <input type="text" class="q-pastel-link-label" maxlength="120" value="${esc(q.pastel_link_label)}" placeholder="例：上の丸絞りも土台と同じ色にする">
+      </label>
+      <p class="small">選んだ装飾が注文に含まれるときだけ、同色にするチェック欄を表示します。</p>
+    </div>
     <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}"></div>
     ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に小さく出ます）">`}`;
 
@@ -1024,12 +1035,19 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     { get: () => parseInt(maxEl.value, 10) || 3 });
   maxEl.addEventListener("change", () => { view.imageMax = parseInt(maxEl.value, 10) || 3; onPaint(); });
 
+  const linkOptionEl=box.querySelector('.q-pastel-link-option'),linkLabelEl=box.querySelector('.q-pastel-link-label');
+  regField('common_questions',q.id,'pastel_link_option_name',linkOptionEl,{get:()=>linkOptionEl.value||null});
+  regField('common_questions',q.id,'pastel_link_label',linkLabelEl,{get:()=>linkLabelEl.value.trim()||null});
+  const updateLinkPreview=()=>{view.linkLabel=linkOptionEl.value?(linkLabelEl.value.trim()||`${linkOptionEl.value}も同じ色にする`):'';onPaint();};
+  linkOptionEl.addEventListener('change',updateLinkPreview);linkLabelEl.addEventListener('input',updateLinkPreview);
+
   const typeEl = box.querySelector(".q-type");
   regField("common_questions", q.id, "input_type", typeEl);
   typeEl.addEventListener("change", () => {
     view.type = typeEl.value;
     box.querySelector(".q-choices").classList.toggle("hidden", !needsChoices(view.type));
     box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
+    box.querySelector(".q-pastel-link").classList.toggle("hidden", view.type !== "pastel_color");
     onPaint();
   });
 
@@ -1176,6 +1194,7 @@ function buildGroupBox(p, g) {
         id: o.id, name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         q: q ? {
           label: q.label, type: q.input_type, required: q.is_required, imageMax: imgMaxOf(q),
+          linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
           choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
         } : null,
       };
@@ -1702,6 +1721,7 @@ function buildQuestionBox(q) {
 
   const view = {
     label: q.label, required: !!q.is_required, type: q.input_type, imageMax: imgMaxOf(q),
+    linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
     sample: q.sample_image_url,
     choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
   };

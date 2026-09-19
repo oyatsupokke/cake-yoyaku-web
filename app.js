@@ -649,13 +649,13 @@ function hexToHsl(hex) {
   return {h,s:s*100,l:l*100};
 }
 function parsePastelAnswer(text) {
-  const m=/^(#[0-9A-F]{6})(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
+  const m=/^(#[0-9A-F]{6})(／連動：同色)?(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
   if(!m)return {...DEFAULT_PASTEL,hex:pastelHex(DEFAULT_PASTEL.hue,DEFAULT_PASTEL.softness),note:""};
   const hsl=hexToHsl(m[1])||{};
   const {lDark,lPale}=PASTEL_RANGE;
-  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??lDark)-lDark)/(lPale-lDark)*100))),hex:m[1].toUpperCase(),note:m[2]||""};
+  return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??lDark)-lDark)/(lPale-lDark)*100))),hex:m[1].toUpperCase(),linked:!!m[2],note:m[3]||""};
 }
-const pastelAnswerText = (hex,note) => hex.toUpperCase() + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
+const pastelAnswerText = (hex,note,linked=false) => hex.toUpperCase() + (linked?'／連動：同色':'') + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
 function pastelHueName(hue) {
   const h=((Number(hue)||0)%360+360)%360;
   if(h<15||h>=345)return "赤系";
@@ -1074,7 +1074,11 @@ function currentLayers() {
             continue;
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
-          const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex : null;
+          const linkedQ=state.questions.find(q=>qLive(q)&&q.input_type==='pastel_color'
+            &&q.pastel_link_option_name===name&&state.sel.options.has(qOptionId(q))
+            &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
+          const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
+            :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
           const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=name==="クッキープレート"
             ? selectedNames.has("ナンバークッキー大")&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
@@ -1632,13 +1636,18 @@ function answerInputsHtml(q) {
       `<span class="img-pick-label">写真を選ぶ</span></span>` +
       `<span class="small img-note"></span></span>`;
   }
-  if(q.input_type==='pastel_color') return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
+  if(q.input_type==='pastel_color') {
+    const linkedSelected=q.pastel_link_option_name&&[...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})===q.pastel_link_option_name);
+    return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
     `<label>色の種類<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
     `<span class="pastel-hue-labels" aria-hidden="true"><i>赤</i><i>黄</i><i>緑</i><i>水色</i><i>青</i><i>紫</i><i>ピンク</i><i>赤</i></span>`+
     `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
     `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
-    `<span class="pastel-name"></span><span class="pastel-value"></span><textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
+    `<span class="pastel-name"></span><span class="pastel-value"></span>`+
+    (linkedSelected?`<label class="pastel-link"><input type="checkbox">${esc(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`)}</label>`:'')+
+    `<textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
+  }
   if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q)))
     return `<textarea rows="3" placeholder="例：Happy Birthday&#10;まりちゃん"></textarea>`;
@@ -1677,11 +1686,11 @@ function buildQuestionField(q) {
 
   if(q.input_type==='pastel_color'){
     field.classList.add('pastel-field');
-    const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note');
+    const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note'),link=field.querySelector('.pastel-link input');
     const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
-    hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;
-    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value),choiceIds:[]});updatePreview();updatePriceBar();};
-    [hue,soft,note].forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
+    hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;if(link)link.checked=saved.linked;
+    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,!!link?.checked),choiceIds:[]});updatePreview();updatePriceBar();};
+    [hue,soft,note,link].filter(Boolean).forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
   }
 
   if (q.input_type === "image") {

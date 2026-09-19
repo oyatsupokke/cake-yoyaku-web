@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1789775060">
-<link rel="stylesheet" href="admin.css?v=1789775060">
-<link rel="stylesheet" href="admin-layout.css?v=1789775060">
-<link rel="stylesheet" href="support.css?v=1789775060">
+<link rel="stylesheet" href="../styles.css?v=1789808214">
+<link rel="stylesheet" href="admin.css?v=1789808214">
+<link rel="stylesheet" href="admin-layout.css?v=1789808214">
+<link rel="stylesheet" href="support.css?v=1789808214">
 </head>
 <body>
 <div id="app" class="admin">
@@ -151,7 +151,12 @@
         </div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-deadline">
-        <h3>受付の締切設定</h3>
+        <h3>予約できる期間・受付の締切</h3>
+        <label class="field">何日先の受取まで予約を受け付けるか
+          <input type="number" id="t-booking-window" min="1" max="90" step="1" required style="width:90px"> 日先まで
+          <span class="help" id="t-booking-window-help"></span>
+          <span class="help">毎日、自動で受付範囲が進みます。短くしても予約済みの分は残ります。商品ごとの受取期間・締切・定休日も適用されます。</span>
+        </label>
         <label class="field">基本の締切（受取日の何日前まで受け付けるか）
           <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
           <span class="help">※商品ごとに変えたい場合は、商品ページで設定できます。</span>
@@ -452,12 +457,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1789775060"></script>
-<script src="edit-drafts.js?v=1789775060"></script>
-<script src="report-core.js?v=1789775060"></script>
-<script src="line-settings.js?v=1789775060"></script>
-<script src="admin.js?v=1789775060"></script>
-<script src="reports.js?v=1789775060"></script>
-<script src="support.js?v=1789775060"></script>
+<script src="tips.js?v=1789808214"></script>
+<script src="edit-drafts.js?v=1789808214"></script>
+<script src="report-core.js?v=1789808214"></script>
+<script src="line-settings.js?v=1789808214"></script>
+<script src="admin.js?v=1789808214"></script>
+<script src="reports.js?v=1789808214"></script>
+<script src="support.js?v=1789808214"></script>
 </body>
 </html>

@@ -264,7 +264,8 @@ async function openSlotView() {
     } catch { state.slots = []; }
   }
   const [y, m] = o.pickup_date.split("-").map(Number);
-  const now = new Date();
+  const bounds = BookingWindow.bounds(t);
+  const now = new Date(bounds.today + "T00:00:00");
   // 今月より前は出さない（受取日の月か今月の遅いほうから）
   state.calMonth = new Date(Math.max(new Date(y, m - 1, 1), new Date(now.getFullYear(), now.getMonth(), 1)));
   show("view-slot");
@@ -291,7 +292,7 @@ async function loadCalendar() {
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
     // いまの受取日は「戻す」選択肢として選べるようにする（満枠表示でも自分の枠があるため）
     if (o.pickup_date.startsWith(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`)) {
-      if (state.avail[o.pickup_date] === "full") state.avail[o.pickup_date] = "few";
+      if (state.avail[o.pickup_date] === "full" || o.pickup_date > BookingWindow.bounds(t).end) state.avail[o.pickup_date] = "few";
     }
     renderCalendar();
   } catch {
@@ -324,8 +325,7 @@ function renderCalendar() {
     if (st === "open" || st === "few") el.onclick = () => selectDate(key);
     grid.appendChild(el);
   }
-  const now = new Date();
-  $("cal-prev").disabled = m.getFullYear() === now.getFullYear() && m.getMonth() === now.getMonth();
+  BookingWindow.update(state.data.tenant, m);
 }
 
 async function selectDate(key) {

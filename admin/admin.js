@@ -541,6 +541,8 @@ async function saveChange(c) {
 }
 async function saveAll() {
   if (state.saving) return;
+  const windowInput = $("t-booking-window");
+  if (windowInput && !windowInput.checkValidity()) { windowInput.reportValidity(); return; }
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
   const btn = $("btn-save-all");
@@ -787,6 +789,10 @@ async function loadTenantForm() {
   $("t-email").value = t.contact_email || "";
   $("t-cutoff").value = (t.order_cutoff_time || "21:00").slice(0, 5);
   $("t-deadline").value = t.default_deadline_days ?? 3;
+  const windowMax = t.reservation_plan === "lite" ? 30 : 90;
+  $("t-booking-window").max = windowMax;
+  $("t-booking-window").value = t.booking_window_days ?? windowMax;
+  $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
   $("t-preview-note").value = t.preview_note || "";
@@ -841,6 +847,7 @@ async function loadTenantForm() {
   regField("tenants", T, "contact_email", $("t-email"));
   regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
   regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
+  regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
   regField("tenants", T, "preview_note", $("t-preview-note"),
     { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
   regField("tenants", T, "cancel_policy", $("t-cancel"));

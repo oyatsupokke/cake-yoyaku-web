@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
 <title>ご予約の確認・変更・キャンセル</title>
-<link rel="stylesheet" href="styles.css?v=1789775060">
+<link rel="stylesheet" href="styles.css?v=1789808214">
 <style>
   /* このページ専用の少しだけの追加スタイル */
   .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f2e8dc; color: #7a5c3d; vertical-align: middle; margin-left: 8px; }
@@ -71,6 +71,7 @@
         <span><i class="dot few"></i>残りわずか</span>
         <span><i class="dot full"></i>締め切り</span>
       </div>
+      <p class="small" id="booking-window-note"></p>
       <div class="cal-grid" id="cal-grid"></div>
       <div id="slot-area" class="hidden">
         <h3>受取時間</h3>
@@ -107,7 +108,8 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="safe-display.js?v=1789775060"></script>
-<script src="manage.js?v=1789775060"></script>
+<script src="safe-display.js?v=1789808214"></script>
+<script src="booking-window.js?v=1789808214"></script>
+  <script src="manage.js?v=1789808214"></script>
 </body>
 </html>

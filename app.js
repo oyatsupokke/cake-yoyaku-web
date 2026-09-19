@@ -1222,8 +1222,10 @@ function selectVariant(v) {
   // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
   const pStart = state.sel.product.pickup_start_date
     ? new Date(state.sel.product.pickup_start_date + "T00:00:00") : null;
-  const today = new Date();
-  const calBase = pStart && pStart > today ? pStart : today;
+  const bounds = BookingWindow.bounds(state.tenant);
+  const today = new Date(bounds.today + "T00:00:00");
+  const end = new Date(bounds.end + "T00:00:00");
+  const calBase = pStart && pStart > today ? (STAFF_MODE || pStart <= end ? pStart : end) : today;
   state.calMonth = new Date(calBase.getFullYear(), calBase.getMonth(), 1);
   $("sec-date").classList.remove("hidden");
   $("slot-area").classList.add("hidden");
@@ -1478,6 +1480,11 @@ async function loadCalendar() {
     });
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
+    // 短縮前に成立した予約の同日編集を維持。その他の可否は送信時に再検証する。
+    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(state.tenant).end &&
+        Object.hasOwn(state.avail, EDIT_ORDER.pickup_date)) {
+      state.avail[EDIT_ORDER.pickup_date] = "few";
+    }
     renderCalendar();
     return true;
   } catch (e) {
@@ -1501,7 +1508,7 @@ function renderCalendar() {
   for (let i = 0; i < first.getDay(); i++) grid.appendChild(document.createElement("div"));
   const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const MARK = { open: "●", few: "▲", full: "×", closed: "" };
-  const todayKey = fmtDate(new Date());
+  const todayKey = BookingWindow.bounds(state.tenant).today;
   for (let day = 1; day <= days; day++) {
     const key = fmtDate(new Date(m.getFullYear(), m.getMonth(), day));
     const st = state.avail[key] || "closed";
@@ -1521,8 +1528,14 @@ function renderCalendar() {
     grid.appendChild(el);
   }
   // 前月ボタンは今月まで
-  const now = new Date();
-  $("cal-prev").disabled = m.getFullYear() === now.getFullYear() && m.getMonth() === now.getMonth();
+  const bounds = BookingWindow.update(state.tenant, m, STAFF_MODE);
+  const product = state.sel.product;
+  const start = product.pickup_mode === 'dates' ? [...(product.pickup_dates || [])].sort()[0] : product.pickup_start_date;
+  if (!STAFF_MODE && start && start > bounds.end) {
+    const opens = new Date(start + 'T00:00:00Z');
+    opens.setUTCDate(opens.getUTCDate() - (state.tenant.booking_window_days ?? 90));
+    $("booking-window-note").textContent += ` この商品の受取期間はまだ先です。最初の受取日の予約は${opens.toISOString().slice(0,10).replaceAll('-','/')}から可能です（商品の受付開始日時も適用されます）。`;
+  }
 }
 async function selectDate(key) {
   state.sel.date = key;

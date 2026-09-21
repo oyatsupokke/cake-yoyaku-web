@@ -617,17 +617,30 @@ const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.
 // oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
 // 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
 // ファイル名で解決できるようにし、DB側の設定は15cm・18cmと共用する。
-const OYATSU_12CM_DECORATION_LAYER_FILES = {
-  "naked-decoration.png": "12cm/naked-decoration.png",
-  "chocolate-drip.png": "12cm/chocolate-drip.png",
-  "strawberry-drip.png": "12cm/strawberry-drip.png",
-  "round-piping.png": "12cm/round-piping.png",
-  "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
-  "fruit-side-muscat.png": "12cm/fruit-side-muscat.png",
-  "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
-  "fruit-side-herb.png": "12cm/fruit-side-herb.png",
-  "herb-ring.png": "12cm/herb-ring.png",
-  "dog-cake.png": "12cm/dog-cake.png",
+const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
+  "12cm": {
+    "naked-decoration.png": "12cm/naked-decoration.png",
+    "chocolate-drip.png": "12cm/chocolate-drip.png",
+    "strawberry-drip.png": "12cm/strawberry-drip.png",
+    "round-piping.png": "12cm/round-piping.png",
+    "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
+    "fruit-side-muscat.png": "12cm/fruit-side-muscat.png",
+    "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
+    "fruit-side-herb.png": "12cm/fruit-side-herb.png",
+    "herb-ring.png": "12cm/herb-ring.png",
+    "dog-cake.png": "12cm/dog-cake.png",
+  },
+  "18cm": {
+    "naked-decoration.png": "18cm/naked-decoration.png",
+    "chocolate-drip.png": "18cm/chocolate-drip.png",
+    "round-piping.png": "18cm/round-piping.png",
+    "fruit-ring-muscat.png": "18cm/fruit-ring-muscat.png",
+    "fruit-side-muscat.png": "18cm/fruit-side-muscat.png",
+    "fruit-pile-muscat.png": "18cm/fruit-pile-muscat.png",
+    "fruit-side-herb.png": "18cm/fruit-side-herb.png",
+    "herb-ring.png": "18cm/herb-ring.png",
+    "dog-cake.png": "18cm/dog-cake.png",
+  },
 };
 function layerFileName(url) {
   try { return decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || ""); }
@@ -635,9 +648,10 @@ function layerFileName(url) {
 }
 function sizeSpecificLayerUrl(url, role = "option") {
   if (CONFIG.shop !== "pokke" || state.sel.product?.name !== "デコレーションケーキ"
-      || state.sel.variant?.size_label !== "12cm") return url;
-  if (role === "base") return cakeLayerAsset("12cm/decoration-base.png");
-  const file = OYATSU_12CM_DECORATION_LAYER_FILES[layerFileName(url)];
+      || !OYATSU_DECORATION_LAYER_FILES_BY_SIZE[state.sel.variant?.size_label]) return url;
+  const size=state.sel.variant.size_label;
+  if (role === "base") return cakeLayerAsset(`${size}/decoration-base.png`);
+  const file = OYATSU_DECORATION_LAYER_FILES_BY_SIZE[size][layerFileName(url)];
   return file ? cakeLayerAsset(file) : url;
 }
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
@@ -1265,6 +1279,8 @@ function selectVariant(v) {
   $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);
   $("sec-customer").classList.remove("hidden");
   updatePriceBar();
+  // サイズごとの専用土台・装飾へ、その場でプレビューを切り替える。
+  updatePreview();
 }
 
 function resetDesign() {

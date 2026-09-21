@@ -614,6 +614,31 @@ const HERB_TOPPING_NAMES = new Set([
   "ハーブ、エディブルフラワー1周", "ハーブ、エディブルフラワートッピング",
 ]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
+// oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
+// 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
+// ファイル名で解決できるようにし、DB側の設定は15cm・18cmと共用する。
+const OYATSU_12CM_DECORATION_LAYER_FILES = {
+  "naked-decoration.png": "12cm/naked-decoration.png",
+  "chocolate-drip.png": "12cm/chocolate-drip.png",
+  "strawberry-drip.png": "12cm/strawberry-drip.png",
+  "round-piping.png": "12cm/round-piping.png",
+  "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
+  "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
+  "fruit-side-herb.png": "12cm/fruit-side-herb.png",
+  "herb-ring.png": "12cm/herb-ring.png",
+  "dog-cake.png": "12cm/dog-cake.png",
+};
+function layerFileName(url) {
+  try { return decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || ""); }
+  catch { return String(url || "").split('/').pop() || ""; }
+}
+function sizeSpecificLayerUrl(url, role = "option") {
+  if (CONFIG.shop !== "pokke" || state.sel.product?.name !== "デコレーションケーキ"
+      || state.sel.variant?.size_label !== "12cm") return url;
+  if (role === "base") return cakeLayerAsset("12cm/decoration-base.png");
+  const file = OYATSU_12CM_DECORATION_LAYER_FILES[layerFileName(url)];
+  return file ? cakeLayerAsset(file) : url;
+}
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
@@ -1036,7 +1061,7 @@ function drawCalendarLayer(ctx, cal) {
 function currentLayers() {
   const p = state.sel.product;
   if (!p?.layer_url) return null;
-  const layers = [{ url: p.layer_url, z: 0 }];
+  const layers = [{ url: sizeSpecificLayerUrl(p.layer_url, "base"), z: 0 }];
   if (CONFIG.shop === "pokke") {
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
       layers.push({ url: cakeLayerAsset(x.file), z: x.z });
@@ -1055,10 +1080,11 @@ function currentLayers() {
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const layerUrl=CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
+        const rawLayerUrl=CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
           ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
+        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl);
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
@@ -1098,7 +1124,7 @@ function currentLayers() {
       }
     } else if (g.default_layer_url) {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
-      layers.push({ url: g.default_layer_url, z: g.default_layer_z ?? 50 });
+      layers.push({ url: sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
     }
   }
   if (dogNumberCombo) {

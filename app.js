@@ -717,10 +717,9 @@ const OYATSU_PRODUCT_EXTRA_LAYERS = {
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
- * まりほ指示 2026-09-16：以前のいちばん濃い側（S45/L82）は濃すぎたため、
- * 従来の淡さ45相当（S33/L88＝#EAD6E3級）を新しい上限にした。
+ * まりほ指示 2026-09-21：赤系 #F2E0E1 級をいちばん濃い上限にする。
  * 淡い側は彩度を落とさず、グレーではなく「色に白を足した」見え方にする。 */
-const PASTEL_RANGE = { sDark: 33, sPale: 50, lDark: 88, lPale: 95 };
+const PASTEL_RANGE = { sDark: 41, sPale: 50, lDark: 91.4, lPale: 95 };
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const a = s * Math.min(l, 1 - l);
@@ -757,7 +756,7 @@ function pastelLinkMatches(targetName, optionName) {
   // 「上の丸絞り」は、果物1周の白い絞りと「カラー」を選んだもこもこだけを含む。
   // 「全面・白」「フチのみ・白」は、ベースカラーを変えても白のままにする。
   return targetName === "丸絞り1周"
-    && (optionName === "フルーツ1周" || optionName.endsWith("・カラー"));
+    && (["フルーツ1周", "フルーツ盛り"].includes(optionName) || optionName.endsWith("・カラー"));
 }
 function pastelHueName(hue) {
   const h=((Number(hue)||0)%360+360)%360;
@@ -1225,7 +1224,7 @@ function currentLayers() {
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
             url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
-            creamOnlyTint: !!linkedQ && name === "フルーツ1周",
+            creamOnlyTint: !!linkedQ && ["フルーツ1周", "フルーツ盛り"].includes(name),
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,
@@ -1845,7 +1844,7 @@ function buildQuestionField(q) {
     const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note'),link=field.querySelector('.pastel-link input');
     const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
     hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;if(link)link.checked=saved.linked;
-    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,!!link?.checked),choiceIds:[]});updatePreview();updatePriceBar();};
+    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,link?link.checked:saved.linked),choiceIds:[]});updatePreview();updatePriceBar();};
     [hue,soft,note,link].filter(Boolean).forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
   }
 

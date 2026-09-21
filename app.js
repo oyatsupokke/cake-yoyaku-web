@@ -633,6 +633,7 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
   "18cm": {
     "naked-decoration.png": "18cm/naked-decoration.png",
     "chocolate-drip.png": "18cm/chocolate-drip.png",
+    "strawberry-drip.png": "18cm/strawberry-drip.png",
     "round-piping.png": "18cm/round-piping.png",
     "fruit-ring-muscat.png": "18cm/fruit-ring-muscat.png",
     "fruit-side-muscat.png": "18cm/fruit-side-muscat.png",

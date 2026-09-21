@@ -1787,15 +1787,13 @@ function answerInputsHtml(q) {
       `<span class="small img-note"></span></span>`;
   }
   if(q.input_type==='pastel_color') {
-    const linkedSelected=q.pastel_link_option_name&&[...state.sel.options.keys()].some(id=>
-      pastelLinkMatches(q.pastel_link_option_name,optName(findOption(id)?.o||{})));
     return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
     `<label>色の種類<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
     `<span class="pastel-hue-labels" aria-hidden="true"><i>赤</i><i>黄</i><i>緑</i><i>水色</i><i>青</i><i>紫</i><i>ピンク</i><i>赤</i></span>`+
     `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
     `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
     `<span class="pastel-name"></span><span class="pastel-value"></span>`+
-    (linkedSelected?`<label class="pastel-link"><input type="checkbox">${esc(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`)}</label>`:'')+
+    (q.pastel_link_option_name?`<label class="pastel-link"><input type="checkbox">${esc(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`)}</label>`:'')+
     `<textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
   }

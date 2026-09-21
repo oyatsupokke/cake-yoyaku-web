@@ -619,6 +619,7 @@ const HERB_TOPPING_NAMES = new Set([
   "ハーブ、エディブルフラワー1周", "ハーブ、エディブルフラワートッピング",
 ]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
+const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-corrected`);
 // oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
 // 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
 // ファイル名で解決できるようにし、DB側の設定は15cm・18cmと共用する。
@@ -673,15 +674,27 @@ function sizeSpecificLayerUrl(url, role = "option") {
     const files=OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE[size];
     if(!files)return url;
     if(role === "base" && ["12cm","18cm"].includes(size))
-      return cakeLayerAsset(`chocolate/${size}/chocolate-base.png`);
+      return size === "18cm"
+        ? corrected18cmLayerAsset("chocolate/18cm/chocolate-base.png")
+        : cakeLayerAsset("chocolate/12cm/chocolate-base.png");
     const file=files[layerFileName(url)];
-    return file ? cakeLayerAsset(file) : url;
+    return file
+      ? (size === "18cm" && layerFileName(url) === "naked-chocolate.png"
+          ? corrected18cmLayerAsset(file)
+          : cakeLayerAsset(file))
+      : url;
   }
   if (state.sel.product?.name !== "デコレーションケーキ"
       || !OYATSU_DECORATION_LAYER_FILES_BY_SIZE[size]) return url;
-  if (role === "base") return cakeLayerAsset(`${size}/decoration-base.png`);
+  if (role === "base") return size === "18cm"
+    ? corrected18cmLayerAsset("18cm/decoration-base.png")
+    : cakeLayerAsset(`${size}/decoration-base.png`);
   const file = OYATSU_DECORATION_LAYER_FILES_BY_SIZE[size][layerFileName(url)];
-  return file ? cakeLayerAsset(file) : url;
+  return file
+    ? (size === "18cm" && ["naked-decoration.png", "chocolate-drip.png", "strawberry-drip.png"].includes(layerFileName(url))
+        ? corrected18cmLayerAsset(file)
+        : cakeLayerAsset(file))
+    : url;
 }
 // oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
 // 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。

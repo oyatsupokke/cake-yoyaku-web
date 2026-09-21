@@ -1543,12 +1543,12 @@ function renderGroups() {
         box.appendChild(buildDetachedToppingPicker(g,o.id));
       }
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
-      const oq = selected ? state.questions.find((x) => qLive(x) && qOptionId(x) === o.id) : null;
-      if (oq) {
+      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id) : [];
+      if (optionQs.length) {
         const wrapQ = document.createElement("div");
         wrapQ.className = "opt-question";
         wrapQ.onclick = (e) => e.stopPropagation();  // 選択肢の行の開閉に巻き込まれないように
-        wrapQ.appendChild(buildQuestionField(oq));
+        for (const q of optionQs) wrapQ.appendChild(buildQuestionField(q));
         box.appendChild(wrapQ);
       } else if (selected && o.text_prompt) {
         // 移行前の店（options.text_prompt がまだ残っている）は従来どおりの記入欄を出す
@@ -1764,8 +1764,7 @@ function visibleQuestions() {  // 店全体の質問（選択肢の質問は選�
 function optionQuestions() {   // いま選ばれている選択肢にぶら下がる質問
   const out = [];
   for (const id of state.sel.options.keys()) {
-    const q = state.questions.find((x) => qLive(x) && qOptionId(x) === id);
-    if (q) out.push(q);
+    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id));
   }
   return out;
 }

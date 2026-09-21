@@ -622,10 +622,14 @@ const MOCO_OPTION_NAMES = new Set([
   "全面・白", "全面・カラー", "フチのみ・白", "フチのみ・カラー",
 ]);
 const MOCO_FULL_OPTION_NAMES = new Set(["全面・白", "全面・カラー"]);
+const MOCO_EDGE_OPTION_NAMES = new Set(["フチのみ・白", "フチのみ・カラー"]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
 const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-corrected`);
 const sizeSpecificMocoLayerAsset = (size, name) => cakeLayerAsset(
   `${size}/${MOCO_FULL_OPTION_NAMES.has(name) ? "moco-full.png" : "moco-edge.png"}?v=20260921-size`
+);
+const sizeSpecificWhiteRoundPipingAsset = (size) => cakeLayerAsset(
+  ["12cm", "18cm"].includes(size) ? `${size}/round-piping.png` : "round-piping.png"
 );
 // oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
 // 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
@@ -1206,6 +1210,16 @@ function currentLayers() {
             messagePlatePlacement,
             messagePlateText,
           });
+          // 「ふちのみ」は、実物どおりホイップとの境目に丸絞りが必ず付く。
+          // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
+          if (MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
+            layers.push({
+              url: sizeSpecificWhiteRoundPipingAsset(state.sel.variant?.size_label),
+              z: 38,
+              tint,
+              autoMocoEdgePiping: true,
+            });
+          }
         }
       }
     } else if (g.default_layer_url) {

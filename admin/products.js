@@ -935,7 +935,9 @@ const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3
 const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 const typeOptions = (sel) => Q_TYPES.map((t) =>
   `<option value="${t.v}" ${t.v === sel ? "selected" : ""}>${t.label}</option>`).join("");
-const questionOf = (optionId) => state.questions.find((q) => q.option_id === optionId) || null;
+const questionsOf = (optionId) => state.questions
+  .filter((q) => q.option_id === optionId)
+  .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 
 /* ---------- フォーカスした欄に対応するプレビュー箇所を光らせる ----------
  * 「お客様に見えます」というバッジや説明文の代わり（まりほ指摘：説明はUIでカバーできる）。
@@ -1189,14 +1191,14 @@ function buildGroupBox(p, g) {
     name: g.name, required: !!g.is_required, single: g.selection_type === "single",
     desc: g.description || "", note: g.note || "", accent: !!g.note_accent,
     opts: [...g.options].sort((a, b) => a.display_order - b.display_order).map((o) => {
-      const q = questionOf(o.id);
+      const qs = questionsOf(o.id);
       return {
         id: o.id, name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
-        q: q ? {
-          label: q.label, type: q.input_type, required: q.is_required, imageMax: imgMaxOf(q),
+        qs: qs.map((q) => ({ id: q.id,
+          label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
           linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
           choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
-        } : null,
+        })),
       };
     }),
   };
@@ -1213,7 +1215,7 @@ function buildGroupBox(p, g) {
         <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
         <span>${o.price ? "+¥" + o.price.toLocaleString("ja-JP") : "無料"}</span>
       </div>
-      ${o.q ? `<div class="cfield" data-option-id="${esc(o.id)}">${esc(o.q.label || "（質問文）")}${answerFieldHtml(o.q)}</div>` : ""}`).join("");
+      ${(o.qs || []).filter(q => q.active !== false).map(q => `<div class="cfield" data-option-id="${esc(o.id)}" data-question-id="${esc(q.id)}">${esc(q.label || "（質問文）")}${answerFieldHtml(q)}</div>`).join("")}`).join("");
     applyLight();
   };
 
@@ -1256,6 +1258,8 @@ function buildGroupBox(p, g) {
       const ids = g.options.map((o) => o.id).join(",");
       if (ids) {
         await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.in.(${ids}),option_b.in.(${ids}))`);
+        const questionIds = g.options.flatMap((option) => questionsOf(option.id)).map((q) => q.id).join(",");
+        if (questionIds) await api("DELETE", `/rest/v1/common_question_choices?question_id=in.(${questionIds})`);
         await api("DELETE", `/rest/v1/common_questions?option_id=in.(${ids})`);
       }
       await api("DELETE", `/rest/v1/options?group_id=eq.${g.id}`);
@@ -1313,7 +1317,7 @@ function marksHtml(o, ov) {
   const mk = (on, yes, no) => `<span class="mk ${on ? "" : "off"}">${on ? yes : no}</span>`;
   return mk(!!(o.description || "").trim(), "説明あり", "説明なし")
     + mk(!!(o.note || "").trim(), "注意書きあり", "注意書きなし")
-    + mk(!!ov.q, "質問あり", "質問なし")
+    + mk(!!ov.qs?.length, ov.qs?.length > 1 ? `質問${ov.qs.length}件` : "質問あり", "質問なし")
     + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし")
     + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "")
     + (o.requires_review ? '<span class="mk">見積もり・承諾が必要</span>' : "")
@@ -1326,7 +1330,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const availability = optionAvailability(o);
   row.className = "opt" + (open ? " open" : "") + (availability.available ? "" : " stopped");
   const isLinked = !!o.shared_list_item_id;
-  const q = questionOf(o.id);
+  const qs = questionsOf(o.id);
   row.innerHTML = `
     <div class="opt-line">
       <input type="text" class="oname inplace" value="${esc(isLinked ? optDisplayName(o) : o.name)}" aria-label="選択肢名"
@@ -1350,9 +1354,11 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><span class="k">注意書き</span>
         <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
         <label class="chk"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
-      <div class="fb">
-        <label class="chk"><input type="checkbox" class="o-qon" ${q ? "checked" : ""}>この選択肢を選んだ人にだけ質問する</label>
+      <div class="fb o-questions">
+        <span class="k">この選択肢を選んだ人への質問</span>
+        <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
         <div class="o-qbox"></div>
+        <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
       </div>
       <div class="o-photo"></div>
       <div class="acts">
@@ -1436,33 +1442,52 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
 
   /* 選択肢の質問（この選択肢を選んだ人にだけ聞く） */
   const qWrap = row.querySelector(".o-qbox");
-  if (q) {
-    const qLight = () => {
-      const grp = row.closest(".grp");
-      return grp.querySelector(`.pv-opts .cfield[data-option-id="${o.id}"]`);
+  const questionRows = [];
+  for (const q of qs) {
+    const qView = ov.qs?.find((x) => x.id === q.id) || {
+      id: q.id, label: q.label, type: q.input_type, required: q.is_required,
+      active: q.is_active !== false, imageMax: imgMaxOf(q),
+      linkLabel: q.pastel_link_option_name ? (q.pastel_link_label || `${q.pastel_link_option_name}も同じ色にする`) : "",
+      choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
     };
-    qWrap.appendChild(buildQuestionFields(q, ov.q, paintGroup, { hideHelp: false, lightLabel: qLight }));
-  }
-  row.querySelector(".o-qon").onchange = async (e) => {
-    if (e.target.checked) {
-      await api("POST", "/rest/v1/common_questions", [{
-        tenant_id: state.tenantId, label: "", input_type: "text",
-        is_required: true, option_id: o.id, display_order: 0,
-      }]);
-      state.openOptions.add(o.id);
-    } else {
-      if (!confirm("この選択肢の質問を削除しますか？（お客様に聞かなくなります）")) {
-        e.target.checked = true; return;
-      }
+    const item = document.createElement("div");
+    item.className = "sub o-question-item" + (q.is_active === false ? " stopped" : "");
+    item.innerHTML = `<div class="o-question-bar"><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
+      <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
+      <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
+      <button type="button" class="pill danger o-qdel">削除</button></div>`;
+    const qLight = () => row.closest(".grp")?.querySelector(`.pv-opts .cfield[data-question-id="${q.id}"]`);
+    item.appendChild(buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight }));
+    item.querySelector(".o-qtoggle").onclick = async () => {
+      await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: q.is_active === false });
+      reloadAll();
+    };
+    item.querySelector(".o-qdel").onclick = async () => {
+      if (!confirm(`質問「${q.label || "（未入力）"}」を削除しますか？`)) return;
       try {
         await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
         await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
       } catch {
-        // すでに回答がある質問は消せない（過去の予約の記録が壊れるため）→ 止めるだけにする
         await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: false });
         toast("すでに回答がある質問のため、削除ではなく停止しました");
       }
-    }
+      reloadAll();
+    };
+    qWrap.appendChild(item);
+    questionRows.push({ data: q, row: item, target: item.querySelector(".o-question-bar") });
+  }
+  addOrderControls(qWrap, questionRows, "common_questions", (ids) => {
+    if (ov.qs) ov.qs.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    paintGroup();
+  });
+  row.querySelector(".o-qadd").onclick = async () => {
+    await api("POST", "/rest/v1/common_questions", [{
+      tenant_id: state.tenantId, label: "", input_type: "text",
+      is_required: false, option_id: o.id,
+      display_order: Math.max(-1, ...qs.map(q => Number(q.display_order) || 0)) + 1,
+    }]);
+    state.openOptions.add(o.id);
+    toast("質問を追加しました（質問文と回答方法を設定してください）");
     reloadAll();
   };
 
@@ -1493,9 +1518,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     if (!confirm(`「${optDisplayName(o)}」を削除しますか？`)) return;
     try {
       await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.eq.${o.id},option_b.eq.${o.id})`);
-      if (q) {
-        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
-        await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+      for (const question of qs) {
+        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${question.id}`);
+        await api("DELETE", `/rest/v1/common_questions?id=eq.${question.id}`);
       }
       await api("DELETE", `/rest/v1/options?id=eq.${o.id}`);
       toast("削除しました");

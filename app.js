@@ -593,7 +593,12 @@ function renderProducts() {
  *   2. 商品写真がある     → 写真を表示
  *   3. どちらもない       → 絵文字
  */
-const LAYER_CANVAS = 800;
+// サイズ別素材は960px四方を共通の座標面として作る。
+// 従来の15cm素材（800px）は中央へ置き、12cm・18cmの960px素材を
+// 縮小せず描くことで、実物どおり 12cm＜15cm＜18cm の幅になる。
+const LAYER_CANVAS = 960;
+const LEGACY_LAYER_CANVAS = 800;
+const LEGACY_LAYER_OFFSET = (LAYER_CANVAS - LEGACY_LAYER_CANVAS) / 2;
 const imgCache = new Map();
 const alphaBoundsCache = new Map();
 const CALENDAR_FONT = "oyatsupokkefont";
@@ -746,6 +751,18 @@ function loadImg(url) {
   return p;
 }
 
+function layerDrawRect(img) {
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+  if(w===LEGACY_LAYER_CANVAS&&h===LEGACY_LAYER_CANVAS)
+    return {x:LEGACY_LAYER_OFFSET,y:LEGACY_LAYER_OFFSET,w,h};
+  return {x:0,y:0,w:LAYER_CANVAS,h:LAYER_CANVAS};
+}
+
+function drawLayerImage(ctx,img) {
+  const r=layerDrawRect(img);
+  ctx.drawImage(img,r.x,r.y,r.w,r.h);
+}
+
 function imageAlphaBounds(img, key) {
   if (alphaBoundsCache.has(key)) return alphaBoundsCache.get(key);
   const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
@@ -807,7 +824,7 @@ function drawNumberCookieLayers(ctx, entries) {
     const gap=layout.gap,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
     // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
     const scale=numberCookieScale(raw,items.length,layout.maxWidth);
-    const total=raw*scale,{centerX,bottom}=layout;
+    const total=raw*scale,centerX=layout.centerX+LEGACY_LAYER_OFFSET,bottom=layout.bottom+LEGACY_LAYER_OFFSET;
     let x=numberCookieStartX(centerX,total);
     for(const item of items){
       const w=item.w*scale,h=item.h*scale;
@@ -885,7 +902,7 @@ function drawAnimalToppingLayers(ctx, entries) {
     if (!layout) return;
     const {cx,cy,h} = layout;
     const w = h * b.w / b.h;
-    ctx.drawImage(img, b.x, b.y, b.w, b.h, cx - w / 2, cy - h / 2, w, h);
+    ctx.drawImage(img, b.x, b.y, b.w, b.h, cx+LEGACY_LAYER_OFFSET-w/2, cy+LEGACY_LAYER_OFFSET-h/2, w, h);
   });
 }
 
@@ -893,7 +910,7 @@ function messagePlateLayout(img, url, mode) {
   const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
-  if(!mode)return {b,cx:b.x+b.w/2,cy:b.y+b.h/2,w:b.w,h:b.h};
+  if(!mode){const o=layerDrawRect(img).x;return {b,cx:b.x+b.w/2+o,cy:b.y+b.h/2+o,w:b.w,h:b.h};}
   const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
@@ -901,7 +918,7 @@ function messagePlateLayout(img, url, mode) {
     :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
     :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
-  return {b,cx,cy,w,h};
+  return {b,cx:cx+LEGACY_LAYER_OFFSET,cy:cy+LEGACY_LAYER_OFFSET,w,h};
 }
 
 function drawShiftedMessagePlate(ctx, img, url, mode) {
@@ -1123,7 +1140,7 @@ function currentLayers() {
           ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
-        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl);
+        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option");
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
@@ -1201,8 +1218,8 @@ async function updatePreview() {
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
     const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
-      if(layers[i].calendarCake){drawCalendarLayer(ctx,layers[i].calendarCake);continue;}
-      if(layers[i].directMessage){drawDirectMessageLayer(ctx,layers[i].directMessage);continue;}
+      if(layers[i].calendarCake){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawCalendarLayer(ctx,layers[i].calendarCake);ctx.restore();continue;}
+      if(layers[i].directMessage){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
@@ -1215,7 +1232,7 @@ async function updatePreview() {
       }
       if(layers[i].tint){
         const mask=document.createElement('canvas');mask.width=mask.height=LAYER_CANVAS;
-        const mx=mask.getContext('2d');mx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
+        const mx=mask.getContext('2d');drawLayerImage(mx,img);
         // 元画像のRGBを明暗情報として使う。白は選択色そのまま、薄い影や刷毛跡は
         // 同系色の少し濃い色になり、透明度と輪郭も元画像のまま残る。
         const rgb=[1,3,5].map(n=>parseInt(layers[i].tint.slice(n,n+2),16));
@@ -1228,12 +1245,12 @@ async function updatePreview() {
         }
         mx.putImageData(pixels,0,0);
         ctx.drawImage(mask,0,0);
-      } else ctx.drawImage(img, 0, 0, LAYER_CANVAS, LAYER_CANVAS);
+      } else drawLayerImage(ctx,img);
       if(layers[i].messagePlateText)drawMessagePlateText(ctx,img,layers[i].url,null,layers[i].messagePlateText);
     }
     drawNumberCookieLayers(ctx,numberEntries);
     drawAnimalToppingLayers(ctx,dynamicLargeAnimalEntries);
-    for(const img of dogPawEntries)ctx.drawImage(img,0,0,LAYER_CANVAS,LAYER_CANVAS);
+    for(const img of dogPawEntries)drawLayerImage(ctx,img);
     return;
   }
 

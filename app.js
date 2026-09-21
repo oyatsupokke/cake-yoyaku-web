@@ -623,6 +623,7 @@ const OYATSU_12CM_DECORATION_LAYER_FILES = {
   "strawberry-drip.png": "12cm/strawberry-drip.png",
   "round-piping.png": "12cm/round-piping.png",
   "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
+  "fruit-side-muscat.png": "12cm/fruit-side-muscat.png",
   "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
   "fruit-side-herb.png": "12cm/fruit-side-herb.png",
   "herb-ring.png": "12cm/herb-ring.png",

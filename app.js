@@ -643,14 +643,37 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "dog-cake.png": "18cm/dog-cake.png",
   },
 };
+const OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE = {
+  "12cm": {
+    "naked-chocolate.png": "chocolate/12cm/naked-chocolate.png",
+    "round-piping.png": "chocolate/12cm/round-piping.png",
+  },
+  "15cm": {
+    "round-piping.png": "chocolate/15cm/round-piping.png",
+  },
+  "18cm": {
+    "naked-chocolate.png": "chocolate/18cm/naked-chocolate.png",
+    "round-piping.png": "chocolate/18cm/round-piping.png",
+  },
+};
 function layerFileName(url) {
   try { return decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || ""); }
   catch { return String(url || "").split('/').pop() || ""; }
 }
 function sizeSpecificLayerUrl(url, role = "option") {
-  if (CONFIG.shop !== "pokke" || state.sel.product?.name !== "デコレーションケーキ"
-      || !OYATSU_DECORATION_LAYER_FILES_BY_SIZE[state.sel.variant?.size_label]) return url;
-  const size=state.sel.variant.size_label;
+  if (CONFIG.shop !== "pokke") return url;
+  const size=state.sel.variant?.size_label;
+  if(!size)return url;
+  if(state.sel.product?.name === "チョコレートケーキ"){
+    const files=OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE[size];
+    if(!files)return url;
+    if(role === "base" && ["12cm","18cm"].includes(size))
+      return cakeLayerAsset(`chocolate/${size}/chocolate-base.png`);
+    const file=files[layerFileName(url)];
+    return file ? cakeLayerAsset(file) : url;
+  }
+  if (state.sel.product?.name !== "デコレーションケーキ"
+      || !OYATSU_DECORATION_LAYER_FILES_BY_SIZE[size]) return url;
   if (role === "base") return cakeLayerAsset(`${size}/decoration-base.png`);
   const file = OYATSU_DECORATION_LAYER_FILES_BY_SIZE[size][layerFileName(url)];
   return file ? cakeLayerAsset(file) : url;

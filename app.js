@@ -1146,6 +1146,26 @@ function drawCalendarLayer(ctx, cal) {
   ctx.restore();
 }
 
+function calendarLayerTransform(size) {
+  // 12cmは上面が小さいため、15cm基準の文字組みを少し縮めて下へ寄せる。
+  if (size === "12cm") return { scale: .93, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET + 20 };
+  return { scale: 1, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET };
+}
+
+function drawSizedCalendarLayer(ctx, cal) {
+  const t = calendarLayerTransform(state.sel.variant?.size_label);
+  ctx.save();
+  ctx.translate(t.offsetX, t.offsetY);
+  if (t.scale !== 1) {
+    // 横中心は変えず、カレンダーが載る上面中央を基準に縮小する。
+    ctx.translate(400, 300);
+    ctx.scale(t.scale, t.scale);
+    ctx.translate(-400, -300);
+  }
+  drawCalendarLayer(ctx, cal);
+  ctx.restore();
+}
+
 // 今の選択内容から、重ねる素材を下から順に並べる
 function currentLayers() {
   const p = state.sel.product;
@@ -1262,7 +1282,7 @@ async function updatePreview() {
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
     const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
-      if(layers[i].calendarCake){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawCalendarLayer(ctx,layers[i].calendarCake);ctx.restore();continue;}
+      if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
       if(layers[i].directMessage){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}

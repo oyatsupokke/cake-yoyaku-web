@@ -821,14 +821,27 @@ function numberCookieLayout(size, layouts, selectedNames) {
 }
 
 function numberCookieScale(rawWidth, count, layoutMaxWidth) {
-  // 3桁までは1枚ごとの大きさを変えない。列を左右へずらして画面内に収める。
-  // 4枚以上、または3枚でもキャンバス自体に入らない場合だけ縮小する。
-  const available = count <= 3 ? LAYER_CANVAS - 40 : layoutMaxWidth;
-  return Math.min(1, available / Math.max(rawWidth, 1));
+  // 実物のクッキーはケーキサイズや桁数で小さくならない。3桁までは必ず原寸。
+  // 4枚以上だけ、プレビュー枠から完全にはみ出すのを避けるため縮小する。
+  if(count<=3)return 1;
+  return Math.min(1, layoutMaxWidth / Math.max(rawWidth, 1));
 }
 
 function numberCookieStartX(centerX, totalWidth) {
   return Math.max(20, Math.min(centerX - totalWidth / 2, LAYER_CANVAS - 20 - totalWidth));
+}
+
+function numberCookieCenterX(layout, count) {
+  // 右側に置く「小」も、3桁では列全体がはみ出して見えるためケーキ中央へ寄せる。
+  return (count === 3 ? 400 : layout.centerX) + LEGACY_LAYER_OFFSET;
+}
+
+function normalizeNumberCookieText(value) {
+  return String(value || "").replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+}
+
+function numberCookieDigits(value) {
+  return normalizeNumberCookieText(value).match(/[0-9]/g) || [];
 }
 
 // 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
@@ -857,7 +870,7 @@ function drawNumberCookieLayers(ctx, entries) {
     const gap=layout.gap,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
     // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
     const scale=numberCookieScale(raw,items.length,layout.maxWidth);
-    const total=raw*scale,centerX=layout.centerX+LEGACY_LAYER_OFFSET,bottom=layout.bottom+LEGACY_LAYER_OFFSET;
+    const total=raw*scale,centerX=numberCookieCenterX(layout,items.length),bottom=layout.bottom+LEGACY_LAYER_OFFSET;
     let x=numberCookieStartX(centerX,total);
     for(const item of items){
       const w=item.w*scale,h=item.h*scale;
@@ -1200,7 +1213,7 @@ function currentLayers() {
           if(calendarCake && name==="クッキープレート")continue;
           if(layerUrl.includes('{digit}')){
             const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
-            const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
+            const digits=numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text);
             const qty=Math.max(1,state.sel.options.get(o.id)?.qty||1);
             for(const digit of digits.slice(0,qty))layers.push({
               url:layerUrl.replace('{digit}',digit),z:o.layer_z??80,
@@ -1865,11 +1878,18 @@ function buildQuestionField(q) {
 
   const inputs = [...field.querySelectorAll("input,textarea,select")];
   const saved = normAnswer(state.sel.answers.get(q.id));
+  const questionOption=qOptionId(q)?findOption(qOptionId(q))?.o:null;
+  const numberCookieQuestion=!!questionOption?.layer_url?.includes('{digit}');
+  if(numberCookieQuestion&&inputs[0]){
+    inputs[0].setAttribute('inputmode','numeric');
+    inputs[0].setAttribute('pattern','[0-9０-９]*');
+  }
   const multi = q.input_type === "radio" || q.input_type === "checkbox";
   if (multi) inputs.forEach((i) => { i.checked = saved.choiceIds.includes(i.value); });
   else if (q.input_type === "select") inputs[0].value = saved.choiceIds[0] || "";
   else inputs[0].value = saved.text || "";
-  const onChange = () => {
+  const onChange = (event) => {
+    if(numberCookieQuestion&&!event?.isComposing)inputs[0].value=normalizeNumberCookieText(inputs[0].value);
     if (multi) {
       state.sel.answers.set(q.id, { text: null, choiceIds: inputs.filter((i) => i.checked).map((i) => i.value) });
     } else if (q.input_type === "select") {
@@ -2097,7 +2117,7 @@ function validate() {
       return `「${optName(f.o)}」：${f.o.text_prompt}`;
     if (f?.o.layer_url?.includes('{digit}')) {
       const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
-      const digits=(normAnswer(state.sel.answers.get(q?.id)).text||'').match(/[0-9]/g)||[];
+      const digits=numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text);
       if(digits.length!==v.qty)return `「${optName(f.o)}」は、選んだ枚数分の数字をご記入ください`;
     }
     if (f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {

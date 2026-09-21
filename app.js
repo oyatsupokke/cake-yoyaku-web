@@ -1545,6 +1545,7 @@ function renderGroups() {
           stepper.querySelector(".qty-minus").disabled = v <= 1;
           stepper.querySelector(".qty-plus").disabled = v >= maxQty;
           updatePriceBar();
+          updatePreview();
         };
         stepper.querySelector(".qty-minus").onclick = (e) => { e.stopPropagation(); step(-1); };
         stepper.querySelector(".qty-plus").onclick = (e) => { e.stopPropagation(); step(1); };

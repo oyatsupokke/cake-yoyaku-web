@@ -1800,8 +1800,12 @@ function answerInputsHtml(q) {
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
   }
   if (q.input_type === "date") return `<input type="date">`;
-  if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q)))
-    return `<textarea rows="3" placeholder="例：Happy Birthday&#10;まりちゃん"></textarea>`;
+  if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q))) {
+    const placeholder = isMessageQuestion(q) ? "例：Happy Birthday\nまりちゃん"
+      : /伝達事項/.test(q.label || "") ? "例：予約者本人には知らせず、当日持参する封筒でお伝えします"
+      : "こちらにご記入ください";
+    return `<textarea rows="3" placeholder="${esc(placeholder)}"></textarea>`;
+  }
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
       cs.map((c) => `<option value="${esc(c.id)}">${esc(c.label)}${plus(c)}</option>`).join("") + `</select>`;

@@ -754,9 +754,10 @@ const pastelAnswerText = (hex,note,linked=false) => hex.toUpperCase() + (linked?
 function pastelLinkMatches(targetName, optionName) {
   if (!targetName || !optionName) return false;
   if (targetName === optionName) return true;
-  // 「上の丸絞り」は、果物1周の白い絞りと、もこもこホイップも含む。
+  // 「上の丸絞り」は、果物1周の白い絞りと「カラー」を選んだもこもこだけを含む。
+  // 「全面・白」「フチのみ・白」は、ベースカラーを変えても白のままにする。
   return targetName === "丸絞り1周"
-    && (optionName === "フルーツ1周" || MOCO_OPTION_NAMES.has(optionName));
+    && (optionName === "フルーツ1周" || optionName.endsWith("・カラー"));
 }
 function pastelHueName(hue) {
   const h=((Number(hue)||0)%360+360)%360;

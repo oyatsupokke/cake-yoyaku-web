@@ -618,8 +618,15 @@ const BACK_ANIMAL_TOPPING_NAMES = new Set(["ねこクッキー", "うさぎメ�
 const HERB_TOPPING_NAMES = new Set([
   "ハーブ、エディブルフラワー1周", "ハーブ、エディブルフラワートッピング",
 ]);
+const MOCO_OPTION_NAMES = new Set([
+  "全面・白", "全面・カラー", "フチのみ・白", "フチのみ・カラー",
+]);
+const MOCO_FULL_OPTION_NAMES = new Set(["全面・白", "全面・カラー"]);
 const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
 const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-corrected`);
+const sizeSpecificMocoLayerAsset = (size, name) => cakeLayerAsset(
+  `${size}/${MOCO_FULL_OPTION_NAMES.has(name) ? "moco-full.png" : "moco-edge.png"}?v=20260921-size`
+);
 // oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
 // 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
 // ファイル名で解決できるようにし、DB側の設定は15cm・18cmと共用する。
@@ -666,10 +673,12 @@ function layerFileName(url) {
   try { return decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || ""); }
   catch { return String(url || "").split('/').pop() || ""; }
 }
-function sizeSpecificLayerUrl(url, role = "option") {
+function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
   if (CONFIG.shop !== "pokke") return url;
   const size=state.sel.variant?.size_label;
   if(!size)return url;
+  if (["12cm", "15cm", "18cm"].includes(size) && MOCO_OPTION_NAMES.has(optionName))
+    return sizeSpecificMocoLayerAsset(size, optionName);
   if(state.sel.product?.name === "チョコレートケーキ"){
     const files=OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE[size];
     if(!files)return url;
@@ -738,6 +747,13 @@ function parsePastelAnswer(text) {
   return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??lDark)-lDark)/(lPale-lDark)*100))),hex:m[1].toUpperCase(),linked:!!m[2],note:m[3]||""};
 }
 const pastelAnswerText = (hex,note,linked=false) => hex.toUpperCase() + (linked?'／連動：同色':'') + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
+function pastelLinkMatches(targetName, optionName) {
+  if (!targetName || !optionName) return false;
+  if (targetName === optionName) return true;
+  // 「上の丸絞り」は、果物1周の白い絞りと、もこもこホイップも含む。
+  return targetName === "丸絞り1周"
+    && (optionName === "フルーツ1周" || MOCO_OPTION_NAMES.has(optionName));
+}
 function pastelHueName(hue) {
   const h=((Number(hue)||0)%360+360)%360;
   if(h<15||h>=345)return "赤系";
@@ -1153,7 +1169,7 @@ function currentLayers() {
           ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
-        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option");
+        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
@@ -1170,7 +1186,7 @@ function currentLayers() {
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
           const linkedQ=state.questions.find(q=>qLive(q)&&q.input_type==='pastel_color'
-            &&q.pastel_link_option_name===name&&state.sel.options.has(qOptionId(q))
+            &&pastelLinkMatches(q.pastel_link_option_name,name)&&state.sel.options.has(qOptionId(q))
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
             :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
@@ -1184,6 +1200,7 @@ function currentLayers() {
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
             url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
+            creamOnlyTint: !!linkedQ && name === "フルーツ1周",
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,
@@ -1252,9 +1269,12 @@ async function updatePreview() {
         const pixels=mx.getImageData(0,0,LAYER_CANVAS,LAYER_CANVAS);
         for(let p=0;p<pixels.data.length;p+=4){
           if(!pixels.data[p+3])continue;
-          pixels.data[p]=Math.round(rgb[0]*pixels.data[p]/255);
-          pixels.data[p+1]=Math.round(rgb[1]*pixels.data[p+1]/255);
-          pixels.data[p+2]=Math.round(rgb[2]*pixels.data[p+2]/255);
+          const r=pixels.data[p],g=pixels.data[p+1],b=pixels.data[p+2];
+          // 果物1周は果物の色を残し、白い絞りだけを土台色に連動させる。
+          if(layers[i].creamOnlyTint && (Math.max(r,g,b)-Math.min(r,g,b)>22 || Math.min(r,g,b)<185))continue;
+          pixels.data[p]=Math.round(rgb[0]*r/255);
+          pixels.data[p+1]=Math.round(rgb[1]*g/255);
+          pixels.data[p+2]=Math.round(rgb[2]*b/255);
         }
         mx.putImageData(pixels,0,0);
         ctx.drawImage(mask,0,0);
@@ -1734,7 +1754,8 @@ function answerInputsHtml(q) {
       `<span class="small img-note"></span></span>`;
   }
   if(q.input_type==='pastel_color') {
-    const linkedSelected=q.pastel_link_option_name&&[...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})===q.pastel_link_option_name);
+    const linkedSelected=q.pastel_link_option_name&&[...state.sel.options.keys()].some(id=>
+      pastelLinkMatches(q.pastel_link_option_name,optName(findOption(id)?.o||{})));
     return `<span class="pastel-picker"><span class="pastel-swatch" aria-hidden="true"></span>`+
     `<label>色の種類<input class="pastel-hue" type="range" min="0" max="359" step="1"></label>`+
     `<span class="pastel-hue-labels" aria-hidden="true"><i>赤</i><i>黄</i><i>緑</i><i>水色</i><i>青</i><i>紫</i><i>ピンク</i><i>赤</i></span>`+

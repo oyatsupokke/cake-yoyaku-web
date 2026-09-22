@@ -1269,9 +1269,12 @@ function currentLayers() {
           // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
           if (MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
             layers.push({
-              url: sizeSpecificMocoEdgePipingAsset(state.sel.variant?.size_label),
+              url: calendarCake && p.name==="デコレーションケーキ" && state.sel.variant?.size_label==="15cm"
+                ? cakeLayerAsset("calendar/15cm/round-piping.png")
+                : sizeSpecificMocoEdgePipingAsset(state.sel.variant?.size_label),
               z: 38,
-              tint,
+              // 「フチのみ・カラー」はもこもこのフチだけを着色し、境目の丸絞りは白のまま。
+              tint: null,
               autoMocoEdgePiping: true,
             });
           }

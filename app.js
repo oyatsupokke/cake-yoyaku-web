@@ -667,6 +667,7 @@ const OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE = {
   "12cm": {
     "naked-chocolate.png": "chocolate/12cm/naked-chocolate.png",
     "round-piping.png": "chocolate/12cm/round-piping.png",
+    "herb-ring.png": "12cm/herb-ring.png",
   },
   "15cm": {
     "round-piping.png": "chocolate/15cm/round-piping.png",
@@ -674,6 +675,7 @@ const OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE = {
   "18cm": {
     "naked-chocolate.png": "chocolate/18cm/naked-chocolate.png",
     "round-piping.png": "chocolate/18cm/round-piping.png",
+    "herb-ring.png": "18cm/herb-ring.png",
   },
 };
 function layerFileName(url) {

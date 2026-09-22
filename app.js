@@ -859,10 +859,20 @@ function numberCookieCenterX(layout, count) {
   return (count >= 3 ? 400 : layout.centerX) + LEGACY_LAYER_OFFSET;
 }
 
+function numberCookieDigitGroups(value) {
+  const normalized=normalizeNumberCookieText(value);
+  const groups=(normalized.match(/[0-9]+/g)||[]).map(part=>[...part]);
+  return groups.length?groups:[[]];
+}
+
 function numberCookieRows(items) {
-  if(items.length===4)return [items.slice(0,2),items.slice(2,4)];
-  if(items.length===5)return [items.slice(0,3),items.slice(3,5)];
-  return [items];
+  const grouped=new Map();
+  for(const item of items){
+    const group=item.group??0;
+    if(!grouped.has(group))grouped.set(group,[]);
+    grouped.get(group).push(item);
+  }
+  return [...grouped.values()];
 }
 
 function normalizeNumberCookieText(value) {
@@ -1283,11 +1293,13 @@ function currentLayers() {
           if(calendarCake && name==="クッキープレート")continue;
           if(layerUrl.includes('{digit}')){
             const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
-            const digits=numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text);
+            const rawNumber=normAnswer(state.sel.answers.get(q?.id)).text;
+            const groupedDigits=numberCookieDigitGroups(rawNumber);
+            const digits=groupedDigits.flatMap((groupDigits,group)=>groupDigits.map(digit=>({digit,group})));
             const qty=Math.max(1,state.sel.options.get(o.id)?.qty||1);
-            for(const digit of digits.slice(0,qty))layers.push({
+            for(const {digit,group} of digits.slice(0,qty))layers.push({
               url:layerUrl.replace('{digit}',digit),z:o.layer_z??80,
-              numberCookie:{size:name.includes('小')?'S':'L'}
+              numberCookie:{size:name.includes('小')?'S':'L',group}
             });
             continue;
           }

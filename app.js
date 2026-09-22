@@ -844,10 +844,9 @@ function numberCookieLayout(size, layouts, selectedNames) {
 }
 
 function numberCookieScale(rawWidth, count, layoutMaxWidth) {
-  // 実物のクッキーはケーキサイズや桁数で小さくならない。3桁までは必ず原寸。
-  // 4枚以上だけ、プレビュー枠から完全にはみ出すのを避けるため縮小する。
-  if(count<=3)return 1;
-  return Math.min(1, layoutMaxWidth / Math.max(rawWidth, 1));
+  // 実物のクッキーはケーキサイズや桁数で小さくならない。
+  // 4枚以上は縮小せず、描画時に複数段へ分ける。
+  return 1;
 }
 
 function numberCookieStartX(centerX, totalWidth) {
@@ -855,8 +854,14 @@ function numberCookieStartX(centerX, totalWidth) {
 }
 
 function numberCookieCenterX(layout, count) {
-  // 右側に置く「小」も、3桁では列全体がはみ出して見えるためケーキ中央へ寄せる。
-  return (count === 3 ? 400 : layout.centerX) + LEGACY_LAYER_OFFSET;
+  // 右側に置く「小」も、3枚以上では列全体がはみ出して見えるためケーキ中央へ寄せる。
+  return (count >= 3 ? 400 : layout.centerX) + LEGACY_LAYER_OFFSET;
+}
+
+function numberCookieRows(items) {
+  if(items.length===4)return [items.slice(0,2),items.slice(2,4)];
+  if(items.length===5)return [items.slice(0,3),items.slice(3,5)];
+  return [items];
 }
 
 function normalizeNumberCookieText(value) {
@@ -890,16 +895,22 @@ function drawNumberCookieLayers(ctx, entries) {
       const b=imageAlphaBounds(img,layer.url),h=height;
       return {img,b,h,w:h*b.w/b.h};
     });
-    const gap=layout.gap,raw=items.reduce((n,x)=>n+x.w,0)+gap*(items.length-1);
-    // 大は中央。小は参考写真どおり右側の、うさぎとわんこの間へ置く。
-    const scale=numberCookieScale(raw,items.length,layout.maxWidth);
-    const total=raw*scale,centerX=numberCookieCenterX(layout,items.length),bottom=layout.bottom+LEGACY_LAYER_OFFSET;
-    let x=numberCookieStartX(centerX,total);
-    for(const item of items){
-      const w=item.w*scale,h=item.h*scale;
-      ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);
-      x+=w+gap*scale;
-    }
+    const gap=layout.gap,rows=numberCookieRows(items);
+    // 大は中央。小は参考写真どおり右側へ。4枚以上は原寸のまま2段にする。
+    const centerX=numberCookieCenterX(layout,items.length),baseBottom=layout.bottom+LEGACY_LAYER_OFFSET;
+    const rowStep=height*.82;
+    rows.forEach((row,rowIndex)=>{
+      const raw=row.reduce((n,x)=>n+x.w,0)+gap*(row.length-1);
+      const scale=numberCookieScale(raw,items.length,layout.maxWidth);
+      const total=raw*scale;
+      const bottom=baseBottom+(rowIndex-(rows.length-1)/2)*rowStep;
+      let x=numberCookieStartX(centerX,total);
+      for(const item of row){
+        const w=item.w*scale,h=item.h*scale;
+        ctx.drawImage(item.img,item.b.x,item.b.y,item.b.w,item.b.h,x,bottom-h,w,h);
+        x+=w+gap*scale;
+      }
+    });
   }
 }
 

@@ -1510,6 +1510,29 @@ function buildDetachedToppingPicker(g, detachedId) {
   return wrap;
 }
 
+function linkedPastelQuestionForTarget(optionName) {
+  return state.questions.find((q) => qLive(q) && q.input_type === "pastel_color"
+    && q.pastel_link_option_name === optionName
+    && state.sel.options.has(qOptionId(q)));
+}
+
+function buildOptionPastelLink(optionName) {
+  const q=linkedPastelQuestionForTarget(optionName);
+  if(!q)return null;
+  const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
+  const label=document.createElement("label");
+  label.className="pastel-link option-pastel-link";
+  label.innerHTML=`<input type="checkbox" ${saved.linked?"checked":""}>${esc(q.pastel_link_label||`${optionName}も同じ色にする`)}`;
+  label.onclick=(e)=>e.stopPropagation();
+  label.querySelector("input").onchange=(e)=>{
+    const current=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
+    state.sel.answers.set(q.id,{text:pastelAnswerText(current.hex,current.note,e.target.checked),choiceIds:[]});
+    updatePreview();
+    saveState();
+  };
+  return label;
+}
+
 function renderGroups() {
   const wrap = $("group-list");
   wrap.innerHTML = "";
@@ -1591,6 +1614,8 @@ function renderGroups() {
         stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty;
       }
       box.appendChild(row);
+      const optionPastelLink=buildOptionPastelLink(optName(o));
+      if(optionPastelLink)box.appendChild(optionPastelLink);
       if(selected && optName(o)===DETACHED_TOPPING_OPTION){
         box.appendChild(buildDetachedToppingPicker(g,o.id));
       }
@@ -1845,7 +1870,6 @@ function answerInputsHtml(q) {
     `<label>淡さ<input class="pastel-soft" type="range" min="0" max="100" step="1"></label>`+
     `<span class="pastel-soft-labels" aria-hidden="true"><i>濃いめ（上限）</i><i>とても淡い</i></span>`+
     `<span class="pastel-name"></span><span class="pastel-value"></span>`+
-    (q.pastel_link_option_name?`<label class="pastel-link"><input type="checkbox">${esc(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`)}</label>`:'')+
     `<textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
   }
@@ -1894,7 +1918,7 @@ function buildQuestionField(q) {
     const hue=field.querySelector('.pastel-hue'),soft=field.querySelector('.pastel-soft'),note=field.querySelector('.pastel-note'),link=field.querySelector('.pastel-link input');
     const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
     hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;if(link)link.checked=saved.linked;
-    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,link?link.checked:saved.linked),choiceIds:[]});updatePreview();updatePriceBar();};
+    const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));const linked=link?link.checked:parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked;state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,linked),choiceIds:[]});updatePreview();updatePriceBar();};
     [hue,soft,note,link].filter(Boolean).forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
   }
 

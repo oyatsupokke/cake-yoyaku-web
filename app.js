@@ -483,6 +483,9 @@ function toppingCapacityError() {
   if(CONFIG.shop!=="pokke")return "";
   const names=[...state.sel.options.keys()].map(id=>optName(findOption(id)?.o||{}));
   const largeOnCake=names.includes("ナンバークッキー大")&&!optionIsDetached("ナンバークッキー大");
+  const calendarOnCake=names.some(name=>CALENDAR_OPTION_NAMES.has(name));
+  if(calendarOnCake&&selectedAnimalToppingCount()>2)
+    return "カレンダーケーキの側面に付けられる動物トッピングは2匹までです";
   return largeOnCake&&selectedAnimalToppingCount()>2
     ? "ナンバークッキー大と一緒に載せる動物トッピングは2匹までにしてください" : "";
 }
@@ -493,9 +496,14 @@ function toppingCapacityConflict(o) {
   const name = optName(o);
   const largeSelected = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナンバークッキー大")
     && !optionIsDetached("ナンバークッキー大");
+  const calendarSelected = [...state.sel.options.keys()].some((id) => CALENDAR_OPTION_NAMES.has(optName(findOption(id)?.o || {})));
   const animals = selectedAnimalToppingCount();
   if (name === "ナンバークッキー大" && animals > 2)
     return "動物トッピングを2匹までにすると選べます";
+  if (CALENDAR_OPTION_NAMES.has(name) && animals > 2)
+    return "動物トッピングを2匹までにすると選べます";
+  if (ANIMAL_TOPPING_NAMES.has(name) && calendarSelected && animals >= 2)
+    return "カレンダーケーキの側面に付けられる動物は2匹までです";
   if (ANIMAL_TOPPING_NAMES.has(name) && largeSelected && animals >= 2)
     return "ナンバークッキー大と一緒に載せられる動物は2匹までです";
   return "";
@@ -602,6 +610,7 @@ const LEGACY_LAYER_OFFSET = (LAYER_CANVAS - LEGACY_LAYER_CANVAS) / 2;
 const imgCache = new Map();
 const alphaBoundsCache = new Map();
 const CALENDAR_FONT = "oyatsupokkefont";
+const CALENDAR_BROWN = "#644A32";
 const CALENDAR_OPTION_NAMES = new Set([
   "カレンダーケーキに変更",
   "わんこ・うさぎ付きカレンダーケーキに変更",
@@ -935,6 +944,11 @@ function animalToppingIsBack(name, productName) {
 }
 
 function animalToppingPlacement(name) {
+  if(selectedCalendarOption()){
+    const index=selectedAnimalToppingNames().indexOf(name);
+    // カレンダーの文字面を空け、選んだ順に左側面→右側面へ配置する。
+    return [{cx:250,cy:665,h:205},{cx:520,cy:675,h:205}][index] || null;
+  }
   if(dynamicLargeNumberSelected()){
     const index=selectedAnimalToppingNames().indexOf(name);
     const slots=state.sel.product?.name==='バスクチーズケーキ'
@@ -1101,11 +1115,14 @@ function drawDirectMessageLayer(ctx, message) {
   const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const fruitSide = selectedNames.has("フルーツサイド寄せ");
-  const layout = fruitSide
+  const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
+  const layout = calendarCake
+    ? { cx: 400, cy: 505, maxWidth: 430, size: 40, lineHeight: 52 }
+    : fruitSide
     ? { cx: 235, cy: 295, maxWidth: 320, size: 64, lineHeight: 88 }
     : { cx: 400, cy: 315, maxWidth: 430, size: 48, lineHeight: 78 };
   ctx.save();
-  ctx.fillStyle = "#49352F";
+  ctx.fillStyle = calendarCake ? CALENDAR_BROWN : "#49352F";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `${layout.size}px ${CALENDAR_FONT}, sans-serif`;
@@ -1138,27 +1155,24 @@ function drawHeartOutline(ctx, cx, cy, width, height) {
 
 // 参考写真の手絞りに合わせ、曜日見出しなしの7列カレンダーをケーキ上面に描く。
 function drawCalendarLayer(ctx, cal) {
-  const brown = "#9A6B55";
-  const monthNames = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   ctx.save();
-  ctx.fillStyle = brown;
+  ctx.fillStyle = CALENDAR_BROWN;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `58px ${CALENDAR_FONT}, sans-serif`;
-  ctx.fillText(String(cal.month), 400, 132);
-  ctx.font = `25px ${CALENDAR_FONT}, sans-serif`;
-  ctx.fillText(monthNames[cal.month - 1], 400, 178);
+  ctx.font = `40px ${CALENDAR_FONT}, sans-serif`;
+  ctx.fillText(`${monthNames[cal.month - 1]} ${cal.year}`, 400, 150, 440);
 
   const firstDay = new Date(cal.year, cal.month - 1, 1).getDay();
   const days = new Date(cal.year, cal.month, 0).getDate();
-  const cellW = 55, rowH = 50, startX = 235, startY = 238;
+  const cellW = 63, rowH = 57, startX = 210, startY = 208;
   ctx.font = `25px ${CALENDAR_FONT}, sans-serif`;
   for (let day = 1; day <= days; day++) {
     const index = firstDay + day - 1;
     const col = index % 7, row = Math.floor(index / 7);
     const x = startX + col * cellW, y = startY + row * rowH;
-    if (day === cal.day) drawHeartOutline(ctx, x, y + 1, 47, 40);
-    ctx.fillStyle = brown;
+    if (day === cal.day) drawHeartOutline(ctx, x, y + 1, 54, 48);
+    ctx.fillStyle = CALENDAR_BROWN;
     ctx.fillText(String(day), x, y);
   }
   ctx.restore();
@@ -1198,7 +1212,7 @@ function currentLayers() {
   const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && selectedNames.has("ナンバークッキー大");
-  const calendarCake = selectedNames.has("カレンダーケーキに変更") || selectedNames.has("わんこ・うさぎ付きカレンダーケーキに変更");
+  const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
     if (selectedInGroup.length) {
@@ -1207,8 +1221,11 @@ function currentLayers() {
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const rawLayerUrl=CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
-          ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
+        const rawLayerUrl=CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
+          && state.sel.variant?.size_label==="15cm" && name==="丸絞り1周"
+          ? cakeLayerAsset("calendar/15cm/round-piping.png")
+          :CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
+            ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
         const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);

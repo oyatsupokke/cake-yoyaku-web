@@ -692,6 +692,7 @@ const OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE = {
   },
   "18cm": {
     "naked-chocolate.png": "chocolate/18cm/naked-chocolate.png",
+    "chocolate-drip.png": "chocolate/18cm/chocolate-drip.png",
     "round-piping.png": "chocolate/18cm/round-piping.png",
     "herb-ring.png": "18cm/herb-ring.png",
   },

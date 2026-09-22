@@ -873,6 +873,17 @@ function numberCookieDigits(value) {
   return normalizeNumberCookieText(value).match(/[0-9]/g) || [];
 }
 
+function numberCookieHasPreviewDigits(optionName) {
+  for(const id of state.sel.options.keys()){
+    const option=findOption(id)?.o;
+    if(!option||optName(option)!==optionName||optionIsDetached(optionName))continue;
+    const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===id);
+    const qty=Math.max(1,state.sel.options.get(id)?.qty||1);
+    return numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text).slice(0,qty).length>0;
+  }
+  return false;
+}
+
 function numberCookieLayouts(product, animalCount) {
   if(product==='フルーツタルト')return {
     L:{height:250,maxWidth:420,centerX:400,bottom:375,gap:14},
@@ -963,7 +974,7 @@ function selectedAnimalToppingNames() {
 
 function dynamicLargeNumberSelected() {
   return ['フルーツタルト','バスクチーズケーキ'].includes(state.sel.product?.name)
-    && [...state.sel.options.keys()].some(id=>optName(findOption(id)?.o||{})==='ナンバークッキー大');
+    && numberCookieHasPreviewDigits('ナンバークッキー大');
 }
 
 function animalToppingIsBack(name, productName) {
@@ -1247,7 +1258,8 @@ function currentLayers() {
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
-  const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && selectedNames.has("ナンバークッキー大");
+  const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");
+  const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && largeNumberVisible;
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
@@ -1287,8 +1299,8 @@ function currentLayers() {
             :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
           const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=name==="クッキープレート"
-            ? selectedNames.has("ナンバークッキー大")&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
-              :selectedNames.has("ナンバークッキー大")?"number-large"
+            ? largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
+              :largeNumberVisible?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
           const messagePlateText=name==="クッキープレート"?currentOptionMessage(o):null;

@@ -615,10 +615,10 @@ const CALENDAR_15_LAYOUT = {
   headerY: 150,
   headerSize: 52,
   dateSize: 36,
-  startX: 208,
-  columnGap: 62,
-  // 手描き見本の余白感を保つため、行を等間隔にはしない。
-  rowYs: [208, 263, 318, 380, 444, 498],
+  startX: 226,
+  columnGap: 56,
+  // フォント・文字サイズ・全体位置は変えず、見本に合わせて行間だけを詰める。
+  rowYs: [221, 268, 318, 375, 432, 486],
 };
 const CALENDAR_OPTION_NAMES = new Set([
   "カレンダーケーキに変更",

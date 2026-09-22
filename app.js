@@ -872,21 +872,30 @@ function numberCookieDigits(value) {
   return normalizeNumberCookieText(value).match(/[0-9]/g) || [];
 }
 
+function numberCookieLayouts(product, animalCount) {
+  if(product==='フルーツタルト')return {
+    L:{height:250,maxWidth:420,centerX:400,bottom:375,gap:14},
+    // 動物と一緒のときは、見本どおり手前中央の側面へ置く。
+    S:animalCount
+      ? {height:150,maxWidth:220,centerX:340,bottom:650,gap:7}
+      : {height:165,maxWidth:240,centerX:575,bottom:600,gap:7},
+  };
+  if(product==='バスクチーズケーキ')return {
+    L:{height:250,maxWidth:390,centerX:280,bottom:380,gap:14},
+    S:animalCount
+      ? {height:145,maxWidth:215,centerX:400,bottom:485,gap:7}
+      : {height:140,maxWidth:220,centerX:635,bottom:390,gap:7},
+  };
+  return {L:{height:220,maxWidth:560,centerX:400,bottom:420,gap:14},S:{height:170,maxWidth:245,centerX:635,bottom:370,gap:8}};
+}
+
 // 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
   const animalCount=selectedAnimalToppingCount();
-  const layouts=product==='フルーツタルト'
-    ? {L:{height:250,maxWidth:420,centerX:400,bottom:375,gap:14},S:animalCount
-        ? {height:150,maxWidth:220,centerX:400,bottom:440,gap:7}
-        : {height:165,maxWidth:240,centerX:575,bottom:600,gap:7}}
-    : product==='バスクチーズケーキ'
-      ? {L:{height:250,maxWidth:390,centerX:280,bottom:380,gap:14},S:animalCount
-          ? {height:145,maxWidth:215,centerX:400,bottom:485,gap:7}
-          : {height:140,maxWidth:220,centerX:635,bottom:390,gap:7}}
-      : {L:{height:220,maxWidth:560,centerX:400,bottom:420,gap:14},S:{height:170,maxWidth:245,centerX:635,bottom:370,gap:8}};
+  const layouts=numberCookieLayouts(product,animalCount);
   for(const size of ['L','S']){
     const selected=entries.filter(({layer})=>layer.numberCookie.size===size);
     if(!selected.length)continue;
@@ -958,7 +967,9 @@ function dynamicLargeNumberSelected() {
 
 function animalToppingIsBack(name, productName) {
   // 丸ケーキと、タルト・バスクでは奥側に置く動物が異なる。
-  if (["フルーツタルト","バスクチーズケーキ"].includes(productName))
+  // タルトのねこは手前左に置くため、プレートより前へ重ねる。
+  if (productName === "フルーツタルト") return name === "わんこメレンゲ";
+  if (productName === "バスクチーズケーキ")
     return name === "ねこクッキー" || name === "わんこメレンゲ";
   return BACK_ANIMAL_TOPPING_NAMES.has(name);
 }

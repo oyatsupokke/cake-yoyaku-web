@@ -628,9 +628,12 @@ const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-cor
 const sizeSpecificMocoLayerAsset = (size, name) => cakeLayerAsset(
   `${size}/${MOCO_FULL_OPTION_NAMES.has(name) ? "moco-full.png" : "moco-edge.png"}?v=20260921-size`
 );
-const sizeSpecificWhiteRoundPipingAsset = (size) => cakeLayerAsset(
-  ["12cm", "18cm"].includes(size) ? `${size}/round-piping.png` : "round-piping.png"
-);
+const sizeSpecificMocoEdgePipingAsset = (size) => {
+  // チョコケーキの「フチのみ」は、境目の丸絞りもチョコクリームにする。
+  if(state.sel.product?.name === "チョコレートケーキ" && ["12cm", "15cm", "18cm"].includes(size))
+    return cakeLayerAsset(`chocolate/${size}/round-piping.png`);
+  return cakeLayerAsset(["12cm", "18cm"].includes(size) ? `${size}/round-piping.png` : "round-piping.png");
+};
 // oyatsupokkeの12cmデコレーションは、15cmと同じ素材を縮小するのではなく、
 // 実物の比率で描かれた専用素材へ差し替える。素材URLがStorage配信でも
 // ファイル名で解決できるようにし、DB側の設定は15cm・18cmと共用する。
@@ -1247,7 +1250,7 @@ function currentLayers() {
           // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
           if (MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
             layers.push({
-              url: sizeSpecificWhiteRoundPipingAsset(state.sel.variant?.size_label),
+              url: sizeSpecificMocoEdgePipingAsset(state.sel.variant?.size_label),
               z: 38,
               tint,
               autoMocoEdgePiping: true,

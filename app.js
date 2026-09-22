@@ -611,6 +611,15 @@ const imgCache = new Map();
 const alphaBoundsCache = new Map();
 const CALENDAR_FONT = "oyatsupokkefont";
 const CALENDAR_BROWN = "#644A32";
+const CALENDAR_15_LAYOUT = {
+  headerY: 150,
+  headerSize: 52,
+  dateSize: 36,
+  startX: 208,
+  columnGap: 62,
+  // 手描き見本の余白感を保つため、行を等間隔にはしない。
+  rowYs: [208, 263, 318, 380, 444, 498],
+};
 const CALENDAR_OPTION_NAMES = new Set([
   "カレンダーケーキに変更",
   "わんこ・うさぎ付きカレンダーケーキに変更",
@@ -1116,8 +1125,12 @@ function drawDirectMessageLayer(ctx, message) {
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const fruitSide = selectedNames.has("フルーツサイド寄せ");
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
+  const calendar = calendarCake ? currentCalendarLayer() : null;
+  const calendarRows = calendar
+    ? Math.ceil((new Date(calendar.year, calendar.month - 1, 1).getDay() + new Date(calendar.year, calendar.month, 0).getDate()) / 7)
+    : 0;
   const layout = calendarCake
-    ? { cx: 400, cy: 505, maxWidth: 430, size: 40, lineHeight: 52 }
+    ? { cx: 400, cy: calendarRows > 5 ? 550 : 505, maxWidth: 430, size: 46, lineHeight: 56 }
     : fruitSide
     ? { cx: 235, cy: 295, maxWidth: 320, size: 64, lineHeight: 88 }
     : { cx: 400, cy: 315, maxWidth: 430, size: 48, lineHeight: 78 };
@@ -1160,17 +1173,17 @@ function drawCalendarLayer(ctx, cal) {
   ctx.fillStyle = CALENDAR_BROWN;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `40px ${CALENDAR_FONT}, sans-serif`;
-  ctx.fillText(`${monthNames[cal.month - 1]} ${cal.year}`, 400, 150, 440);
+  ctx.font = `${CALENDAR_15_LAYOUT.headerSize}px ${CALENDAR_FONT}, sans-serif`;
+  ctx.fillText(`${monthNames[cal.month - 1]} ${cal.year}`, 400, CALENDAR_15_LAYOUT.headerY, 440);
 
   const firstDay = new Date(cal.year, cal.month - 1, 1).getDay();
   const days = new Date(cal.year, cal.month, 0).getDate();
-  const cellW = 63, rowH = 57, startX = 210, startY = 208;
-  ctx.font = `25px ${CALENDAR_FONT}, sans-serif`;
+  ctx.font = `${CALENDAR_15_LAYOUT.dateSize}px ${CALENDAR_FONT}, sans-serif`;
   for (let day = 1; day <= days; day++) {
     const index = firstDay + day - 1;
     const col = index % 7, row = Math.floor(index / 7);
-    const x = startX + col * cellW, y = startY + row * rowH;
+    const x = CALENDAR_15_LAYOUT.startX + col * CALENDAR_15_LAYOUT.columnGap;
+    const y = CALENDAR_15_LAYOUT.rowYs[row];
     if (day === cal.day) drawHeartOutline(ctx, x, y + 1, 54, 48);
     ctx.fillStyle = CALENDAR_BROWN;
     ctx.fillText(String(day), x, y);

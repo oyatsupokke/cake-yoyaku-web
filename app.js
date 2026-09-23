@@ -1181,21 +1181,27 @@ function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
   return messageLines(ctx,text,maxWidth,maxLines);
 }
 
+function directMessageLayout(selectedNames, calendarCake, calendarRows) {
+  const fruitSide=selectedNames.has("フルーツサイド寄せ");
+  const dogCake=selectedNames.has("わんこホイップ絞り")||selectedNames.has("犬ケーキに変更");
+  if(calendarCake)return { cx:400, cy:calendarRows>5?550:505, maxWidth:430, size:46, lineHeight:56 };
+  if(fruitSide)return { cx:235, cy:295, maxWidth:320, size:64, lineHeight:88 };
+  // 犬の顔に重ねず、見本で示された上側の弧の間へ置く。
+  if(dogCake)return { cx:400, cy:210, maxWidth:430, size:48, lineHeight:60 };
+  return { cx:400, cy:315, maxWidth:430, size:48, lineHeight:78 };
+}
+
 function drawDirectMessageLayer(ctx, message) {
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
-  const fruitSide = selectedNames.has("フルーツサイド寄せ");
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
   const calendar = calendarCake ? currentCalendarLayer() : null;
   const calendarRows = calendar
     ? Math.ceil((new Date(calendar.year, calendar.month - 1, 1).getDay() + new Date(calendar.year, calendar.month, 0).getDate()) / 7)
     : 0;
-  const layout = calendarCake
-    ? { cx: 400, cy: calendarRows > 5 ? 550 : 505, maxWidth: 430, size: 46, lineHeight: 56 }
-    : fruitSide
-    ? { cx: 235, cy: 295, maxWidth: 320, size: 64, lineHeight: 88 }
-    : { cx: 400, cy: 315, maxWidth: 430, size: 48, lineHeight: 78 };
+  const fruitSide = selectedNames.has("フルーツサイド寄せ");
+  const layout = directMessageLayout(selectedNames,calendarCake,calendarRows);
   ctx.save();
   ctx.fillStyle = calendarCake ? CALENDAR_BROWN : "#49352F";
   ctx.textAlign = "center";

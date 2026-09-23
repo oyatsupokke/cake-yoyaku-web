@@ -1391,7 +1391,7 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[];
+    const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[],frontAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
       if(layers[i].directMessage){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
@@ -1402,7 +1402,9 @@ async function updatePreview() {
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
       if(layers[i].animalTopping){
         if(layers[i].dynamicLargeAnimal)dynamicLargeAnimalEntries.push({img,layer:layers[i]});
-        else drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
+        else if(animalToppingIsBack(layers[i].animalTopping,state.sel.product?.name))
+          drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
+        else frontAnimalEntries.push({img,layer:layers[i]});
         continue;
       }
       if(layers[i].tint){
@@ -1427,6 +1429,9 @@ async function updatePreview() {
       if(layers[i].messagePlateText)drawMessagePlateText(ctx,img,layers[i].url,null,layers[i].messagePlateText);
     }
     drawNumberCookieLayers(ctx,numberEntries);
+    // 正面から、くま・わんこ → 数字 → ねこ・うさぎの奥行きに見えるよう、
+    // 手前側の動物は数字を描いた後に重ねる。
+    drawAnimalToppingLayers(ctx,frontAnimalEntries);
     drawAnimalToppingLayers(ctx,dynamicLargeAnimalEntries);
     for(const img of dogPawEntries)drawLayerImage(ctx,img);
     return;

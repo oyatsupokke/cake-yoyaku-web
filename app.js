@@ -875,6 +875,21 @@ function numberCookieRows(items) {
   return [...grouped.values()];
 }
 
+function numberCookieGroupPlacement(product, rowIndex, rowCount, height, layout, totalCount) {
+  // 丸いデコレーションで2人分に区切った場合は、動物の左右のすき間へ1組ずつ置く。
+  if(rowCount===2 && !["フルーツタルト","バスクチーズケーキ"].includes(product)){
+    return {
+      centerX:[235,600][rowIndex]+LEGACY_LAYER_OFFSET,
+      bottom:300+height/2+LEGACY_LAYER_OFFSET,
+    };
+  }
+  const baseBottom=layout.bottom+LEGACY_LAYER_OFFSET,rowStep=height*.82;
+  return {
+    centerX:numberCookieCenterX(layout,totalCount),
+    bottom:baseBottom+(rowIndex-(rowCount-1)/2)*rowStep,
+  };
+}
+
 function normalizeNumberCookieText(value) {
   return String(value || "").replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
 }
@@ -928,13 +943,11 @@ function drawNumberCookieLayers(ctx, entries) {
     });
     const gap=layout.gap,rows=numberCookieRows(items);
     // 大は中央。小は参考写真どおり右側へ。4枚以上は原寸のまま2段にする。
-    const centerX=numberCookieCenterX(layout,items.length),baseBottom=layout.bottom+LEGACY_LAYER_OFFSET;
-    const rowStep=height*.82;
     rows.forEach((row,rowIndex)=>{
       const raw=row.reduce((n,x)=>n+x.w,0)+gap*(row.length-1);
       const scale=numberCookieScale(raw,items.length,layout.maxWidth);
       const total=raw*scale;
-      const bottom=baseBottom+(rowIndex-(rows.length-1)/2)*rowStep;
+      const {centerX,bottom}=numberCookieGroupPlacement(product,rowIndex,rows.length,height,layout,items.length);
       let x=numberCookieStartX(centerX,total);
       for(const item of row){
         const w=item.w*scale,h=item.h*scale;

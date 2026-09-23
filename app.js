@@ -924,7 +924,7 @@ function drawNumberCookieLayers(ctx, entries) {
     const layout=numberCookieLayout(size,layouts,selectedNames),height=layout.height;
     const items=selected.map(({img,layer})=>{
       const b=imageAlphaBounds(img,layer.url),h=height;
-      return {img,b,h,w:h*b.w/b.h};
+      return {img,b,h,w:h*b.w/b.h,group:layer.numberCookie.group??0};
     });
     const gap=layout.gap,rows=numberCookieRows(items);
     // 大は中央。小は参考写真どおり右側へ。4枚以上は原寸のまま2段にする。

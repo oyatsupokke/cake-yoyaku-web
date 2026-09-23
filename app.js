@@ -860,8 +860,13 @@ function numberCookieCenterX(layout, count) {
 }
 
 function numberCookieDigitGroups(value) {
-  const normalized=normalizeNumberCookieText(value);
-  const groups=(normalized.match(/[0-9]+/g)||[]).map(part=>[...part]);
+  const normalized=normalizeNumberCookieText(value).trim();
+  // 2人分は空白で区切る。以前案内していた中点も既存入力との互換性のため受け付ける。
+  // ハイフン等は区切り扱いにせず、数字4枚の1グループとして描画する。
+  const groups=normalized
+    .split(/(?:\s+|[・･]+)/)
+    .map(part=>part.match(/[0-9]/g)||[])
+    .filter(group=>group.length);
   return groups.length?groups:[[]];
 }
 
@@ -2009,8 +2014,12 @@ function buildQuestionField(q) {
   const questionOption=qOptionId(q)?findOption(qOptionId(q))?.o:null;
   const numberCookieQuestion=!!questionOption?.layer_url?.includes('{digit}');
   if(numberCookieQuestion&&inputs[0]){
-    inputs[0].setAttribute('inputmode','numeric');
-    inputs[0].setAttribute('pattern','[0-9０-９]*');
+    inputs[0].setAttribute('inputmode','text');
+    inputs[0].setAttribute('pattern','[0-9０-９\\s・･]*');
+    const groupHelp=document.createElement('span');
+    groupHelp.className='help number-cookie-group-help';
+    groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：11 15';
+    inputs[0].insertAdjacentElement('afterend',groupHelp);
   }
   const multi = q.input_type === "radio" || q.input_type === "checkbox";
   if (multi) inputs.forEach((i) => { i.checked = saved.choiceIds.includes(i.value); });

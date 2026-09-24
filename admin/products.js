@@ -1494,8 +1494,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   row.querySelector(".o-photo").appendChild(buildPhotoField({
     url: o.photo_url,
     kind: "options",
-    label: "参考写真（任意）",
-    hint: "横向き・4:3",
+    label: "見本写真（任意）",
+    hint: "登録すると、お客様画面のオプションに「見本を見る」が表示されます",
     onChange: (url) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { photo_url: url }),
   }));
   row.querySelector(".o-photo").appendChild(buildLayerField({

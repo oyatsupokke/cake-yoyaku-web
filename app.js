@@ -1609,6 +1609,27 @@ function buildOptionPastelLink(optionName) {
   return label;
 }
 
+function openOptionSamplePhoto(url, optionName) {
+  const src=safeImageUrl(url);
+  if(!src)return;
+  let dialog=document.getElementById('option-sample-dialog');
+  if(!dialog){
+    dialog=document.createElement('dialog');
+    dialog.id='option-sample-dialog';
+    dialog.className='option-sample-dialog';
+    dialog.innerHTML='<button type="button" class="option-sample-close" aria-label="閉じる">×</button><p class="option-sample-title"></p><img alt="">';
+    dialog.querySelector('.option-sample-close').onclick=()=>dialog.close();
+    dialog.onclick=(event)=>{if(event.target===dialog)dialog.close();};
+    document.body.appendChild(dialog);
+  }
+  dialog.querySelector('.option-sample-title').textContent=`${optionName}の見本`;
+  const image=dialog.querySelector('img');
+  image.src=src;
+  image.alt=`${optionName}の見本写真`;
+  if(typeof dialog.showModal==='function')dialog.showModal();
+  else window.open(src,'_blank','noopener,noreferrer');
+}
+
 function renderGroups() {
   const wrap = $("group-list");
   wrap.innerHTML = "";
@@ -1664,12 +1685,17 @@ function renderGroups() {
           : "";
       row.innerHTML = `
         <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""} ${conflictNote ? "disabled" : ""}>
-        ${o.photo_url ? `<span class="opt-photo"><img src="${esc(safeImageUrl(o.photo_url))}" alt="" loading="lazy"></span>` : ""}
         <span class="opt-name">${esc(optName(o))}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
+        ${safeImageUrl(o.photo_url) ? '<button type="button" class="opt-sample-button">見本を見る</button>' : ""}
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
       input.onclick = (e) => { e.stopPropagation(); toggleOption(g, o, input); };
+      const sampleButton=row.querySelector('.opt-sample-button');
+      if(sampleButton)sampleButton.onclick=(e)=>{
+        e.preventDefault();e.stopPropagation();
+        openOptionSamplePhoto(o.photo_url,optName(o));
+      };
       const stepper = row.querySelector(".qty-stepper");
       if (stepper) {
         stepper.onclick = (e) => e.stopPropagation();

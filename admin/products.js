@@ -1339,7 +1339,12 @@ function renderGroups(p) {
   wrap.innerHTML = "";
   const groups = groupsForProduct(p);
   if (!groups.length) wrap.innerHTML = `<p class="small">グループがありません。下から追加してください。</p>`;
-  for (const g of groups) wrap.appendChild(buildGroupBox(p, g));
+  const items = groups.map((g) => {
+    const row = buildGroupBox(p, g);
+    wrap.appendChild(row);
+    return { data: g, row, target: row.querySelector(".grp-bar") };
+  });
+  addOrderControls(wrap, items, "option_groups");
 }
 
 function buildGroupBox(p, g) {

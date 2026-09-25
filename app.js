@@ -297,13 +297,22 @@ async function load() {
   applyTheme(state.tenant.theme);
 
   const T = state.tenant.id;
-  [state.products, state.questions, state.slots] = await Promise.all([
+  const [products, globalGroups, questions, slots] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
         `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
+    api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
+        `&select=*,options(*,shared_list_items(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices(*),common_question_products(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
   ]);
+  // 共通グループも商品別グループと同じ集合で扱う。復元・価格・必須確認もここを見る。
+  state.products = products.map((p) => ({
+    ...p,
+    option_groups: [...(p.option_groups || []), ...globalGroups],
+  }));
+  state.questions = questions;
+  state.slots = slots;
   renderProducts();
   if (EDIT_MODE) {
     await enterEditMode();
@@ -1123,6 +1132,7 @@ function drawMessagePlateText(ctx,img,url,mode,text){
 }
 
 function selectedCalendarOption() {
+  if (CONFIG.shop !== "pokke") return null;
   for (const g of sortedGroups(state.sel.product)) {
     const option = g.options.find((o) => state.sel.options.has(o.id) && CALENDAR_OPTION_NAMES.has(optName(o)));
     if (option) return option;
@@ -1301,6 +1311,7 @@ function drawSizedCalendarLayer(ctx, cal) {
 function currentLayers() {
   const p = state.sel.product;
   if (!p?.layer_url) return null;
+  const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: sizeSpecificLayerUrl(p.layer_url, "base"), z: 0 }];
   if (CONFIG.shop === "pokke") {
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
@@ -1308,7 +1319,7 @@ function currentLayers() {
     }
   }
   const detachedNames=detachedToppingNames();
-  const selectedNames = new Set([...state.sel.options.keys()].map((id) => findOption(id)?.o).filter(Boolean).map(optName)
+  const selectedNames = new Set((ownPreview ? [...state.sel.options.keys()] : []).map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");
   const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && largeNumberVisible;
@@ -1351,13 +1362,13 @@ function currentLayers() {
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
             :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
-          const animalName=ANIMAL_TOPPING_NAMES.has(name)?name:null;
-          const messagePlatePlacement=name==="クッキープレート"
+          const animalName=ownPreview&&ANIMAL_TOPPING_NAMES.has(name)?name:null;
+          const messagePlatePlacement=ownPreview&&name==="クッキープレート"
             ? largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
               :largeNumberVisible?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
-          const messagePlateText=name==="クッキープレート"?currentOptionMessage(o):null;
+          const messagePlateText=ownPreview&&name==="クッキープレート"?currentOptionMessage(o):null;
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           layers.push({
             url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
@@ -1369,7 +1380,7 @@ function currentLayers() {
           });
           // 「ふちのみ」は、実物どおりホイップとの境目に丸絞りが必ず付く。
           // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
-          if (MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
+          if (ownPreview && MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
             layers.push({
               url: calendarCake && p.name==="デコレーションケーキ" && state.sel.variant?.size_label==="15cm"
                 ? cakeLayerAsset("calendar/15cm/round-piping.png")
@@ -1402,7 +1413,7 @@ function currentLayers() {
     }
   }
   if (calendar) layers.push({ z: 60, calendarCake: calendar });
-  const directMessage = currentDirectMessageLayer();
+  const directMessage = ownPreview ? currentDirectMessageLayer() : null;
   if (directMessage) layers.push({ z: 66, directMessage });
   return layers.sort((a, b) => a.z - b.z);
 }
@@ -1671,7 +1682,7 @@ function renderGroups() {
     box.className = "group";
     box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
       (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
-      (g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
+      (CONFIG.shop === "pokke" && g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
         state.sel.options.has(o.id) && PREVIEW_POSITION_NOTICE_NAMES.has(optName(o)))
         ? '<p class="group-preview-note">※実際の配置はプレビュー通りではなく、全体のバランスを見て調整いたします。</p>' : "") +
       (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${esc(g.note)}</p>` : "") +
@@ -1994,7 +2005,7 @@ function pruneUnavailableChoiceAnswers() {
   return cleared;
 }
 const qChoices = (q) => (q.common_question_choices || [])
-  .filter((c) => c.is_available !== false)
+  .filter((c) => c.is_available !== false && String(c.label || "").trim() !== "")
   .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 // 回答は1つの質問に複数入りうる（チェックボックス）。古い保存データの {choiceId} も受ける
 function normAnswer(a) {
@@ -2378,7 +2389,7 @@ function validate() {
       const digits=numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text);
       if(digits.length!==v.qty)return `「${optName(f.o)}」は、選んだ枚数分の数字をご記入ください`;
     }
-    if (f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {
+    if (CONFIG.shop === "pokke" && f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {
       const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
       const value=normAnswer(state.sel.answers.get(q?.id)).text;
       if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」をカレンダーからお選びください`;

@@ -17,7 +17,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
 })[ch]);
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const state = {
-  session: null, tenantId: null, products: [], sharedLists: [], questions: [], globalGroups: [],
+  session: null, tenantId: null, tenantSubdomain: null, products: [], sharedLists: [], questions: [], globalGroups: [],
   categories: [],
   closedDates: new Set(),
   current: null, fields: [],
@@ -1153,17 +1153,25 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     chWrap.insertBefore(note, title?.nextSibling || chWrap.firstChild);
   }
   {
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "answer-choice-new-name";
+    name.placeholder = "回答の名前を入力";
+    name.maxLength = 120;
     const add = document.createElement("button");
     add.type = "button";
     add.className = "pill ghost";
     add.textContent = "＋ 回答の選択肢を追加";
     add.onclick = async () => {
+      const label = name.value.trim();
+      if (!label) { name.focus(); toast("回答の名前を入力してください"); return; }
       await api("POST", "/rest/v1/common_question_choices", [{
-        tenant_id: state.tenantId, question_id: q.id, label: "",
+        tenant_id: state.tenantId, question_id: q.id, label,
         display_order: Math.max(-1, ...qChoices(q).map(c => Number(c.display_order) || 0)) + 1,
       }]);
       reloadAll();
     };
+    chWrap.appendChild(name);
     chWrap.appendChild(add);
   }
   return box;
@@ -1229,7 +1237,7 @@ function previewLayerEntries(p) {
     for (const o of [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)) {
       if (!o.layer_url) continue;
       const optionName = optDisplayName(o);
-      const animalName = ADMIN_ANIMAL_NAMES.has(optionName) ? optionName : null;
+      const animalName = state.tenantSubdomain === "pokke" && ADMIN_ANIMAL_NAMES.has(optionName) ? optionName : null;
       entries.push({
         key: `options:${o.id}`, label: `${groupName}：${optionName}`,
         url: o.layer_url, z: animalName ? (adminAnimalIsBack(animalName, p.name) ? 64 : 70) : Number(o.layer_z ?? 20), stable: stable++,
@@ -2261,6 +2269,7 @@ window.addEventListener("beforeunload", (e) => {
       api("GET", `/rest/v1/date_overrides?tenant_id=eq.${tu[0].tenant_id}&kind=eq.closed&select=date`),
     ]);
     state.tenantTimezone = t[0].timezone || "Asia/Tokyo";
+    state.tenantSubdomain = t[0].subdomain;
     state.closedWeekdays = t[0].closed_weekdays || [];
     state.closedDates = new Set(closedOverrides.map((row) => row.date));
     $("preview-link").href = `../?shop=${t[0].subdomain}${t[0].billing_status === "setup_trial" ? "&trial=1" : ""}`;

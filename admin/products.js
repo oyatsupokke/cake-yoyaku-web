@@ -429,7 +429,9 @@ async function loadAll(keepCurrent = true) {
   if (keepCurrent && state.current) {
     state.current = products.find((p) => p.id === state.current.id) || products[0] || null;
   } else {
-    state.current = products[0] || null;
+    let lastProductId = null;
+    try { lastProductId = localStorage.getItem(`pokke_admin_last_product:${state.tenantId}`); } catch {}
+    state.current = products.find((p) => p.id === lastProductId) || products[0] || null;
   }
   state.fields = []; // 入力欄の登録をやり直す
   renderTabs();
@@ -604,6 +606,9 @@ const localToIso = (v) => (v ? new Date(v).toISOString() : null);
 function renderEditor() {
   $("p-publish-error").classList.add("hidden");
   const p = state.current;
+  if (p && state.tenantId) {
+    try { localStorage.setItem(`pokke_admin_last_product:${state.tenantId}`, p.id); } catch {}
+  }
   $("editor").classList.toggle("hidden", !p);
   if (!p) return;
 

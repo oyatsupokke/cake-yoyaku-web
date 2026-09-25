@@ -265,7 +265,7 @@
 .sl-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
 .group-add-box {
   border: 2px dashed var(--primary); border-radius: 12px;
-  padding: 12px 14px; margin-top: 18px; background: #fffafb;
+  padding: 18px 20px; margin: 24px 0; background: #fffafb;
 }
 
 /* 説明・注意書きなどの縦積みフィールド（ラベル→入力欄を必ず縦に並べる） */

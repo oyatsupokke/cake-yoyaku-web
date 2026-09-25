@@ -713,21 +713,10 @@ function renderEditor() {
     onChange: (url) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { photo_url: url }),
   }));
 
-  // イラスト土台（設定するとプレビューが合成モードになる）
-  const layerWrap = $("p-layer");
-  layerWrap.innerHTML = "";
-  layerWrap.appendChild(buildLayerField({
-    url: p.layer_url,
-    label: "プレビュー用イラスト（土台）",
-    hint: "透過PNG・800×800px",
-    showZ: false,
-    onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
-  }));
-
   state.capacityLoading = loadCapacityRule(p);
   renderVariants(p);
   renderGroups(p);
-  renderLayerOrder(p);
+  renderPreviewLayerSettings(p);
   renderProductStops(p);
   // 共有リストのプルダウン（グループ追加用）
   $("g-shared").innerHTML = `<option value="">共有リストを使わない</option>` +
@@ -1334,6 +1323,58 @@ function renderLayerOrder(p) {
   });
 }
 
+// 商品写真や見本画像とは分け、合成に使う透過PNGだけを1か所で設定する。
+function renderPreviewLayerSettings(p) {
+  const baseWrap = $("p-layer");
+  const fieldsWrap = $("p-layer-fields");
+  baseWrap.innerHTML = "";
+  fieldsWrap.innerHTML = "";
+  baseWrap.appendChild(buildLayerField({
+    url: p.layer_url,
+    label: "ケーキの土台",
+    hint: "透過PNG・800×800px",
+    showZ: false,
+    onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
+  }));
+
+  for (const g of groupsForProduct(p)) {
+    const details = document.createElement("details");
+    details.className = "preview-layer-group";
+    const currentCount = (g.default_layer_url ? 1 : 0) + (g.options || []).filter((o) => o.layer_url).length;
+    details.innerHTML = `<summary>${esc(g.name || "名称未設定のグループ")}<span class="tag">設定済み ${currentCount}枚</span></summary><div class="preview-layer-group-fields"></div>`;
+    const body = details.querySelector(".preview-layer-group-fields");
+    const groupField = buildLayerField({
+      url: g.default_layer_url,
+      z: g.default_layer_z,
+      label: "何も選ばれていない時",
+      hint: "このグループで未選択の時に表示する場合だけ設定します",
+      showZ: true,
+      orderKey: `option_groups:${g.id}`,
+      onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
+        patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
+    });
+    body.appendChild(groupField);
+    regField("option_groups", g.id, "default_layer_z", groupField.querySelector(".layer-z"), { number: true });
+
+    for (const o of [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)) {
+      const optionField = buildLayerField({
+        url: o.layer_url,
+        z: o.layer_z,
+        label: optDisplayName(o),
+        hint: "この選択肢を選んだ時に重ねるイラスト",
+        showZ: true,
+        orderKey: `options:${o.id}`,
+        onChange: (patch) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`,
+          patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
+      });
+      body.appendChild(optionField);
+      regField("options", o.id, "layer_z", optionField.querySelector(".layer-z"), { number: true });
+    }
+    fieldsWrap.appendChild(details);
+  }
+  renderLayerOrder(p);
+}
+
 function renderGroups(p) {
   const wrap = $("groups-list");
   wrap.innerHTML = "";
@@ -1373,7 +1414,6 @@ function buildGroupBox(p, g) {
         <textarea class="gh-note" rows="2" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
         <label class="chk"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
       <div class="g-sample"></div>
-      <div class="g-default-layer"></div>
       <p class="meta">選択肢 ${g.options.length}件</p>
       <div class="g-options"></div>
       <div class="override-add g-add-row ${g.shared_list_id ? "hidden" : ""}">
@@ -1501,18 +1541,6 @@ function buildGroupBox(p, g) {
     hint: "色見本・仕上がりの例など。お客様の画面で説明の下に出ます",
     onChange: (url) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { sample_image_url: url }),
   }));
-  box.querySelector(".g-default-layer").appendChild(buildLayerField({
-    url: g.default_layer_url,
-    z: g.default_layer_z,
-    label: "プレビュー用イラスト（何も選ばれていない時・任意）",
-    hint: "透過PNG・800×800px",
-    showZ: true,
-    orderKey: `option_groups:${g.id}`,
-    onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
-      patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
-  }));
-
-  regField("option_groups", g.id, "default_layer_z", box.querySelector(".g-default-layer .layer-z"), { number: true });
   const optWrap = box.querySelector(".g-options");
   view.opts.forEach((ov, i) => {
     const o = g.options.find((x) => x.id === ov.id);
@@ -1529,7 +1557,7 @@ function marksHtml(o, ov) {
   return mk(!!(o.description || "").trim(), "説明あり", "説明なし")
     + mk(!!(o.note || "").trim(), "注意書きあり", "注意書きなし")
     + mk(!!ov.qs?.length, ov.qs?.length > 1 ? `質問${ov.qs.length}件` : "質問あり", "質問なし")
-    + mk(!!(o.photo_url || o.layer_url), "写真あり", "写真なし")
+    + mk(!!o.photo_url, "見本写真あり", "見本写真なし")
     + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "")
     + (o.requires_review ? '<span class="mk">見積もり・承諾が必要</span>' : "")
     + (Object.keys(o.size_prices || {}).length ? '<span class="mk">サイズ別料金あり</span>' : "");
@@ -1709,18 +1737,6 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     hint: "登録すると、お客様画面のオプションに「見本を見る」が表示されます",
     onChange: (url) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { photo_url: url }),
   }));
-  row.querySelector(".o-photo").appendChild(buildLayerField({
-    url: o.layer_url,
-    z: o.layer_z,
-    label: "プレビュー用イラスト（この選択肢を選んだ時・任意）",
-    hint: "透過PNG・800×800px",
-    showZ: true,
-    orderKey: `options:${o.id}`,
-    onChange: (patch) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`,
-      patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
-  }));
-  const zEl = row.querySelector(".layer-z");
-  if (zEl) regField("options", o.id, "layer_z", zEl, { number: true });
 
   row.querySelector(".o-toggle").onclick = async () => {
     await api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { is_available: !o.is_available });

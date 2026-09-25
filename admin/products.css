@@ -267,6 +267,20 @@
   margin-top: 16px; padding: 14px; border: 1.5px solid var(--line); border-radius: 12px;
   background: #fafbf7;
 }
+.preview-illustration-card > .small { margin-bottom: 14px; }
+.preview-layer-group {
+  border: 1px solid var(--line); border-radius: 10px; margin-top: 10px; background: #fff;
+}
+.preview-layer-group > summary {
+  cursor: pointer; padding: 11px 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+}
+.preview-layer-group-fields {
+  border-top: 1px solid var(--line); padding: 2px 13px 13px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px;
+}
+@media (max-width: 720px) {
+  .preview-layer-group-fields { grid-template-columns: 1fr; }
+}
 .layer-order-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .layer-order-heading .text-field-label { margin: 0; }
 .layer-count {

@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1790333468">
-<link rel="stylesheet" href="admin.css?v=1790333468">
-<link rel="stylesheet" href="products.css?v=1790333468">
-<link rel="stylesheet" href="admin-layout.css?v=1790333468">
+<link rel="stylesheet" href="../styles.css?v=1790334175">
+<link rel="stylesheet" href="admin.css?v=1790334175">
+<link rel="stylesheet" href="products.css?v=1790334175">
+<link rel="stylesheet" href="admin-layout.css?v=1790334175">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -87,8 +87,6 @@
           <p class="small">既存のカテゴリを選んだら「保存する」で確定します。新規作成は「作成してこの商品に設定」で、作成と分類をその場で確定します。</p>
         </div>
         <div id="p-photo"></div>
-        <div id="p-layer"></div>
-        <div id="p-layer-order"></div>
         <div class="text-field">
           <span class="text-field-label">説明（お客様に表示されます）</span>
           <textarea id="p-desc" rows="3"></textarea>
@@ -183,6 +181,14 @@
         </div>
       </div>
 
+      <div class="confirm-box preview-illustration-card">
+        <h3>プレビュー用イラスト<button type="button" class="tip" data-tip="お客様が選んだ内容をケーキ画像へ重ねて表示するための透過PNGです。商品写真や見本画像とは別の設定です。プレビュー合成を使わないお店は設定不要です。">？</button></h3>
+        <p class="small">予約画面のケーキ合成に使うイラストだけを、ここでまとめて設定します。商品写真・見本画像には影響しません。</p>
+        <div id="p-layer"></div>
+        <div id="p-layer-fields"></div>
+        <div id="p-layer-order"></div>
+      </div>
+
       <div class="product-delete-action">
         <button type="button" class="pill danger" id="btn-p-delete">この商品を削除</button>
       </div>
@@ -217,10 +223,10 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790333468"></script>
-<script src="edit-drafts.js?v=1790333468"></script>
-<script src="products-menu.js?v=1790333468"></script>
-<script src="pickup-schedule.js?v=1790333468"></script>
-<script src="products.js?v=1790333468"></script>
+<script src="tips.js?v=1790334175"></script>
+<script src="edit-drafts.js?v=1790334175"></script>
+<script src="products-menu.js?v=1790334175"></script>
+<script src="pickup-schedule.js?v=1790334175"></script>
+<script src="products.js?v=1790334175"></script>
 </body>
 </html>

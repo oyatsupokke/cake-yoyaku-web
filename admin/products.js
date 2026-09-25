@@ -1133,6 +1133,32 @@ function groupsForProduct(p) {
     .sort((a, b) => (a.display_order - b.display_order) || (a.product_id ? -1 : 1));
 }
 
+const ADMIN_ANIMAL_NAMES = new Set(["ねこクッキー", "うさぎメレンゲ", "くまメレンゲ", "わんこメレンゲ"]);
+const ADMIN_ANIMAL_LAYOUTS = {
+  round: {
+    "ねこクッキー": { cx: 235, cy: 185, h: 230 }, "うさぎメレンゲ": { cx: 600, cy: 165, h: 205 },
+    "くまメレンゲ": { cx: 215, cy: 420, h: 205 }, "わんこメレンゲ": { cx: 595, cy: 440, h: 190 },
+  },
+  tart: {
+    "ねこクッキー": { cx: 245, cy: 375, h: 210 }, "うさぎメレンゲ": { cx: 550, cy: 510, h: 200 },
+    "くまメレンゲ": { cx: 165, cy: 510, h: 210 }, "わんこメレンゲ": { cx: 635, cy: 375, h: 195 },
+  },
+  basque: {
+    "ねこクッキー": { cx: 285, cy: 200, h: 210 }, "うさぎメレンゲ": { cx: 565, cy: 390, h: 170 },
+    "くまメレンゲ": { cx: 185, cy: 405, h: 185 }, "わんこメレンゲ": { cx: 585, cy: 205, h: 180 },
+  },
+};
+function adminAnimalLayout(productName) {
+  if (productName === "フルーツタルト") return ADMIN_ANIMAL_LAYOUTS.tart;
+  if (productName === "バスクチーズケーキ") return ADMIN_ANIMAL_LAYOUTS.basque;
+  return ADMIN_ANIMAL_LAYOUTS.round;
+}
+function adminAnimalIsBack(name, productName) {
+  if (productName === "フルーツタルト") return name === "わんこメレンゲ";
+  if (productName === "バスクチーズケーキ") return name === "ねこクッキー" || name === "わんこメレンゲ";
+  return name === "ねこクッキー" || name === "うさぎメレンゲ";
+}
+
 // 商品内のプレビュー用イラストを、土台を含めて1つの一覧で確認・並べ替えられるようにする。
 // 数値の重ね順は内部値として残し、画面では「全何枚のうち何番目」と前後ボタンだけを見せる。
 function previewLayerEntries(p) {
@@ -1151,10 +1177,13 @@ function previewLayerEntries(p) {
     });
     for (const o of [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)) {
       if (!o.layer_url) continue;
+      const optionName = optDisplayName(o);
+      const animalName = ADMIN_ANIMAL_NAMES.has(optionName) ? optionName : null;
       entries.push({
-        key: `options:${o.id}`, label: `${groupName}：${optDisplayName(o)}`,
-        url: o.layer_url, z: Number(o.layer_z ?? 20), stable: stable++,
+        key: `options:${o.id}`, label: `${groupName}：${optionName}`,
+        url: o.layer_url, z: animalName ? (adminAnimalIsBack(animalName, p.name) ? 64 : 70) : Number(o.layer_z ?? 20), stable: stable++,
         record: o, column: "layer_z",
+        animalName, automatic: !!animalName,
       });
     }
   }
@@ -1165,9 +1194,10 @@ function previewLayerEntries(p) {
 }
 
 function setPreviewLayerOrder(entries) {
-  const movable = entries.filter((entry) => !entry.fixed);
+  const movable = entries.filter((entry) => !entry.fixed && !entry.automatic);
+  const zValues = movable.map((entry) => Number(entry.z) || 20).sort((a, b) => a - b);
   movable.forEach((entry, index) => {
-    const z = (index + 1) * 10;
+    const z = zValues[index];
     entry.z = z;
     entry.record[entry.column] = z;
     const field = [...document.querySelectorAll("[data-layer-order-key]")]
@@ -1176,6 +1206,54 @@ function setPreviewLayerOrder(entries) {
     if (!input) return;
     input.value = String(z);
     input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function loadAdminLayerImage(url) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = url.includes("{digit}") ? url.replace("{digit}", "1") : url;
+  });
+}
+function adminImageAlphaBounds(image) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0);
+  try {
+    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let left = width, top = height, right = 0, bottom = 0;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (!data[(y * width + x) * 4 + 3]) continue;
+      left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x + 1); bottom = Math.max(bottom, y + 1);
+    }
+    if (right > left && bottom > top) return { x: left, y: top, w: right - left, h: bottom - top };
+  } catch { /* 外部画像で画素を読めない場合は画像全体を使う */ }
+  return { x: 0, y: 0, w: canvas.width, h: canvas.height };
+}
+async function paintAdminLayerComposite(canvas, entries, productName) {
+  const token = String(Date.now()) + Math.random();
+  canvas.dataset.paintToken = token;
+  const images = await Promise.all(entries.map((entry) => loadAdminLayerImage(entry.url)));
+  if (canvas.dataset.paintToken !== token) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 800, 800);
+  entries.forEach((entry, index) => {
+    const image = images[index];
+    if (!image) return;
+    if (!entry.animalName) {
+      ctx.drawImage(image, 0, 0, 800, 800);
+      return;
+    }
+    const bounds = adminImageAlphaBounds(image);
+    const placement = adminAnimalLayout(productName)[entry.animalName];
+    const height = placement.h, width = height * bounds.w / bounds.h;
+    ctx.drawImage(image, bounds.x, bounds.y, bounds.w, bounds.h,
+      placement.cx - width / 2, placement.cy - height / 2, width, height);
   });
 }
 
@@ -1202,9 +1280,7 @@ function renderLayerOrder(p) {
     <p class="small">左の完成イメージを見ながら調整できます。一覧の上が後ろ、下が手前です。</p>
     <div class="layer-order-workspace">
       <div class="layer-composite-wrap">
-        <div class="layer-composite" aria-label="現在の重なり">
-          ${visibleEntries.map((entry, index) => `<img src="${esc(entry.url)}" alt="" style="z-index:${index + 1}">`).join("")}
-        </div>
+        <canvas class="layer-composite" width="800" height="800" aria-label="現在の重なり"></canvas>
         <div class="layer-preview-controls">
           <span class="mini">${visibleEntries.length}枚を表示中</span>
           <button type="button" class="pill layer-show-all">すべて表示</button>
@@ -1219,6 +1295,7 @@ function renderLayerOrder(p) {
     hidden.clear();
     renderLayerOrder(p);
   };
+  paintAdminLayerComposite(wrap.querySelector(".layer-composite"), visibleEntries, p.name);
   wrap.querySelector(".layer-show-base").onclick = () => {
     hidden.clear();
     entries.filter((entry) => !entry.fixed).forEach((entry) => hidden.add(entry.key));
@@ -1233,9 +1310,10 @@ function renderLayerOrder(p) {
       <div class="layer-order-name"><strong>${esc(entry.label)}</strong><span>後ろから${index + 1}番目／全${entries.length}枚</span></div>
       <div class="layer-order-actions">
         <label class="layer-visible"><input type="checkbox" ${hidden.has(entry.key) ? "" : "checked"}>表示</label>
-        ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : `
-          <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) ? "disabled" : ""}>1つ後ろへ</button>
-          <button type="button" class="pill layer-front" ${index === entries.length - 1 ? "disabled" : ""}>1つ前へ</button>`}
+        ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : entry.automatic
+          ? `<span class="tag hi">位置・前後は自動調整</span>` : `
+          <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) || entries[index - 1]?.automatic ? "disabled" : ""}>1つ後ろへ</button>
+          <button type="button" class="pill layer-front" ${index === entries.length - 1 || entries[index + 1]?.automatic ? "disabled" : ""}>1つ前へ</button>`}
       </div>`;
     row.querySelector(".layer-visible input").addEventListener("change", (event) => {
       if (event.currentTarget.checked) hidden.delete(entry.key);

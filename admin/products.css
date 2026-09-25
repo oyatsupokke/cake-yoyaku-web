@@ -73,6 +73,10 @@
   background: #fdeff2; border-left: 6px solid var(--primary-deep); padding: 10px 14px;
 }
 .grp-bar .gname { flex: 1; min-width: 150px; font-size: 1rem; font-weight: bold; }
+.grp-bar .group-scope-toggle {
+  flex: 0 0 auto; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
+  background: #fff; white-space: nowrap;
+}
 .grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }
 .tag { font-size: .72rem; background: #fff; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; color: #a08a8f; }
 .tag.hi { border-color: var(--primary-deep); color: var(--primary-deep); }

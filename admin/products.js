@@ -1352,12 +1352,12 @@ function buildGroupBox(p, g) {
   box.innerHTML = `
     <div class="grp-bar">
       <input type="text" class="gname inplace" value="${esc(g.name)}" aria-label="グループ名">
+      <label class="chk group-scope-toggle"><input type="checkbox" class="gh-all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
       <select class="gh-type">
         <option value="single" ${g.selection_type === "single" ? "selected" : ""}>1つ選ぶ</option>
         <option value="multiple" ${g.selection_type === "multiple" ? "selected" : ""}>複数選べる</option>
       </select>
       <label class="chk"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
-      ${isGlobal ? `<span class="tag hi">すべてのケーキに出す</span>` : ""}
       ${sharedNote}
     </div>
     <div class="grp-body">
@@ -1377,7 +1377,6 @@ function buildGroupBox(p, g) {
         <button type="button" class="pill ga-add">＋ 選択肢を追加</button>
       </div>
       <div class="acts">
-        <label class="chk"><input type="checkbox" class="gh-all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
         <button type="button" class="pill danger gh-del">グループを削除</button>
       </div>
       </div>

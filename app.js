@@ -299,7 +299,7 @@ async function load() {
   const T = state.tenant.id;
   [state.products, state.questions, state.slots] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
-        `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(name,note))),option_exclusions(*)`),
+        `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices(*),common_question_products(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
@@ -431,6 +431,17 @@ function visibleProducts() {
   return state.products.filter((p) => onSale(p) || p.id === state.sel.product?.id);
 }
 const optName = (o) => o.name || o.shared_list_items?.name || "";
+function optionPickupPeriod(o) {
+  const item = o.shared_list_items;
+  return {
+    pickup_from: [o.pickup_from, item?.available_from].filter(Boolean).sort().at(-1) || null,
+    pickup_until: [o.pickup_until, item?.available_until].filter(Boolean).sort()[0] || null,
+  };
+}
+function optionAvailableOnPickup(o, date = state.sel.date) {
+  return o.is_available !== false && (!o.shared_list_item_id || !!o.shared_list_items)
+    && o.shared_list_items?.is_available !== false && choiceAvailableOnPickup(optionPickupPeriod(o), date);
+}
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
 const optDesc = (o) => o.description || "";
 function sortedGroups(p) { return [...p.option_groups].sort((a, b) => a.display_order - b.display_order); }
@@ -515,7 +526,7 @@ function ensureRequiredFallbacks() {
     if (!g.is_required || g.selection_type !== "single") continue;
     if (g.options.some((o) => state.sel.options.has(o.id))) continue;
     const fallback = sortedOpts(g).find((o) =>
-      o.is_available && optName(o) === "上面のフルーツなし" && !conflictsWithSelected(o.id).length);
+      optionAvailableOnPickup(o) && optName(o) === "上面のフルーツなし" && !conflictsWithSelected(o.id).length);
     if (fallback) state.sel.options.set(fallback.id, { qty: 1, text: "" });
   }
 }
@@ -1544,7 +1555,7 @@ function resetDesign() {
   const preferredDefaults=["通常デザイン","つけない","上面のフルーツなし"];
   for(const g of sortedGroups(state.sel.product)){
     if(!g.is_required||g.selection_type!=="single")continue;
-    const available=sortedOpts(g).filter(o=>o.is_available!==false&&(!o.shared_list_item_id||o.shared_list_items));
+    const available=sortedOpts(g).filter(o=>optionAvailableOnPickup(o));
     const fallback=preferredDefaults.map(name=>available.find(o=>optName(o)===name)).find(Boolean)
       ||available.find(o=>!conflictsWithSelected(o.id));
     if(fallback&&!conflictsWithSelected(fallback.id).length)state.sel.options.set(fallback.id,{qty:1,text:""});
@@ -1693,7 +1704,9 @@ function renderGroups() {
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
-      const conflictNote = !selected && capacityConflict
+      const conflictNote = !optionAvailableOnPickup(o)
+        ? "この受取日は提供期間外です。受取日または選択肢を変更してください"
+        : !selected && capacityConflict
         ? capacityConflict
         : blockingIds.length && !selected
           ? `「${blockingIds.map((id) => optName(findOption(id).o)).join("」「")}」とは組み合わせできません`
@@ -1705,6 +1718,13 @@ function renderGroups() {
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
+      const period = choicePeriodText(optionPickupPeriod(o));
+      if (period) {
+        const note = document.createElement("span");
+        note.className = "opt-desc";
+        note.textContent = period + (!state.sel.date ? " 受取日を選ぶと確認できます" : "");
+        row.querySelector(".opt-name").appendChild(note);
+      }
       input.onclick = (e) => { e.stopPropagation(); toggleOption(g, o, input); };
       const sampleButton=row.querySelector('.opt-sample-button');
       if(sampleButton)sampleButton.onclick=(e)=>{
@@ -1758,6 +1778,7 @@ function renderGroups() {
   }
 }
 function toggleOption(g, o, input) {
+  if (!optionAvailableOnPickup(o)) { input.checked = false; return; }
   if (!state.sel.options.has(o.id)) {
     const capacityConflict = toppingCapacityConflict(o);
     if (capacityConflict) { input.checked = false; toast(capacityConflict); return; }
@@ -1888,7 +1909,16 @@ function renderCalendar() {
 }
 async function selectDate(key) {
   state.sel.date = key;
-  const cleared = pruneUnavailableChoiceAnswers();
+  let cleared = pruneUnavailableChoiceAnswers();
+  for (const id of state.sel.options.keys()) {
+    const o = findOption(id)?.o;
+    if (o && !optionAvailableOnPickup(o)) {
+      state.sel.options.delete(id);
+      for (const q of state.questions) if (qOptionId(q) === id) state.sel.answers.delete(q.id);
+      cleared = true;
+    }
+  }
+  ensureRequiredFallbacks();
   renderGroups();
   renderQuestions();
   updatePriceBar();

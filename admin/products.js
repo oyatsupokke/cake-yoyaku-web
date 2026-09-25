@@ -72,6 +72,13 @@ function markDirty() {
   $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
 async function saveChange(c) {
+  if (c.table === "options" && ("pickup_from" in c.patch || "pickup_until" in c.patch)) {
+    const source = [...state.products.flatMap(p => p.option_groups || []), ...state.globalGroups]
+      .flatMap(g => g.options || []).find(o => o.id === c.id) || {};
+    const next = { ...source, ...c.patch };
+    if (next.pickup_from && next.pickup_until && next.pickup_from > next.pickup_until)
+      throw new Error("提供期間の終了日は、開始日以降にしてください");
+  }
   if (c.table === "common_question_choices") {
     const source = state.questions.flatMap(q => q.common_question_choices || []).find(x => x.id === c.id) || {};
     const next = { ...source, ...c.patch };
@@ -730,9 +737,6 @@ function renderEditor() {
   renderGroups(p);
   renderPreviewLayerSettings(p);
   renderProductStops(p);
-  // 共有リストのプルダウン（グループ追加用）
-  $("g-shared").innerHTML = `<option value="">共有リストを使わない</option>` +
-    state.sharedLists.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}を使う</option>`).join("");
 }
 
 /* ---------- この商品の上限（ほかの入力欄と同じ保存ボタンで確定） ---------- */
@@ -1172,12 +1176,7 @@ function optionAvailability(o) {
     return { available: false, label: "共有リストで停止中" };
   if (!o.is_available) return { available: false, label: o.shared_list_item_id ? "この商品で停止中" : "停止中" };
   const item = o.shared_list_items;
-  if (item?.available_from || item?.available_until) {
-    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: state.tenantTimezone || "Asia/Tokyo" }).format(new Date());
-    if ((item.available_from && today < item.available_from) || (item.available_until && today > item.available_until))
-      return { available: false, label: "共有リストの提供期間外" };
-  }
-  return { available: true, label: "提供中" };
+  return { available: true, label: o.pickup_from || o.pickup_until || item?.available_from || item?.available_until ? "提供期間あり" : "提供中" };
 }
 // この商品に出るグループ = その商品のグループ ＋「すべてのケーキに出す」グループ
 function groupsForProduct(p) {
@@ -1657,6 +1656,11 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     <div class="more ${open ? "" : "hidden"}">
       <section class="option-detail-section">
       <h4>予約・料金</h4>
+      <div class="fb"><span class="k">提供できる期間（任意）</span>
+        <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
+        <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
+        ${isLinked ? '<p class="small">以前の共有設定に期間がある場合は、両方を満たす受取日に選べます。</p>' : ""}
+      </div>
       <div class="option-detail-rule-actions">
         <button type="button" class="pill o-stops">ご用意できない日を設定</button>
         <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
@@ -1695,6 +1699,10 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>`;
 
   const repaintMarks = () => { row.querySelector(".marks").innerHTML = marksHtml(o, ov); };
+  for (const [column, selector] of [["pickup_from", ".o-from"], ["pickup_until", ".o-until"]]) {
+    const input = row.querySelector(selector);
+    regField("options", o.id, column, input, { get: () => input.value || null });
+  }
   const reviewEl = row.querySelector(".o-review");
   regField("options", o.id, "requires_review", reviewEl);
   reviewEl.addEventListener("change", () => { o.requires_review = reviewEl.checked; repaintMarks(); });
@@ -1940,25 +1948,13 @@ $("btn-g-add").onclick = async () => {
   const p = state.current;
   const name = $("g-name").value.trim();
   if (!name) { toast("グループ名を入れてください"); return; }
-  const sharedId = $("g-shared").value || null;
   // 追加は必ず「このケーキだけ」。全ケーキに出すかは、作ったあとグループの中で決める
   // （商品タブに立ったまま全商品に出るものを作れると、立ち位置と結果が食い違って混乱する）
   const created = await api("POST", "/rest/v1/option_groups", [{
     tenant_id: state.tenantId, product_id: p.id, name,
     selection_type: $("g-type").value, is_required: $("g-required").checked,
-    shared_list_id: sharedId, display_order: groupsForProduct(p).length,
+    display_order: groupsForProduct(p).length,
   }]);
-  // 共有リスト参照グループ: リストの全項目分のリンク行を自動作成
-  if (sharedId) {
-    const list = state.sharedLists.find((l) => l.id === sharedId);
-    const rows = (list?.shared_list_items || [])
-      .sort((a, b) => a.display_order - b.display_order)
-      .map((it, i) => ({
-        tenant_id: state.tenantId, group_id: created[0].id,
-        shared_list_item_id: it.id, display_order: i,
-      }));
-    if (rows.length) await api("POST", "/rest/v1/options", rows);
-  }
   $("g-name").value = ""; $("g-required").checked = false;
   toast(`グループ「${name}」を追加しました`);
   reloadAll();
@@ -2184,6 +2180,7 @@ syncFab();
 /* ---------- 共有リスト ---------- */
 function renderSharedLists() {
   const wrap = $("shared-lists");
+  $("legacy-shared-settings").hidden = !state.sharedLists.length;
   wrap.innerHTML = "";
   for (const l of state.sharedLists) {
     const box = document.createElement("div");
@@ -2204,7 +2201,7 @@ function renderSharedLists() {
           <button type="button" class="pill it-toggle">${it.is_available ? "停止する" : "提供を再開する"}</button>
         </div>
         <div class="sl-item-period">
-          <span class="mini period-label">提供期間（空欄なら通年）</span>
+          <span class="mini period-label">提供できる受取日の期間（空欄なら制限なし）</span>
           <span class="period-inputs">
             <input type="date" class="it-from" value="${esc(it.available_from)}">
             <span class="mini">〜</span>
@@ -2242,14 +2239,6 @@ function renderSharedLists() {
     wrap.appendChild(box);
   }
 }
-$("btn-sl-add").onclick = async () => {
-  const name = $("sl-name").value.trim();
-  if (!name) { toast("リスト名を入れてください"); return; }
-  await api("POST", "/rest/v1/shared_lists", [{ tenant_id: state.tenantId, name }]);
-  $("sl-name").value = "";
-  toast(`リスト「${name}」を作りました`);
-  reloadAll();
-};
 
 /* ---------- 保存忘れ警告 ---------- */
 state.dirty = false;

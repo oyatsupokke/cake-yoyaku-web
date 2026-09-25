@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1790351134">
-<link rel="stylesheet" href="admin.css?v=1790351134">
-<link rel="stylesheet" href="products.css?v=1790351134">
-<link rel="stylesheet" href="admin-layout.css?v=1790351134">
+<link rel="stylesheet" href="../styles.css?v=1790351687">
+<link rel="stylesheet" href="admin.css?v=1790351687">
+<link rel="stylesheet" href="products.css?v=1790351687">
+<link rel="stylesheet" href="admin-layout.css?v=1790351687">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -175,9 +175,6 @@
               <option value="multiple">複数選べる</option>
             </select>
             <label class="radio-line" style="margin:0"><input type="checkbox" id="g-required">必須</label>
-            <select id="g-shared">
-              <option value="">共有リストを使わない</option>
-            </select>
             <button type="button" class="pill" id="btn-g-add">追加する</button>
           </div>
         </div>
@@ -203,15 +200,11 @@
     </div>
 
     <!-- 共有リスト管理 -->
-    <div class="confirm-box">
-      <h3>共有リスト（果物など・複数の商品で共通の選択肢）</h3>
-      <p class="small">ここを直すと、このリストを使っている全部の商品に反映されます。季節の果物の入れ替えはここ1箇所でOK。</p>
+    <details id="legacy-shared-settings" class="confirm-box" hidden>
+      <summary>以前の共有設定（作成済みの商品用）</summary>
+      <p class="small">以前作った商品の連携を保つための設定です。ここを変えると、連携中の商品に反映されます。新しい項目は各商品の「選択グループ」で作成してください。全商品で使う場合は、グループの「すべてのケーキに出す」を選べます。</p>
       <div id="shared-lists"></div>
-      <div class="override-add">
-        <input type="text" id="sl-name" placeholder="新しいリスト名（例: 果物リスト）" style="width:200px">
-        <button type="button" class="pill" id="btn-sl-add">リスト追加</button>
-      </div>
-    </div>
+    </details>
 
   </main>
 
@@ -224,10 +217,10 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790351134"></script>
-<script src="edit-drafts.js?v=1790351134"></script>
-<script src="products-menu.js?v=1790351134"></script>
-<script src="pickup-schedule.js?v=1790351134"></script>
-<script src="products.js?v=1790351134"></script>
+<script src="tips.js?v=1790351687"></script>
+<script src="edit-drafts.js?v=1790351687"></script>
+<script src="products-menu.js?v=1790351687"></script>
+<script src="pickup-schedule.js?v=1790351687"></script>
+<script src="products.js?v=1790351687"></script>
 </body>
 </html>

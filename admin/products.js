@@ -1187,14 +1187,43 @@ function renderLayerOrder(p) {
     wrap.innerHTML = "";
     return;
   }
+  if (state.layerPreviewProductId !== p.id) {
+    state.layerPreviewProductId = p.id;
+    state.hiddenPreviewLayers = new Set();
+  }
+  const hidden = state.hiddenPreviewLayers || (state.hiddenPreviewLayers = new Set());
+  const visibleEntries = entries.filter((entry) => !hidden.has(entry.key));
   wrap.className = "layer-order-panel";
   wrap.innerHTML = `
     <div class="layer-order-heading">
       <span class="text-field-label">イラストの重ね順</span>
       <span class="layer-count">全部で${entries.length}枚</span>
     </div>
-    <p class="small">一覧の上が後ろ、下が手前です。変更後は画面下の「保存する」で確定します。</p>
-    <div class="layer-order-list"></div>`;
+    <p class="small">左の完成イメージを見ながら調整できます。一覧の上が後ろ、下が手前です。</p>
+    <div class="layer-order-workspace">
+      <div class="layer-composite-wrap">
+        <div class="layer-composite" aria-label="現在の重なり">
+          ${visibleEntries.map((entry, index) => `<img src="${esc(entry.url)}" alt="" style="z-index:${index + 1}">`).join("")}
+        </div>
+        <div class="layer-preview-controls">
+          <span class="mini">${visibleEntries.length}枚を表示中</span>
+          <button type="button" class="pill layer-show-all">すべて表示</button>
+          <button type="button" class="pill layer-show-base">土台だけ</button>
+        </div>
+        <p class="small">確認したいイラストだけ右の「表示」をオンにできます。</p>
+      </div>
+      <div class="layer-order-list"></div>
+    </div>
+    <p class="small layer-save-note">順番を変更したら、画面下の「保存する」で確定します。</p>`;
+  wrap.querySelector(".layer-show-all").onclick = () => {
+    hidden.clear();
+    renderLayerOrder(p);
+  };
+  wrap.querySelector(".layer-show-base").onclick = () => {
+    hidden.clear();
+    entries.filter((entry) => !entry.fixed).forEach((entry) => hidden.add(entry.key));
+    renderLayerOrder(p);
+  };
   const list = wrap.querySelector(".layer-order-list");
   entries.forEach((entry, index) => {
     const row = document.createElement("div");
@@ -1203,10 +1232,16 @@ function renderLayerOrder(p) {
       <img src="${esc(entry.url)}" alt="">
       <div class="layer-order-name"><strong>${esc(entry.label)}</strong><span>後ろから${index + 1}番目／全${entries.length}枚</span></div>
       <div class="layer-order-actions">
+        <label class="layer-visible"><input type="checkbox" ${hidden.has(entry.key) ? "" : "checked"}>表示</label>
         ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : `
           <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) ? "disabled" : ""}>1つ後ろへ</button>
           <button type="button" class="pill layer-front" ${index === entries.length - 1 ? "disabled" : ""}>1つ前へ</button>`}
       </div>`;
+    row.querySelector(".layer-visible input").addEventListener("change", (event) => {
+      if (event.currentTarget.checked) hidden.delete(entry.key);
+      else hidden.add(entry.key);
+      renderLayerOrder(p);
+    });
     row.querySelector(".layer-back")?.addEventListener("click", () => {
       [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]];
       setPreviewLayerOrder(entries);

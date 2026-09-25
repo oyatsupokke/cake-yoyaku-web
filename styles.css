@@ -121,7 +121,7 @@ body {
   border-radius: var(--r); cursor: pointer;
 }
 .opt:hover { background: #fdf1f3; }
-.opt input { accent-color: var(--primary-deep); width: 18px; height: 18px; }
+.opt input[type="radio"], .opt input[type="checkbox"] { accent-color: var(--primary-deep); width: 18px; height: 18px; }
 .opt.opt-disabled { opacity: .58; cursor: not-allowed; }
 .opt.opt-disabled:hover { background: transparent; }
 .opt .opt-name { flex: 1; font-size: .92rem; }

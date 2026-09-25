@@ -167,7 +167,7 @@
 .answer-choice-details > summary { cursor: pointer; margin-bottom: 10px; }
 .answer-choice-period { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
 .answer-choice-period label { display: grid; gap: 5px; min-width: 0; flex: 0 1 190px; max-width: 100%; }
-/* .opt input's 18px checkbox dimensions must not apply to these date fields. */
+/* 受取日を指定する欄はスマホでも押しやすい高さにする。 */
 .answer-choice-period input[type="date"] {
   display: block; width: 100%; min-width: 0; max-width: 100%; height: 44px;
   box-sizing: border-box; padding: 8px 10px; margin: 0;

@@ -1629,13 +1629,13 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><span class="k">注意書き</span>
         <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
         <label class="chk"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
+      <div class="o-photo fb"></div>
       <div class="fb o-questions">
         <span class="k">この選択肢を選んだ人への質問</span>
         <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
         <div class="o-qbox"></div>
         <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
       </div>
-      <div class="o-photo"></div>
       </section>
       <section class="option-detail-section option-detail-actions">
       <h4>この選択肢の管理</h4>

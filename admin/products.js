@@ -1581,13 +1581,18 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
-      <div class="fb"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
+      <section class="option-detail-section">
+      <h4>予約・料金</h4>
+      <div class="fb option-detail-feature"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
         <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
       <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
         <p class="small">空欄のサイズは上の追加料金を使います。同じサイズ名には同じ金額を適用します。</p></div>
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
         <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
         <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
+      </section>
+      <section class="option-detail-section">
+      <h4>お客様に見える内容</h4>
       <div class="fb"><span class="k">説明</span>
         <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea></div>
       <div class="fb"><span class="k">注意書き</span>
@@ -1600,6 +1605,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
       </div>
       <div class="o-photo"></div>
+      </section>
+      <section class="option-detail-section option-detail-actions">
+      <h4>提供設定</h4>
       <div class="acts">
         <button type="button" class="pill o-stops">ご用意できない日を設定</button>
         <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
@@ -1607,6 +1615,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}
         <button type="button" class="pill danger o-del">削除</button>
       </div>
+      </section>
     </div>`;
 
   const repaintMarks = () => { row.querySelector(".marks").innerHTML = marksHtml(o, ov); };

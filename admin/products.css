@@ -9,14 +9,30 @@
    これまでこの指定が効かず、商品設定は560px幅のまま出ていた（2026-08-30 に発見） */
 #app.products-page { max-width: 720px; padding-bottom: 90px; }
 .back-link { text-decoration: none; color: var(--primary-deep); }
+.product-header-actions{display:inline-flex;align-items:center;gap:10px}
+.product-header-actions .link-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 8px;line-height:1.4;text-decoration:none}
 .products-page .product-limit-field{margin:24px 0}
+.products-page #p-pickup-dates .override-add>input[type=date],
+.products-page #p-pickup-dates .override-add>.pill,
+.products-page #p-stop-date,
+.products-page #p-stop-date+.pill{height:44px;min-height:44px;margin:0}
+.products-page #variants-list .opt-row,
+.products-page #variants-list+.override-add{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.products-page #variants-list input,
+.products-page #variants-list+.override-add input{height:44px;min-height:44px;margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:5px;font:inherit}
+.products-page #variants-list .o-name,
+.products-page #v-label{width:140px!important}
+.products-page #variants-list .v-price,
+.products-page #v-price{width:150px!important}
+.products-page #variants-list .pill,
+.products-page #variants-list+.override-add .pill{height:44px;min-height:44px;margin:0}
 .products-page .product-unit-row{display:flex;align-items:center;gap:10px;margin:10px 0;font-weight:400}
 .products-page .product-unit-row>label{flex:0 0 6em}
 .products-page .product-unit-row>span{white-space:nowrap}
 .products-page .product-unit-row input[type=number]{display:block;flex:0 0 90px;width:90px;min-width:0;margin:0}
 .products-page .product-unit-row #p-deadline{flex-basis:180px;width:180px}
 .products-page .product-limit-field .help{display:block;margin:10px 0 0;line-height:1.7}
-.products-page .product-publish-section{border-top:1px solid var(--line);padding-top:20px;margin-top:26px}
+.products-page .product-publish-section{margin:10px 0 22px;padding:12px 14px;border:1px solid var(--line);border-radius:5px;background:#f7f8f6}
 .products-page .product-copy-action{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 22px}
 .products-page .product-delete-action{border-top:1px solid var(--line);padding:22px 0;margin:30px 0 36px}
 .cat-product-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -68,6 +84,21 @@
   font-family: inherit; font-size: .88rem; color: var(--ink); background: #fff; resize: vertical;
 }
 .fb textarea:focus, .fb input[type="text"]:focus { outline: none; border-color: var(--primary-deep); }
+.o-size-prices label{display:flex;align-items:center;gap:8px;margin-top:7px}
+.products-page .o-size-price,.products-page .o-deadline{
+  display:block;width:180px;min-width:180px;height:44px;margin:0;padding:8px 10px;
+  border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);font:inherit;
+}
+.products-page .v-price,.products-page #v-price,
+.products-page .o-price,.products-page .o-size-price{appearance:textfield;-moz-appearance:textfield}
+.products-page .v-price::-webkit-inner-spin-button,
+.products-page .v-price::-webkit-outer-spin-button,
+.products-page #v-price::-webkit-inner-spin-button,
+.products-page #v-price::-webkit-outer-spin-button,
+.products-page .o-price::-webkit-inner-spin-button,
+.products-page .o-price::-webkit-outer-spin-button,
+.products-page .o-size-price::-webkit-inner-spin-button,
+.products-page .o-size-price::-webkit-outer-spin-button{margin:0;-webkit-appearance:none}
 .meta { font-size: .78rem; color: #a08a8f; margin: 14px 0 9px; }
 .chk { font-size: .8rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; margin-top: 3px; }
 .chk input { width: 16px; height: 16px; accent-color: var(--primary-deep); }
@@ -222,6 +253,37 @@
 }
 .layer-thumb img { object-fit: contain !important; }
 .layer-z { padding: 5px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; }
+.layer-order-panel {
+  margin-top: 16px; padding: 14px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: #fafbf7;
+}
+.layer-order-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.layer-order-heading .text-field-label { margin: 0; }
+.layer-count {
+  padding: 3px 9px; border-radius: 999px; background: #e9f3e4; color: #496443;
+  font-size: .78rem; font-weight: 700;
+}
+.layer-order-list { margin-top: 10px; display: grid; gap: 7px; }
+.layer-order-row {
+  display: grid; grid-template-columns: 44px minmax(150px, 1fr) auto; align-items: center;
+  gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+}
+.layer-order-row img {
+  width: 44px; height: 44px; object-fit: contain; border-radius: 7px; border: 1px solid var(--line);
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%), linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%);
+  background-size: 10px 10px; background-position: 0 0, 5px 5px;
+}
+.layer-order-name { min-width: 0; display: grid; gap: 2px; }
+.layer-order-name strong { font-size: .83rem; overflow-wrap: anywhere; }
+.layer-order-name span { font-size: .73rem; color: #8d7f82; }
+.layer-order-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.layer-order-actions .pill { padding: 5px 8px; font-size: .72rem; }
+@media (max-width: 640px) {
+  .layer-order-row { grid-template-columns: 40px minmax(0, 1fr); }
+  .layer-order-row img { width: 40px; height: 40px; }
+  .layer-order-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
 
 /* 共有リストの1項目 = 2段組み（1段目: 名前と操作 / 2段目: 提供期間） */
 .sl-item { display: block; padding: 10px 0; font-size: .9rem; border-bottom: 1px dashed var(--line); }
@@ -279,9 +341,8 @@
 /* ---- 広い画面：左に設定・右にプレビューを貼り付け ---- */
 @media (min-width: 920px) {
   #app.products-page { max-width: 1180px; }
-  /* 基本情報などの単純な入力欄は横に伸ばしすぎない。
-     右に見本を置く選択グループ・共通質問だけは従来どおり全幅を使う。 */
-  .product-compact-card { max-width: 800px; margin-left: auto; margin-right: auto; }
+  /* 各設定カードの外幅は揃える。入力欄そのものの幅は各項目側で調整する。 */
+  .product-compact-card, .cat-panel { max-width: none; margin-left: 0; margin-right: 0; }
   .grp-body, .q-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
   .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: 14px; }
   .qrow .k { flex: 0 0 118px; }

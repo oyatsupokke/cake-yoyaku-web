@@ -303,18 +303,20 @@ async function deleteImageFile(url) {
 }
 
 // イラストレイヤーの欄（素材＋重ね順）。市松模様の背景で透過が分かるようにする
+const PREVIEW_LAYER_HELP = "お客様の予約画面で、選んだ内容をケーキの上に重ねて表示するための透過PNGです。商品画像や見本画像とは別のものです。プレビュー合成を使わない場合は設定不要です。推奨サイズは800×800pxです。";
 function buildLayerField(opts) {
-  const { url, z, label, hint, showZ, onChange } = opts;
+  const { url, z, label, hint, showZ, orderKey, onChange } = opts;
   const box = document.createElement("div");
   box.className = "photo-field";
+  if (orderKey) box.dataset.layerOrderKey = orderKey;
   box.innerHTML = `
-    <span class="text-field-label">${esc(label)}</span>
+    <span class="text-field-label">${esc(label)}<button type="button" class="tip" data-tip="${esc(PREVIEW_LAYER_HELP)}">？</button></span>
     <div class="photo-body">
       <div class="photo-thumb layer-thumb ${url ? "" : "empty"}">${url ? `<img src="${esc(url)}" alt="">` : "なし"}</div>
       <div class="photo-actions">
         <label class="pill photo-pick">イラストを選ぶ<input type="file" accept="image/png" hidden></label>
         <button type="button" class="pill danger photo-del" ${url ? "" : "hidden"}>削除</button>
-        ${showZ ? `<span class="mini">重ね順</span><input type="number" class="layer-z" value="${esc(z)}" placeholder="20" style="width:70px">` : ""}
+        ${showZ ? `<input type="hidden" class="layer-z" value="${esc(z ?? 20)}"><span class="mini">重ね順は上の一覧で変更できます</span>` : ""}
         ${hint ? `<span class="mini photo-hint">${esc(hint)}</span>` : ""}
       </div>
     </div>`;
@@ -716,7 +718,7 @@ function renderEditor() {
   layerWrap.innerHTML = "";
   layerWrap.appendChild(buildLayerField({
     url: p.layer_url,
-    label: "イラスト土台（一番下に敷く絵）",
+    label: "プレビュー用イラスト（土台）",
     hint: "透過PNG・800×800px",
     showZ: false,
     onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
@@ -725,6 +727,7 @@ function renderEditor() {
   state.capacityLoading = loadCapacityRule(p);
   renderVariants(p);
   renderGroups(p);
+  renderLayerOrder(p);
   renderProductStops(p);
   // 共有リストのプルダウン（グループ追加用）
   $("g-shared").innerHTML = `<option value="">共有リストを使わない</option>` +
@@ -1129,6 +1132,95 @@ function groupsForProduct(p) {
   return [...p.option_groups, ...state.globalGroups]
     .sort((a, b) => (a.display_order - b.display_order) || (a.product_id ? -1 : 1));
 }
+
+// 商品内のプレビュー用イラストを、土台を含めて1つの一覧で確認・並べ替えられるようにする。
+// 数値の重ね順は内部値として残し、画面では「全何枚のうち何番目」と前後ボタンだけを見せる。
+function previewLayerEntries(p) {
+  const entries = [];
+  if (p.layer_url) entries.push({
+    key: `products:${p.id}`, label: `土台：${p.name || "商品"}`, url: p.layer_url,
+    fixed: true, z: Number.NEGATIVE_INFINITY, stable: -1,
+  });
+  let stable = 0;
+  for (const g of groupsForProduct(p)) {
+    const groupName = g.name || "名称未設定のグループ";
+    if (g.default_layer_url) entries.push({
+      key: `option_groups:${g.id}`, label: `${groupName}：何も選ばれていない時`,
+      url: g.default_layer_url, z: Number(g.default_layer_z ?? 20), stable: stable++,
+      record: g, column: "default_layer_z",
+    });
+    for (const o of [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)) {
+      if (!o.layer_url) continue;
+      entries.push({
+        key: `options:${o.id}`, label: `${groupName}：${optDisplayName(o)}`,
+        url: o.layer_url, z: Number(o.layer_z ?? 20), stable: stable++,
+        record: o, column: "layer_z",
+      });
+    }
+  }
+  const base = entries.filter((entry) => entry.fixed);
+  const movable = entries.filter((entry) => !entry.fixed)
+    .sort((a, b) => (a.z - b.z) || (a.stable - b.stable));
+  return [...base, ...movable];
+}
+
+function setPreviewLayerOrder(entries) {
+  const movable = entries.filter((entry) => !entry.fixed);
+  movable.forEach((entry, index) => {
+    const z = (index + 1) * 10;
+    entry.z = z;
+    entry.record[entry.column] = z;
+    const field = [...document.querySelectorAll("[data-layer-order-key]")]
+      .find((el) => el.dataset.layerOrderKey === entry.key);
+    const input = field?.querySelector(".layer-z");
+    if (!input) return;
+    input.value = String(z);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function renderLayerOrder(p) {
+  const wrap = $("p-layer-order");
+  const entries = previewLayerEntries(p);
+  if (!entries.length) {
+    wrap.className = "";
+    wrap.innerHTML = "";
+    return;
+  }
+  wrap.className = "layer-order-panel";
+  wrap.innerHTML = `
+    <div class="layer-order-heading">
+      <span class="text-field-label">イラストの重ね順</span>
+      <span class="layer-count">全部で${entries.length}枚</span>
+    </div>
+    <p class="small">一覧の上が後ろ、下が手前です。変更後は画面下の「保存する」で確定します。</p>
+    <div class="layer-order-list"></div>`;
+  const list = wrap.querySelector(".layer-order-list");
+  entries.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "layer-order-row";
+    row.innerHTML = `
+      <img src="${esc(entry.url)}" alt="">
+      <div class="layer-order-name"><strong>${esc(entry.label)}</strong><span>後ろから${index + 1}番目／全${entries.length}枚</span></div>
+      <div class="layer-order-actions">
+        ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : `
+          <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) ? "disabled" : ""}>1つ後ろへ</button>
+          <button type="button" class="pill layer-front" ${index === entries.length - 1 ? "disabled" : ""}>1つ前へ</button>`}
+      </div>`;
+    row.querySelector(".layer-back")?.addEventListener("click", () => {
+      [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]];
+      setPreviewLayerOrder(entries);
+      renderLayerOrder(p);
+    });
+    row.querySelector(".layer-front")?.addEventListener("click", () => {
+      [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
+      setPreviewLayerOrder(entries);
+      renderLayerOrder(p);
+    });
+    list.appendChild(row);
+  });
+}
+
 function renderGroups(p) {
   const wrap = $("groups-list");
   wrap.innerHTML = "";
@@ -1295,9 +1387,10 @@ function buildGroupBox(p, g) {
   box.querySelector(".g-default-layer").appendChild(buildLayerField({
     url: g.default_layer_url,
     z: g.default_layer_z,
-    label: "このグループで何も選ばれていないときのイラスト（任意）",
+    label: "プレビュー用イラスト（何も選ばれていない時・任意）",
     hint: "透過PNG・800×800px",
     showZ: true,
+    orderKey: `option_groups:${g.id}`,
     onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
       patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
   }));
@@ -1502,9 +1595,10 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   row.querySelector(".o-photo").appendChild(buildLayerField({
     url: o.layer_url,
     z: o.layer_z,
-    label: "イラスト（選ぶと重なる絵・任意）",
+    label: "プレビュー用イラスト（この選択肢を選んだ時・任意）",
     hint: "透過PNG・800×800px",
     showZ: true,
+    orderKey: `options:${o.id}`,
     onChange: (patch) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`,
       patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
   }));

@@ -785,12 +785,13 @@ function mailInit(t) {
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const TOKUSHO_FIELDS = {
   seller: "t-toku-seller", manager: "t-toku-manager", address: "t-toku-address",
+  phone: "t-toku-phone",
   email: "t-toku-email", extraFees: "t-toku-extra-fees", paymentMethod: "t-toku-payment-method",
   paymentTiming: "t-toku-payment-timing", delivery: "t-toku-delivery",
   returns: "t-toku-returns", cancellation: "t-toku-cancellation",
 };
 function parseLegacyTokushoho(text = "") {
-  const labels = { "販売業者": "seller", "運営責任者": "manager", "所在地": "address",
+  const labels = { "販売業者": "seller", "運営責任者": "manager", "所在地": "address", "電話番号": "phone",
     "メールアドレス": "email", "商品代金以外の必要料金": "extraFees", "お支払い方法": "paymentMethod",
     "お支払い時期": "paymentTiming", "お引き渡し時期": "delivery",
     "返品・交換について": "returns", "キャンセルについて": "cancellation" };
@@ -798,7 +799,7 @@ function parseLegacyTokushoho(text = "") {
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.trim(); if (!line) continue;
     const match = line.match(/^([^：:]+)[：:]\s*(.*)$/), key = match ? labels[match[1].trim()] : "";
-    if (key) { current = key; values[key] = match[2].trim(); }
+    if (key) { current = key; const value = match[2].trim(); values[key] = key === "phone" && /^ご請求があった場合/.test(value) ? "" : value; }
     else if (current && !/^(電話番号|販売価格)[：:]/.test(line)) values[current] = `${values[current] ? values[current] + "\n" : ""}${line}`;
   }
   return values;
@@ -808,7 +809,7 @@ function tokushohoValue() {
   if (!Object.values(fields).some(Boolean)) return null;
   const first = [fields.seller && `販売業者：${fields.seller}`, fields.manager && `運営責任者：${fields.manager}`,
     fields.address && `所在地：${fields.address}`,
-    `電話番号：ご請求があった場合、遅滞なく開示いたします。お問い合わせはメールアドレス${fields.email ? `（${fields.email}）` : ""}までお願いいたします`,
+    fields.phone ? `電話番号：${fields.phone}` : `電話番号：ご請求があった場合、遅滞なく開示いたします。お問い合わせはメールアドレス${fields.email ? `（${fields.email}）` : ""}までお願いいたします`,
     fields.email && `メールアドレス：${fields.email}`].filter(Boolean);
   const terms = ["販売価格：各商品ページに表示された金額（消費税込み）",
     fields.extraFees && `商品代金以外の必要料金：${fields.extraFees}`,
@@ -819,7 +820,7 @@ function tokushohoValue() {
     fields.cancellation && `キャンセルについて：\n${fields.cancellation}`].filter(Boolean);
   return { version: 2, ...fields, text: [first.join("\n"), terms.join("\n"), after.join("\n\n")].filter(Boolean).join("\n\n") };
 }
-function tokushohoComplete() { return Object.values(TOKUSHO_FIELDS).every((id) => $(id).value.trim()); }
+function tokushohoComplete() { return Object.entries(TOKUSHO_FIELDS).filter(([key]) => key !== "phone").every(([, id]) => $(id).value.trim()); }
 async function loadTenantForm() {
   const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
   initLineSettings(t);

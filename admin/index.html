@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790324025">
-<link rel="stylesheet" href="admin.css?v=1790324025">
-<link rel="stylesheet" href="admin-layout.css?v=1790324025">
-<link rel="stylesheet" href="support.css?v=1790324025">
+<link rel="stylesheet" href="../styles.css?v=1790330967">
+<link rel="stylesheet" href="admin.css?v=1790330967">
+<link rel="stylesheet" href="admin-layout.css?v=1790330967">
+<link rel="stylesheet" href="support.css?v=1790330967">
 </head>
 <body>
 <div id="app" class="admin">
@@ -253,11 +253,12 @@
           <textarea id="t-cancel" rows="3"></textarea>
         </label>
         <div class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで予約を受けるときに必要な表記です。項目ごとに入力すると、お客様の注文確認画面では1つの文章にまとめて表示されます。">？</button>
-          <p class="help">空欄を上から埋めてください。販売価格と電話番号の案内はシステムが自動で付けます。</p>
+          <p class="help">空欄を上から埋めてください。販売価格の案内は自動で付きます。電話番号は、公開する場合だけ入力してください。</p>
           <div class="tokushoho-fields">
             <label>販売業者<input id="t-toku-seller" autocomplete="organization" placeholder="例：山田洋菓子店"></label>
             <label>運営責任者<input id="t-toku-manager" autocomplete="name" placeholder="例：山田 花子"></label>
             <label>所在地<input id="t-toku-address" autocomplete="street-address" placeholder="店舗の所在地"></label>
+            <label>電話番号（任意）<input type="tel" id="t-toku-phone" autocomplete="tel" placeholder="公開する場合のみ入力"></label>
             <label>メールアドレス<input type="email" id="t-toku-email" autocomplete="email" placeholder="お問い合わせ先"></label>
             <label>商品代金以外の必要料金<input id="t-toku-extra-fees" placeholder="例：ありません（店頭受取のため送料なし）"></label>
             <label>お支払い方法<input id="t-toku-payment-method" placeholder="例：店頭で現金・各種キャッシュレス決済"></label>
@@ -469,12 +470,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790324025"></script>
-<script src="edit-drafts.js?v=1790324025"></script>
-<script src="report-core.js?v=1790324025"></script>
-<script src="line-settings.js?v=1790324025"></script>
-<script src="admin.js?v=1790324025"></script>
-<script src="reports.js?v=1790324025"></script>
-<script src="support.js?v=1790324025"></script>
+<script src="tips.js?v=1790330967"></script>
+<script src="edit-drafts.js?v=1790330967"></script>
+<script src="report-core.js?v=1790330967"></script>
+<script src="line-settings.js?v=1790330967"></script>
+<script src="admin.js?v=1790330967"></script>
+<script src="reports.js?v=1790330967"></script>
+<script src="support.js?v=1790330967"></script>
 </body>
 </html>

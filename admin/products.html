@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1790324025">
-<link rel="stylesheet" href="admin.css?v=1790324025">
-<link rel="stylesheet" href="products.css?v=1790324025">
-<link rel="stylesheet" href="admin-layout.css?v=1790324025">
+<link rel="stylesheet" href="../styles.css?v=1790330967">
+<link rel="stylesheet" href="admin.css?v=1790330967">
+<link rel="stylesheet" href="products.css?v=1790330967">
+<link rel="stylesheet" href="admin-layout.css?v=1790330967">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -69,6 +69,12 @@
       <div class="confirm-box product-compact-card">
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
+        <div class="status-line product-publish-section">
+          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
+          <span id="p-publish-state" class="state-badge"></span>
+          <button type="button" class="pill" id="btn-p-publish"></button>
+        </div>
+        <p id="p-publish-error" class="small warn hidden" role="alert"></p>
         <div class="product-copy-action">
           <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てをコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
         </div>
@@ -82,6 +88,7 @@
         </div>
         <div id="p-photo"></div>
         <div id="p-layer"></div>
+        <div id="p-layer-order"></div>
         <div class="text-field">
           <span class="text-field-label">説明（お客様に表示されます）</span>
           <textarea id="p-desc" rows="3"></textarea>
@@ -102,12 +109,6 @@
           <div class="product-unit-row"><label for="p-cap-slot">同じ時間帯</label><input type="number" id="p-cap-slot" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
           <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限台数設定」だけが適用されます）。<br>例えば、全体は1日10台、このケーキは1日3台・同じ時間帯2台まで、という設定が可能です。<br>画面下の「保存する」で確定します。</p>
         </div>
-        <div class="status-line product-publish-section">
-          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
-          <span id="p-publish-state" class="state-badge"></span>
-          <button type="button" class="pill" id="btn-p-publish"></button>
-        </div>
-        <p id="p-publish-error" class="small warn hidden" role="alert"></p>
       </div>
 
       <div class="confirm-box product-compact-card">
@@ -216,10 +217,10 @@
   <button id="fab" type="button">プレビュー</button>
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790324025"></script>
-<script src="edit-drafts.js?v=1790324025"></script>
-<script src="products-menu.js?v=1790324025"></script>
-<script src="pickup-schedule.js?v=1790324025"></script>
-<script src="products.js?v=1790324025"></script>
+<script src="tips.js?v=1790330967"></script>
+<script src="edit-drafts.js?v=1790330967"></script>
+<script src="products-menu.js?v=1790330967"></script>
+<script src="pickup-schedule.js?v=1790330967"></script>
+<script src="products.js?v=1790330967"></script>
 </body>
 </html>

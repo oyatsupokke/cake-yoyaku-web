@@ -137,6 +137,14 @@
 .weekday-row input { display: none; }
 .radio-line { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: .9rem; margin-top: 6px; cursor: pointer; }
 .radio-line input { width: 18px; height: 18px; accent-color: var(--primary-deep); }
+.tokushoho-fields {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px; margin-top: 10px;
+}
+.tokushoho-fields label { min-width: 0; font-size: .8rem; color: var(--mute); }
+.tokushoho-fields input, .tokushoho-fields textarea { margin-top: 5px; color: var(--ink); }
+.tokushoho-fields label:nth-last-child(-n+2) { grid-column: 1 / -1; }
+@media (max-width: 560px) { .tokushoho-fields { grid-template-columns: 1fr; } .tokushoho-fields label:nth-last-child(-n+2) { grid-column: auto; } }
 
 /* 状態バッジ（今どうなっているか。押せるボタンとは見た目で区別する） */
 .state-badge {

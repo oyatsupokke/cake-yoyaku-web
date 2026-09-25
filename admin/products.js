@@ -19,6 +19,7 @@ const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const state = {
   session: null, tenantId: null, products: [], sharedLists: [], questions: [], globalGroups: [],
   categories: [],
+  closedDates: new Set(),
   current: null, fields: [],
   // 選択肢の「詳しい設定」を開いているもの。普段はたたんでおく（画面が縦に延々と続かないように）
   openOptions: new Set(),
@@ -1940,9 +1941,13 @@ window.addEventListener("beforeunload", (e) => {
     state.tenantId = tu[0].tenant_id;
     $("view-app").classList.remove("hidden");
     // お客様画面プレビューリンク
-    const t = await api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone,closed_weekdays,billing_status,trial_ends_at`);
+    const [t, closedOverrides] = await Promise.all([
+      api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=subdomain,timezone,closed_weekdays,billing_status,trial_ends_at`),
+      api("GET", `/rest/v1/date_overrides?tenant_id=eq.${tu[0].tenant_id}&kind=eq.closed&select=date`),
+    ]);
     state.tenantTimezone = t[0].timezone || "Asia/Tokyo";
     state.closedWeekdays = t[0].closed_weekdays || [];
+    state.closedDates = new Set(closedOverrides.map((row) => row.date));
     $("preview-link").href = `../?shop=${t[0].subdomain}${t[0].billing_status === "setup_trial" ? "&trial=1" : ""}`;
     await loadAll(false);
   } catch {

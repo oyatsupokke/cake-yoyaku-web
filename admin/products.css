@@ -185,6 +185,9 @@
 /* 説明・注意書きなどの縦積みフィールド（ラベル→入力欄を必ず縦に並べる） */
 .text-field { display: block; margin-top: 10px; }
 .text-field-label { display: block; font-size: .78rem; color: #a08a8f; margin-bottom: 4px; line-height: 1.5; }
+.text-field-heading { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.text-field-heading .text-field-label { margin-bottom: 0; }
+.text-field-heading .tip { margin-left: 0; flex: 0 0 auto; }
 .text-field textarea,
 .text-field input[type="text"] {
   display: block; box-sizing: border-box; width: 100%; padding: 8px 10px;

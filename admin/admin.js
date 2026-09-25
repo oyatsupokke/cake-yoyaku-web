@@ -783,6 +783,43 @@ function mailInit(t) {
 
 /* ---------- 設定 ---------- */
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+const TOKUSHO_FIELDS = {
+  seller: "t-toku-seller", manager: "t-toku-manager", address: "t-toku-address",
+  email: "t-toku-email", extraFees: "t-toku-extra-fees", paymentMethod: "t-toku-payment-method",
+  paymentTiming: "t-toku-payment-timing", delivery: "t-toku-delivery",
+  returns: "t-toku-returns", cancellation: "t-toku-cancellation",
+};
+function parseLegacyTokushoho(text = "") {
+  const labels = { "販売業者": "seller", "運営責任者": "manager", "所在地": "address",
+    "メールアドレス": "email", "商品代金以外の必要料金": "extraFees", "お支払い方法": "paymentMethod",
+    "お支払い時期": "paymentTiming", "お引き渡し時期": "delivery",
+    "返品・交換について": "returns", "キャンセルについて": "cancellation" };
+  const values = {}; let current = "";
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const match = line.match(/^([^：:]+)[：:]\s*(.*)$/), key = match ? labels[match[1].trim()] : "";
+    if (key) { current = key; values[key] = match[2].trim(); }
+    else if (current && !/^(電話番号|販売価格)[：:]/.test(line)) values[current] = `${values[current] ? values[current] + "\n" : ""}${line}`;
+  }
+  return values;
+}
+function tokushohoValue() {
+  const fields = Object.fromEntries(Object.entries(TOKUSHO_FIELDS).map(([key, id]) => [key, $(id).value.trim()]));
+  if (!Object.values(fields).some(Boolean)) return null;
+  const first = [fields.seller && `販売業者：${fields.seller}`, fields.manager && `運営責任者：${fields.manager}`,
+    fields.address && `所在地：${fields.address}`,
+    `電話番号：ご請求があった場合、遅滞なく開示いたします。お問い合わせはメールアドレス${fields.email ? `（${fields.email}）` : ""}までお願いいたします`,
+    fields.email && `メールアドレス：${fields.email}`].filter(Boolean);
+  const terms = ["販売価格：各商品ページに表示された金額（消費税込み）",
+    fields.extraFees && `商品代金以外の必要料金：${fields.extraFees}`,
+    fields.paymentMethod && `お支払い方法：${fields.paymentMethod}`,
+    fields.paymentTiming && `お支払い時期：${fields.paymentTiming}`,
+    fields.delivery && `お引き渡し時期：${fields.delivery}`].filter(Boolean);
+  const after = [fields.returns && `返品・交換について：\n${fields.returns}`,
+    fields.cancellation && `キャンセルについて：\n${fields.cancellation}`].filter(Boolean);
+  return { version: 2, ...fields, text: [first.join("\n"), terms.join("\n"), after.join("\n\n")].filter(Boolean).join("\n\n") };
+}
+function tokushohoComplete() { return Object.values(TOKUSHO_FIELDS).every((id) => $(id).value.trim()); }
 async function loadTenantForm() {
   const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
   initLineSettings(t);
@@ -808,11 +845,14 @@ async function loadTenantForm() {
     markDirty();
   };
   $("t-addr-required").onchange = markDirty;
-  $("t-tokushoho").value = t.tokushoho?.text || "";
-  // 未記入なら注意書きを出す（公開前チェック。お客様の確認画面に何も出ない状態を気づかせる）
-  const tokuWarn = () =>
-    $("tokushoho-warn").classList.toggle("hidden", $("t-tokushoho").value.trim() !== "");
-  $("t-tokushoho").addEventListener("input", tokuWarn);
+  const toku = t.tokushoho || {}, legacyToku = parseLegacyTokushoho(toku.text || "");
+  for (const [key, id] of Object.entries(TOKUSHO_FIELDS)) {
+    $(id).value = toku[key] || legacyToku[key] ||
+      (key === "seller" ? t.name || "" : key === "email" ? t.contact_email || "" : "");
+  }
+  // 未入力の項目があれば注意書きを出す。保存時に表示用文章も自動生成する。
+  const tokuWarn = () => $("tokushoho-warn").classList.toggle("hidden", tokushohoComplete());
+  Object.values(TOKUSHO_FIELDS).forEach((id) => $(id).addEventListener("input", tokuWarn));
   tokuWarn();
   // お客様セルフ操作（変更・キャンセル）の期限設定
   $("t-self-enabled").checked = t.self_manage_enabled !== false;
@@ -856,8 +896,9 @@ async function loadTenantForm() {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,
                              required: $("t-addr-enabled").checked && $("t-addr-required").checked } }),
   });
-  regField("tenants", T, "tokushoho", $("t-tokushoho"),
-    { get: () => ($("t-tokushoho").value.trim() ? { text: $("t-tokushoho").value.trim() } : null) });
+  regField("tenants", T, "tokushoho", $("t-toku-seller"), { get: tokushohoValue });
+  Object.values(TOKUSHO_FIELDS).filter((id) => id !== "t-toku-seller")
+    .forEach((id) => $(id).addEventListener("input", markDirty));
   regField("tenants", T, "self_manage_enabled", $("t-self-enabled"));
   regField("tenants", T, "self_slot_days", $("t-self-slot-days"), { number: true });
   regField("tenants", T, "self_slot_time", $("t-self-slot-time"));
@@ -907,7 +948,7 @@ async function unusedTenantSave() {
     deadline_skip_closed_days:
       document.querySelector('input[name="deadline-mode"]:checked')?.value === "business",
     cancel_policy: $("t-cancel").value.trim() || null,
-    tokushoho: $("t-tokushoho").value.trim() ? { text: $("t-tokushoho").value.trim() } : null,
+    tokushoho: tokushohoValue(),
   });
   state.tenantName = name;
   $("admin-shop-name").textContent = `${name}｜管理`;

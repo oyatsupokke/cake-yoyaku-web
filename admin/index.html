@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790246159">
-<link rel="stylesheet" href="admin.css?v=1790246159">
-<link rel="stylesheet" href="admin-layout.css?v=1790246159">
-<link rel="stylesheet" href="support.css?v=1790246159">
+<link rel="stylesheet" href="../styles.css?v=1790324025">
+<link rel="stylesheet" href="admin.css?v=1790324025">
+<link rel="stylesheet" href="admin-layout.css?v=1790324025">
+<link rel="stylesheet" href="support.css?v=1790324025">
 </head>
 <body>
 <div id="app" class="admin">
@@ -252,10 +252,22 @@
         <label class="field">キャンセルポリシー（表示箇所：予約確認画面・確認メール・お客様の管理ページ）<button type="button" class="tip" data-tip="「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
           <textarea id="t-cancel" rows="3"></textarea>
         </label>
-        <label class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで注文を受けるときに表示が必要な項目です。事業者名・所在地・電話番号などを書きます。">？</button>
-          <textarea id="t-tokushoho" rows="4" placeholder="事業者名・所在地・連絡先など"></textarea>
-        </label>
-        <p class="small warn hidden" id="tokushoho-warn">⚠️ 未記入です。ネットで注文を受けるお店は表示が必要な項目です。記入すると、お客様のご注文確認画面に表示されます。</p>
+        <div class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで予約を受けるときに必要な表記です。項目ごとに入力すると、お客様の注文確認画面では1つの文章にまとめて表示されます。">？</button>
+          <p class="help">空欄を上から埋めてください。販売価格と電話番号の案内はシステムが自動で付けます。</p>
+          <div class="tokushoho-fields">
+            <label>販売業者<input id="t-toku-seller" autocomplete="organization" placeholder="例：山田洋菓子店"></label>
+            <label>運営責任者<input id="t-toku-manager" autocomplete="name" placeholder="例：山田 花子"></label>
+            <label>所在地<input id="t-toku-address" autocomplete="street-address" placeholder="店舗の所在地"></label>
+            <label>メールアドレス<input type="email" id="t-toku-email" autocomplete="email" placeholder="お問い合わせ先"></label>
+            <label>商品代金以外の必要料金<input id="t-toku-extra-fees" placeholder="例：ありません（店頭受取のため送料なし）"></label>
+            <label>お支払い方法<input id="t-toku-payment-method" placeholder="例：店頭で現金・各種キャッシュレス決済"></label>
+            <label>お支払い時期<input id="t-toku-payment-timing" placeholder="例：商品お受け取り時"></label>
+            <label>お引き渡し時期<input id="t-toku-delivery" placeholder="例：予約した受取日時に店頭でお引き渡し"></label>
+            <label>返品・交換について<textarea id="t-toku-returns" rows="3" placeholder="返品・交換を受ける条件をご記入ください"></textarea></label>
+            <label>キャンセルについて<textarea id="t-toku-cancellation" rows="3" placeholder="期限や手続き方法をご記入ください"></textarea></label>
+          </div>
+        </div>
+        <p class="small warn hidden" id="tokushoho-warn">⚠️ 未入力の項目があります。すべて入力すると、お客様のご注文確認画面に表示できます。</p>
         <div class="field">お客様ご自身での変更・キャンセル
           <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
           <p class="small warn hidden" id="self-url-warn">⚠️ 予約フォームの公開URLが設定されていないため、有効にしてもメールとLINEにリンクが出ません。お手数ですがサポートへご連絡ください。</p>
@@ -306,7 +318,7 @@
           <label class="field">LINEログインのチャネルID<input id="line-channel" type="text" inputmode="numeric" autocomplete="off"></label>
           <label class="field">LINEログインのチャネルシークレット<input id="line-secret" type="password" autocomplete="new-password"><span class="help">LINEログインチャネルの「チャネル基本設定」からコピーします。</span></label>
           <label class="field">Messaging APIのチャネルアクセストークン（長期）<input id="line-token" type="password" autocomplete="new-password"><span class="help">Messaging APIチャネルの「Messaging API設定」で発行します。秘密情報は保存後に表示しません。</span></label>
-          <p class="small">接続情報を保存し直すと、通知を一時停止して接続テストからやり直します。すでにお客様と連携している接続先の変更は、サポートへご相談ください。</p>
+          <p class="small">LINEの接続情報を変更して保存すると、通知は一度停止します。接続確認とテスト通知を行ってから、再度ONにしてください。利用中のLINE公式アカウント自体を変更する場合は、サポートへご相談ください。</p>
           <button type="button" class="pill" id="line-credentials-save">接続情報を確認して保存</button>
         </details>
         <h4>2. 自分のLINEで接続を確認</h4>
@@ -457,12 +469,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790246159"></script>
-<script src="edit-drafts.js?v=1790246159"></script>
-<script src="report-core.js?v=1790246159"></script>
-<script src="line-settings.js?v=1790246159"></script>
-<script src="admin.js?v=1790246159"></script>
-<script src="reports.js?v=1790246159"></script>
-<script src="support.js?v=1790246159"></script>
+<script src="tips.js?v=1790324025"></script>
+<script src="edit-drafts.js?v=1790324025"></script>
+<script src="report-core.js?v=1790324025"></script>
+<script src="line-settings.js?v=1790324025"></script>
+<script src="admin.js?v=1790324025"></script>
+<script src="reports.js?v=1790324025"></script>
+<script src="support.js?v=1790324025"></script>
 </body>
 </html>

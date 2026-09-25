@@ -407,6 +407,10 @@
   #app.products-page { max-width: 1180px; }
   /* 各設定カードの外幅は揃える。入力欄そのものの幅は各項目側で調整する。 */
   .product-compact-card, .cat-panel { max-width: none; margin-left: 0; margin-right: 0; }
+  /* overflow:hidden の祖先があると position:sticky はその祖先をスクロール枠と
+     誤認して動かない。角丸は各見出し側で保ち、PCではプレビューを追従させる。 */
+  .grp, .q { overflow: visible; }
+  .grp-bar, .q-bar { border-radius: 13px 13px 0 0; }
   .grp-body, .q-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
   .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: 14px; }
   .qrow .k { flex: 0 0 118px; }
@@ -427,6 +431,10 @@
 /* 見本の画像（プレビュー内の見え方） */
 .pv-sample { display: block; margin-bottom: 8px; }
 .pv-sample img { display: block; max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--line); }
+.cust .cfield-question-title { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+.cust .cfield-question-title .req { font-size: .64rem; }
+.cust .cfield-help { display: block; margin: 3px 0 5px; color: #a08a8f; white-space: pre-line; }
+.cust .cfield .pv-sample { margin-top: 5px; }
 .q-sample-field, .g-sample { margin-top: 8px; }
 
 /* ---- 商品タブ：カテゴリで畳む＋名前で絞る（2026-09-06） ---- */

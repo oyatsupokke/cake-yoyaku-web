@@ -974,6 +974,16 @@ function answerFieldHtml(view) {
   return `<input type="text" disabled>`;
 }
 
+/* 選択肢に追加した質問も、実際のお客様画面と同じ情報量で見せる。 */
+function optionQuestionPreviewHtml(optionId, view) {
+  return `<div class="cfield" data-option-id="${esc(optionId)}" data-question-id="${esc(view.id)}">
+    <span class="cfield-question-title">${esc(view.label || "（質問文）")}${view.required ? '<span class="req">必須</span>' : ""}</span>
+    ${view.help ? `<span class="cfield-help">${esc(view.help)}</span>` : ""}
+    ${view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt=""></span>` : ""}
+    ${answerFieldHtml(view)}
+  </div>`;
+}
+
 /* 質問エディタ（共通の質問・選択肢の質問で同じ部品を使う）
  * 戻り値の要素の中で、ラベル/必須/形式/回答の選択肢を編集できる。
  * ラベル・形式・選択肢名は「まとめて保存」、選択肢の追加・削除はその場で反映する。 */
@@ -1007,7 +1017,10 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   if (opts.lightLabel) linkLight(labelEl, opts.lightLabel);
 
   const helpEl = box.querySelector(".q-help");
-  if (helpEl) regField("common_questions", q.id, "help_text", helpEl);
+  if (helpEl) {
+    regField("common_questions", q.id, "help_text", helpEl);
+    helpEl.addEventListener("input", () => { view.help = helpEl.value; onPaint(); });
+  }
 
   const reqEl = box.querySelector(".q-req");
   regField("common_questions", q.id, "is_required", reqEl);
@@ -1021,7 +1034,11 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     kind: "samples",
     label: "見本の画像（任意）",
     hint: "色見本・仕上がりの例など。お客様の画面で質問の下に出ます",
-    onChange: (url) => api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { sample_image_url: url }),
+    onChange: async (url) => {
+      await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { sample_image_url: url });
+      view.sample = url;
+      onPaint();
+    },
   }));
   box.appendChild(sample);
 
@@ -1446,6 +1463,7 @@ function buildGroupBox(p, g) {
         id: o.id, name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
+          help: q.help_text || "", sample: q.sample_image_url || "",
           linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
           choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
         })),
@@ -1465,7 +1483,7 @@ function buildGroupBox(p, g) {
         <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
         <span>${o.price ? "+¥" + o.price.toLocaleString("ja-JP") : "無料"}</span>
       </div>
-      ${(o.qs || []).filter(q => q.active !== false).map(q => `<div class="cfield" data-option-id="${esc(o.id)}" data-question-id="${esc(q.id)}">${esc(q.label || "（質問文）")}${answerFieldHtml(q)}</div>`).join("")}`).join("");
+      ${(o.qs || []).filter(q => q.active !== false).map(q => optionQuestionPreviewHtml(o.id, q)).join("")}`).join("");
     applyLight();
   };
 
@@ -1697,6 +1715,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     const qView = ov.qs?.find((x) => x.id === q.id) || {
       id: q.id, label: q.label, type: q.input_type, required: q.is_required,
       active: q.is_active !== false, imageMax: imgMaxOf(q),
+      help: q.help_text || "", sample: q.sample_image_url || "",
       linkLabel: q.pastel_link_option_name ? (q.pastel_link_label || `${q.pastel_link_option_name}も同じ色にする`) : "",
       choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
     };
@@ -1738,7 +1757,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     }]);
     state.openOptions.add(o.id);
     toast("質問を追加しました（質問文と回答方法を設定してください）");
-    reloadAll();
+    await reloadAll();
   };
 
   row.querySelector(".o-photo").appendChild(buildPhotoField({
@@ -1992,6 +2011,7 @@ function buildQuestionBox(q) {
 
   const view = {
     label: q.label, required: !!q.is_required, type: q.input_type, imageMax: imgMaxOf(q),
+    help: q.help_text || "",
     linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
     sample: q.sample_image_url,
     choices: qChoices(q).map((c) => ({ id: c.id, label: c.label })),
@@ -2000,6 +2020,7 @@ function buildQuestionBox(q) {
     box.querySelector(".pv-label").textContent = view.label || "（質問文）";
     box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
     box.querySelector(".pv-body").innerHTML =
+      (view.help ? `<span class="cfield-help">${esc(view.help)}</span>` : "") +
       (view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt=""></span>` : "") +
       answerFieldHtml(view);
     applyLight();
@@ -2059,7 +2080,7 @@ $("btn-q-add").onclick = async () => {
     scope: "all", display_order: Math.max(-1, ...state.questions.filter(q => !q.option_id).map(q => Number(q.display_order) || 0)) + 1,
   }]);
   toast("質問を追加しました（質問文を入れてください）");
-  reloadAll();
+  await reloadAll();
 };
 
 /* ---------- プレビューの出し入れ（狭い画面） ----------

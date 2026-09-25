@@ -72,6 +72,12 @@ function markDirty() {
   $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
 async function saveChange(c) {
+  if (c.table === "common_question_choices") {
+    const source = state.questions.flatMap(q => q.common_question_choices || []).find(x => x.id === c.id) || {};
+    const next = { ...source, ...c.patch };
+    if (next.pickup_from && next.pickup_until && next.pickup_from > next.pickup_until)
+      throw new Error("提供期間の終了日は、開始日以降にしてください");
+  }
   if (c.table === "options" && c.patch.size_prices && Object.values(c.patch.size_prices).some(n =>
       !Number.isInteger(n) || n < 0 || n > 1000000)) throw new Error("サイズ別追加料金は0〜1,000,000円の整数で入力してください");
   if (c.table === "options" && c.patch.order_deadline_days != null &&
@@ -287,14 +293,15 @@ async function deleteImageFile(url) {
   // ファイルは消さない（欄からは外れるが、元の商品の写真が突然消える事故を防ぐ）
   try {
     const u = encodeURIComponent(url);
-    const [ps, os, gs, qs] = await Promise.all([
+    const [ps, os, gs, qs, cs] = await Promise.all([
       api("GET", `/rest/v1/products?or=(photo_url.eq.${u},layer_url.eq.${u})&deleted_at=is.null&select=id`),
       api("GET", `/rest/v1/options?or=(photo_url.eq.${u},layer_url.eq.${u})&select=id`),
       api("GET", `/rest/v1/option_groups?or=(default_layer_url.eq.${u},sample_image_url.eq.${u})&select=id`),
       api("GET", `/rest/v1/common_questions?sample_image_url=eq.${u}&select=id`),
+      api("GET", `/rest/v1/common_question_choices?or=(photo_url.eq.${u},layer_url.eq.${u})&select=id`),
     ]);
-    if (ps.length + os.length + gs.length + qs.length > 0) return; // 自分の行は呼び出し前に外れている
-  } catch { /* 数えられなければ従来どおり消す */ }
+    if (ps.length + os.length + gs.length + qs.length + cs.length > 0) return;
+  } catch { return; /* 参照を確認できなければファイルを残す */ }
   const path = url.slice(i + marker.length);
   await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${path}`, {
     method: "DELETE",
@@ -1103,6 +1110,31 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       reloadAll();
     };
     chWrap.appendChild(row);
+    const details = document.createElement("details");
+    details.className = "answer-choice-details";
+    details.innerHTML = `<summary>詳しい設定${c.pickup_from || c.pickup_until ? "・提供期間あり" : ""}</summary>
+      <strong>提供できる期間（任意）</strong>
+      <p class="small">ケーキの受取日がこの期間内なら、この回答を選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
+      <div class="answer-choice-period"><label>開始日<input type="date" class="c-from" value="${esc(c.pickup_from || "")}"></label><label>終了日<input type="date" class="c-until" value="${esc(c.pickup_until || "")}"></label></div>`;
+    for (const [column, selector] of [["pickup_from", ".c-from"], ["pickup_until", ".c-until"]]) {
+      const input = details.querySelector(selector);
+      regField("common_question_choices", c.id, column, input, { get: () => input.value || null });
+    }
+    details.appendChild(buildPhotoField({
+      url: c.photo_url, kind: "samples", label: "見本写真（任意）",
+      hint: "この回答の見本として、お客様の質問欄に表示します",
+      onChange: url => api("PATCH", `/rest/v1/common_question_choices?id=eq.${c.id}`, { photo_url: url }),
+    }));
+    const layer = buildLayerField({
+      url: c.layer_url, z: c.layer_z, showZ: true,
+      orderKey: `common_question_choices:${c.id}`,
+      label: "プレビュー用イラスト（この回答を選んだ時・任意）",
+      onChange: patch => api("PATCH", `/rest/v1/common_question_choices?id=eq.${c.id}`,
+        patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
+    });
+    details.appendChild(layer);
+    regField("common_question_choices", c.id, "layer_z", layer.querySelector(".layer-z"), { number: true });
+    row.appendChild(details);
     choiceRows.push({ data: c, row, target: row });
   }
   addOrderControls(chWrap, choiceRows, "common_question_choices", ids => {
@@ -1206,6 +1238,16 @@ function previewLayerEntries(p) {
         animalName, automatic: !!animalName,
       });
     }
+  }
+  const optionIds = new Set(groupsForProduct(p).flatMap(g => (g.options || []).map(o => o.id)));
+  for (const q of state.questions) {
+    if (q.option_id || q.trigger_option_id) {
+      if (!optionIds.has(q.option_id || q.trigger_option_id)) continue;
+    } else if (q.scope !== "all" && !(q.common_question_products || []).some(x => x.product_id === p.id)) continue;
+    for (const c of qChoices(q)) if (c.layer_url) entries.push({
+      key: `common_question_choices:${c.id}`, label: `${q.label}：${c.label}`,
+      url: c.layer_url, z: Number(c.layer_z ?? 50), stable: stable++, record: c, column: "layer_z",
+    });
   }
   const base = entries.filter((entry) => entry.fixed);
   const movable = entries.filter((entry) => !entry.fixed)

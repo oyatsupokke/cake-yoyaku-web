@@ -554,7 +554,7 @@ function currentTotal() {
     if (!q) continue;
     for (const cid of normAnswer(raw).choiceIds) {
       const c = q.common_question_choices.find((x) => x.id === cid);
-      if (c) total += c.price_delta;
+      if (c && choiceAvailableOnPickup(c)) total += c.price_delta;
     }
   }
   return total;
@@ -1382,6 +1382,14 @@ function currentLayers() {
     layers.push({ url: cakeLayerAsset("dog-number-right-paw.png"), z: 85, dogPaw: true });
   }
   const calendar = currentCalendarLayer();
+  for (const q of askedQuestions()) {
+    const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
+    for (const c of qChoices(q)) {
+      if (ids.includes(c.id) && choiceAvailableOnPickup(c) && c.layer_url) {
+        layers.push({ url: c.layer_url, z: c.layer_z ?? 50 });
+      }
+    }
+  }
   if (calendar) layers.push({ z: 60, calendarCake: calendar });
   const directMessage = currentDirectMessageLayer();
   if (directMessage) layers.push({ z: 66, directMessage });
@@ -1880,6 +1888,11 @@ function renderCalendar() {
 }
 async function selectDate(key) {
   state.sel.date = key;
+  const cleared = pruneUnavailableChoiceAnswers();
+  renderGroups();
+  renderQuestions();
+  updatePriceBar();
+  if (cleared) toast("受取日が提供期間外の回答を解除しました。質問の回答を選び直してください");
   track("date_selected");
   state.sel.slot = null;
   renderCalendar();
@@ -1930,6 +1943,26 @@ $("cal-next").onclick = () => { state.calMonth = new Date(state.calMonth.getFull
  */
 const qOptionId = (q) => q.option_id || q.trigger_option_id || null;
 const qLive = (q) => q.is_active !== false && (q.label || "").trim() !== "";
+function choiceAvailableOnPickup(c, date = state.sel.date) {
+  return c.is_available !== false && (!date ||
+    ((!c.pickup_from || date >= c.pickup_from) && (!c.pickup_until || date <= c.pickup_until)));
+}
+function choicePeriodText(c) {
+  return c.pickup_from || c.pickup_until
+    ? `（受取日：${c.pickup_from || "制限なし"}〜${c.pickup_until || "制限なし"}）` : "";
+}
+function pruneUnavailableChoiceAnswers() {
+  let cleared = false;
+  for (const q of state.questions) {
+    const answer = normAnswer(state.sel.answers.get(q.id));
+    const ids = answer.choiceIds.filter(id => (q.common_question_choices || []).some(c => c.id === id && choiceAvailableOnPickup(c)));
+    if (ids.length !== answer.choiceIds.length) {
+      state.sel.answers.set(q.id, { ...answer, choiceIds: ids });
+      cleared = true;
+    }
+  }
+  return cleared;
+}
 const qChoices = (q) => (q.common_question_choices || [])
   .filter((c) => c.is_available !== false)
   .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
@@ -1998,12 +2031,12 @@ function answerInputsHtml(q) {
   }
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
-      cs.map((c) => `<option value="${esc(c.id)}">${esc(c.label)}${plus(c)}</option>`).join("") + `</select>`;
+      cs.map((c) => `<option value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceAvailableOnPickup(c) ? "" : "・期間外"}</option>`).join("") + `</select>`;
   }
   if (q.input_type === "radio" || q.input_type === "checkbox") {
     const t = q.input_type === "radio" ? "radio" : "checkbox";
     return `<span class="pick-list">` + cs.map((c) =>
-      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}">${esc(c.label)}${plus(c)}</label>`).join("") + `</span>`;
+      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceAvailableOnPickup(c) ? "" : "・期間外"}</label>`).join("") + `</span>`;
   }
   return `<input type="text">`;
 }
@@ -2015,10 +2048,10 @@ function sampleImageHtml(url) {
   return src ? `<span class="sample-img"><img src="${esc(src)}" alt="見本" loading="lazy"></span>` : "";
 }
 function wireSampleImage(el) {
-  const s = el.querySelector(".sample-img");
-  if (!s) return;
+  for (const s of el.querySelectorAll(".sample-img")) {
   // labelの中にあるので、押しただけで選択が変わらないように止めてから開く
   s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.open(s.querySelector("img").src, "_blank", "noopener,noreferrer"); };
+  }
 }
 
 function buildQuestionField(q) {
@@ -2026,7 +2059,10 @@ function buildQuestionField(q) {
   field.className = "field";
   field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
     (q.help_text ? `<span class="help">${esc(q.help_text)}</span>` : "") +
-    sampleImageHtml(q.sample_image_url) + answerInputsHtml(q);
+    sampleImageHtml(q.sample_image_url) + answerInputsHtml(q) +
+    qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") +
+    (!state.sel.date && qChoices(q).some(c => c.pickup_from || c.pickup_until)
+      ? '<span class="help">受取日を選ぶと、提供期間に合う回答を確認できます。期間外の回答は解除されます。</span>' : "");
   wireSampleImage(field);
 
   if(q.input_type==='pastel_color'){

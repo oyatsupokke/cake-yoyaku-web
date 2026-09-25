@@ -922,7 +922,9 @@ const Q_TYPES = [
   { v: "checkbox", label: "チェックボックス（複数選べる）" },
   { v: "image", label: "画像を貼ってもらう" },
   { v: "pastel_color", label: "パステルカラー＋補足" },
+  { v: "color", label: "通常カラー＋補足" },
 ];
+const isColorQuestion = (type) => type === "pastel_color" || type === "color";
 const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
 const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3);
 const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
@@ -971,6 +973,10 @@ function answerFieldHtml(view) {
     return `<span class="pastel-preview"><i></i>色相と淡さを選ぶ<span class="mini">＋補足を自由記入</span></span>`+
       (view.linkLabel?`<label class="pick"><input type="checkbox" disabled>${esc(view.linkLabel)}</label>`:'');
   }
+  if (view.type === "color") {
+    return `<span class="pastel-preview normal-color-preview"><i></i>通常のカラーチャートから選ぶ<span class="mini">＋補足を自由記入</span></span>`+
+      (view.linkLabel?`<label class="pick"><input type="checkbox" disabled>${esc(view.linkLabel)}</label>`:'');
+  }
   return `<input type="text" disabled>`;
 }
 
@@ -999,7 +1005,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
         `<option value="${n}" ${n === imgMaxOf(q) ? "selected" : ""}>${n}枚まで</option>`).join("")}</select>
     </label>
-    <div class="sub q-pastel-link ${q.input_type === "pastel_color" ? "" : "hidden"}">
+    <div class="sub q-pastel-link ${isColorQuestion(q.input_type) ? "" : "hidden"}">
       <label>同じ色にできる選択肢
         <select class="q-pastel-link-option"><option value="">連動なし</option>${linkNames.map(name=>`<option value="${esc(name)}" ${name===q.pastel_link_option_name?'selected':''}>${esc(name)}</option>`).join('')}</select>
       </label>
@@ -1059,7 +1065,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     view.type = typeEl.value;
     box.querySelector(".q-choices").classList.toggle("hidden", !needsChoices(view.type));
     box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
-    box.querySelector(".q-pastel-link").classList.toggle("hidden", view.type !== "pastel_color");
+    box.querySelector(".q-pastel-link").classList.toggle("hidden", !isColorQuestion(view.type));
     onPaint();
   });
 

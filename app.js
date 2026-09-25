@@ -740,6 +740,8 @@ const OYATSU_PRODUCT_EXTRA_LAYERS = {
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
+const DEFAULT_COLOR = "#D97A86";
+const isColorQuestionType = (type) => type === "pastel_color" || type === "color";
 /* 淡さスライダーの色域。0＝いちばん濃い／100＝いちばん淡い。
  * まりほ指示 2026-09-21：赤系 #F2E0E1 級をいちばん濃い上限にする。
  * 淡い側は彩度を落とさず、グレーではなく「色に白を足した」見え方にする。 */
@@ -772,6 +774,11 @@ function parsePastelAnswer(text) {
   const hsl=hexToHsl(m[1])||{};
   const {lDark,lPale}=PASTEL_RANGE;
   return {hue:Math.round(hsl.h??DEFAULT_PASTEL.hue),softness:Math.round(Math.max(0,Math.min(100,((hsl.l??lDark)-lDark)/(lPale-lDark)*100))),hex:m[1].toUpperCase(),linked:!!m[2],note:m[3]||""};
+}
+function parseColorAnswer(text) {
+  const m=/^(#[0-9A-F]{6})(／連動：同色)?(?:／補足：([^\n]{1,200}))?$/i.exec(String(text||""));
+  return m ? {hex:m[1].toUpperCase(),linked:!!m[2],note:m[3]||""}
+    : {hex:DEFAULT_COLOR,linked:false,note:""};
 }
 const pastelAnswerText = (hex,note,linked=false) => hex.toUpperCase() + (linked?'／連動：同色':'') + (note.trim()?`／補足：${note.trim().slice(0,200)}`:"");
 function pastelLinkMatches(targetName, optionName) {
@@ -1327,8 +1334,8 @@ function currentLayers() {
             });
             continue;
           }
-          const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&q.input_type==='pastel_color');
-          const linkedQ=state.questions.find(q=>qLive(q)&&q.input_type==='pastel_color'
+          const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&isColorQuestionType(q.input_type));
+          const linkedQ=state.questions.find(q=>qLive(q)&&isColorQuestionType(q.input_type)
             &&pastelLinkMatches(q.pastel_link_option_name,name)&&state.sel.options.has(qOptionId(q))
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
@@ -1587,7 +1594,7 @@ function buildDetachedToppingPicker(g, detachedId) {
 }
 
 function linkedPastelQuestionForTarget(optionName) {
-  return state.questions.find((q) => qLive(q) && q.input_type === "pastel_color"
+  return state.questions.find((q) => qLive(q) && isColorQuestionType(q.input_type)
     && q.pastel_link_option_name === optionName
     && state.sel.options.has(qOptionId(q)));
 }
@@ -1975,6 +1982,13 @@ function answerInputsHtml(q) {
     `<textarea class="pastel-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：くすみピンク寄り"></textarea>`+
     `<span class="help">最も濃い位置でも、お店で対応できるパステルの淡さに制限しています。画面と実物の色には差が出る場合があります。</span></span>`;
   }
+  if(q.input_type==='color') {
+    return `<span class="color-picker"><span class="color-picker-row">`+
+      `<input class="color-value" type="color" value="${DEFAULT_COLOR}" aria-label="色を選ぶ">`+
+      `<span><strong>色を選ぶ</strong><span class="color-hex"></span></span></span>`+
+      `<textarea class="color-note" rows="2" maxlength="200" placeholder="色の補足（任意）例：少しくすんだ赤"></textarea>`+
+      `<span class="help">通常のカラーチャートから選べます。画面と実物の色には差が出る場合があります。</span></span>`;
+  }
   if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q))) {
     const placeholder = isMessageQuestion(q) ? "例：Happy Birthday\nまりちゃん"
@@ -2022,6 +2036,15 @@ function buildQuestionField(q) {
     hue.value=saved.hue;soft.value=saved.softness;note.value=saved.note;if(link)link.checked=saved.linked;
     const commit=()=>{const hex=pastelHex(hue.value,soft.value);field.querySelector('.pastel-swatch').style.background=hex;field.querySelector('.pastel-name').textContent=pastelHueName(hue.value);field.querySelector('.pastel-value').textContent=hex;hue.style.setProperty('--pastel-thumb',hslToHex(Number(hue.value),55,68));const linked=link?link.checked:parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked;state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,linked),choiceIds:[]});updatePreview();updatePriceBar();};
     [hue,soft,note,link].filter(Boolean).forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
+  }
+  if(q.input_type==='color'){
+    field.classList.add('color-field');
+    const picker=field.querySelector('.color-value'),note=field.querySelector('.color-note');
+    const saved=parseColorAnswer(normAnswer(state.sel.answers.get(q.id)).text);
+    picker.value=saved.hex;
+    note.value=saved.note;
+    const commit=()=>{const hex=picker.value.toUpperCase();field.querySelector('.color-hex').textContent=hex;state.sel.answers.set(q.id,{text:pastelAnswerText(hex,note.value,saved.linked),choiceIds:[]});updatePreview();updatePriceBar();};
+    [picker,note].forEach(i=>{i.oninput=commit;i.onchange=commit;});commit();return field;
   }
 
   if (q.input_type === "image") {
@@ -2385,7 +2408,7 @@ function renderConfirm() {
       const date = parseIsoDate(v);
       if (date) v = `${date.year}年${date.month}月${date.day}日`;
       row(q.label, v);
-    } else if (v && q.input_type === "pastel_color") {
+    } else if (v && isColorQuestionType(q.input_type)) {
       rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
   }

@@ -290,6 +290,13 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .pastel-picker > .help { grid-column: 1 / -1; }
 .pastel-preview { display: inline-flex; align-items: center; gap: 7px; color: var(--mute); }
 .pastel-preview i { width: 34px; height: 18px; border-radius: 999px; background: linear-gradient(90deg,#efb5b5,#eee3a8,#b7e6be,#afdfe8,#c5b9ed,#edb5d9); }
+.normal-color-preview i { background: linear-gradient(90deg,#e33,#edb52e,#39a852,#35aeca,#4169d8,#8848c8,#d94896); }
+.color-picker { display: grid; gap: 10px; margin-top: 8px; }
+.color-picker-row { display: flex; align-items: center; gap: 12px; }
+.field .color-picker input[type="color"] { width: 68px; height: 48px; margin: 0; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: #fff; cursor: pointer; }
+.color-picker-row > span { display: grid; gap: 2px; font-size: .86rem; }
+.color-hex { color: var(--mute); font-family: ui-monospace, monospace; font-size: .8rem; }
+.color-note { width: 100%; box-sizing: border-box; }
 .done-box { text-align: center; padding: 48px 0; }
 .done-emoji { font-size: 56px; }
 .error { color: #d0455f; font-size: .9rem; text-align: center; margin-top: 12px; }

@@ -260,7 +260,7 @@
 /* 横いっぱいにするのは記入欄とプルダウンだけ。
    ラジオ・チェックボックスまで width:100% にすると丸が引き伸ばされて文字がズレる */
 .cust .cfield > input[type="text"], .cust .cfield > textarea, .cust .cfield > select { width: 100%; margin-top: 3px; }
-.cust label.pick { display: flex; gap: 7px; align-items: center; font-size: .86rem; padding: 4px 0; }
+.cust label.pick { display: flex; gap: 7px; align-items: center; font-size: .86rem; padding: 4px 12px; }
 .cust .pick input { width: auto; flex: 0 0 auto; margin: 0; }
 /* フォーカス中の欄に対応する箇所が光る＝説明文の代わり */
 .lit { background: #fff3d6 !important; box-shadow: 0 0 0 2px #e8b45c; border-radius: 6px; }

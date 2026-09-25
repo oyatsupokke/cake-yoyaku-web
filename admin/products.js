@@ -1367,8 +1367,8 @@ function buildGroupBox(p, g) {
       <div class="fb"><span class="k">注意書き</span>
         <textarea class="gh-note" rows="2" placeholder="例: ※果物は季節により異なります">${esc(g.note)}</textarea>
         <label class="chk"><input type="checkbox" class="gh-note-accent" ${g.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
-      <div class="g-default-layer"></div>
       <div class="g-sample"></div>
+      <div class="g-default-layer"></div>
       <p class="meta">選択肢 ${g.options.length}件</p>
       <div class="g-options"></div>
       <div class="override-add g-add-row ${g.shared_list_id ? "hidden" : ""}">

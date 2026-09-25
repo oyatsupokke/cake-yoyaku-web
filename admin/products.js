@@ -1014,7 +1014,9 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       </label>
       <p class="small">選んだ装飾が注文に含まれるときだけ、同色にするチェック欄を表示します。</p>
     </div>
-    <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}"></div>
+    <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}">
+      <span class="q-choices-title">この質問の回答選択肢</span>
+    </div>
     ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に小さく出ます）">`}`;
 
   const labelEl = box.querySelector(".q-label");
@@ -1106,7 +1108,8 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     const note = document.createElement("p");
     note.className = "small";
     note.textContent = "↑・↓で回答の選択肢を並べ替え、「保存する」で確定します。";
-    chWrap.prepend(note);
+    const title = chWrap.querySelector(".q-choices-title");
+    chWrap.insertBefore(note, title?.nextSibling || chWrap.firstChild);
   }
   {
     const add = document.createElement("button");
@@ -1727,12 +1730,16 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     };
     const item = document.createElement("div");
     item.className = "sub o-question-item" + (q.is_active === false ? " stopped" : "");
-    item.innerHTML = `<div class="o-question-bar"><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
+    item.innerHTML = `<div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
       <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
       <button type="button" class="pill danger o-qdel">削除</button></div>`;
     const qLight = () => row.closest(".grp")?.querySelector(`.pv-opts .cfield[data-question-id="${q.id}"]`);
-    item.appendChild(buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight }));
+    const questionFields = buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight });
+    item.appendChild(questionFields);
+    questionFields.querySelector(".q-label").addEventListener("input", (event) => {
+      item.querySelector(".o-question-bar strong").textContent = event.currentTarget.value || "（質問文を入力してください）";
+    });
     item.querySelector(".o-qtoggle").onclick = async () => {
       await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: q.is_active === false });
       reloadAll();

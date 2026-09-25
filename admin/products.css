@@ -175,12 +175,35 @@
 .choice input[type="text"] { flex: 1; min-width: 100px; }
 .choice input[type="number"] { width: 84px; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; text-align: center; font-family: inherit; }
 .ghost { border-style: dashed; color: #a08a8f; }
-.o-qbox { display: flex; flex-direction: column; gap: 10px; }
-.o-question-item { border: 1px solid var(--line); border-left: 4px solid var(--primary-deep); border-radius: 10px; padding: 10px; margin-top: 0; }
-.o-question-item.stopped { opacity: .68; border-left-color: #b3a2a6; }
-.o-question-bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.o-qbox { display: flex; flex-direction: column; gap: 18px; }
+.o-question-item {
+  border: 1px solid #decdd1; border-top: 5px solid var(--primary-deep); border-radius: 12px;
+  padding: 0 13px 14px; margin-top: 0; background: #fff; box-shadow: 0 3px 10px rgba(90,55,64,.07);
+}
+.o-question-item.stopped { opacity: .68; border-top-color: #b3a2a6; }
+.o-question-bar {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: 0 -13px 12px; padding: 9px 12px; background: #f8eff1; border-radius: 7px 7px 0 0;
+}
+.o-question-number {
+  flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; background: var(--primary-deep);
+  color: #fff; font-size: .72rem; font-weight: 700; white-space: nowrap;
+}
 .o-question-bar strong { flex: 1; min-width: 180px; font-size: .86rem; }
 .o-question-item > .q-fields { border-left: 0; padding-left: 0; }
+.o-question-item > .q-fields > .q-label { font-size: .95rem; font-weight: 700; }
+.q-choices {
+  margin: 5px 0 2px; padding: 11px 12px 12px; border: 1px solid #e8dde0; border-left: 0;
+  border-radius: 9px; background: #faf7f8;
+}
+.q-choices-title { color: var(--ink); font-size: .78rem; font-weight: 700; }
+.q-choices .choice { padding-top: 7px; border-top: 1px dashed #ddd0d4; }
+.q-choices .question-order { margin-left: 0; }
+@media (max-width: 640px) {
+  .o-question-bar strong { order: 3; flex-basis: 100%; min-width: 0; }
+  .o-question-item { padding-left: 11px; padding-right: 11px; }
+  .o-question-bar { margin-left: -11px; margin-right: -11px; }
+}
 
 /* ---- 共通の質問（店全体） ---- */
 .q { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin: 0 0 16px; background: #fff; }

@@ -1583,6 +1583,10 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     <div class="more ${open ? "" : "hidden"}">
       <section class="option-detail-section">
       <h4>予約・料金</h4>
+      <div class="option-detail-rule-actions">
+        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
+        <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
+      </div>
       <div class="fb option-detail-feature"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
         <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
       <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
@@ -1607,10 +1611,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="o-photo"></div>
       </section>
       <section class="option-detail-section option-detail-actions">
-      <h4>提供設定</h4>
+      <h4>この選択肢の管理</h4>
       <div class="acts">
-        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
-        <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
         <button type="button" class="pill o-toggle">${isLinked ? (o.is_available ? "この商品だけ停止する" : "この商品の停止を解除") : (o.is_available ? "停止する" : "提供を再開する")}</button>
         ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}
         <button type="button" class="pill danger o-del">削除</button>
@@ -1805,7 +1807,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       toast(`${date} は「${optDisplayName(o)}」を受け付けません`);
       renderStops();
     };
-    row.querySelector(".more").appendChild(panel);
+    row.querySelector(".option-detail-rule-actions").appendChild(panel);
     renderStops();
   };
 
@@ -1849,7 +1851,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       panel.appendChild(chip);
     }
     // ボタンのすぐ下に出す（離れた場所に出ると気づけないため）
-    row.querySelector(".more").appendChild(panel);
+    row.querySelector(".option-detail-rule-actions").appendChild(panel);
   };
   return row;
 }

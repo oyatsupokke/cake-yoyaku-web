@@ -145,7 +145,12 @@
 .option-detail-section .fb .k {
   display: block; margin-bottom: 4px; color: var(--ink); font-size: .84rem; font-weight: 700; line-height: 1.45;
 }
+.option-detail-section .photo-field > .text-field-label {
+  margin-bottom: 7px; color: var(--ink); font-size: .84rem; font-weight: 700; line-height: 1.45;
+}
 .option-detail-section .fb > .small { margin: 2px 0 7px; color: #7e7174; font-size: .74rem; line-height: 1.65; }
+.option-detail-rule-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.option-detail-rule-actions > .excl-panel { flex-basis: 100%; margin: 2px 0 0; }
 .option-detail-feature {
   padding: 10px 12px; border: 1px solid #eadfe1; border-radius: 9px; background: #fdf8f9;
 }

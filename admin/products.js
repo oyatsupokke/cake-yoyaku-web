@@ -1856,6 +1856,7 @@ $("btn-g-add").onclick = async () => {
 /* ---------- 共通の質問（店全体） ---------- */
 // 要素を移動するだけにして、入力中の文章・開閉状態を保つ。保存は既存の保存バーで行う。
 function addOrderControls(container, items, table, onMove = () => {}) {
+  const compact = table === "common_question_choices";
   const entries = items.map(({ data, row, target }) => {
     const input = document.createElement("input");
     input.type = "hidden";
@@ -1863,12 +1864,18 @@ function addOrderControls(container, items, table, onMove = () => {}) {
     row.appendChild(input);
     regField(table, data.id, "display_order", input, { number: true });
     const controls = document.createElement("span");
-    controls.className = "question-order";
+    controls.className = "question-order" + (compact ? " compact" : "");
+    if (!compact) {
+      const label = document.createElement("span");
+      label.className = "question-order-label";
+      label.textContent = "表示順";
+      controls.appendChild(label);
+    }
     const buttons = [-1, 1].map((direction) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "pill";
-      button.textContent = direction < 0 ? "↑" : "↓";
+      button.textContent = compact ? (direction < 0 ? "↑" : "↓") : (direction < 0 ? "↑ 上へ" : "↓ 下へ");
       button.setAttribute("aria-label", direction < 0 ? "上へ移動" : "下へ移動");
       button.onclick = () => {
         if (state.saving) return;

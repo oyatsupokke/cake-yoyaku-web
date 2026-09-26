@@ -513,3 +513,11 @@
   margin-top: 8px; padding: 12px 14px; background: #fff;
   border: 1.5px solid var(--line); border-radius: 12px;
 }
+
+.draft-preview-dialog { width: min(1200px, 96vw); max-width: 96vw; height: 92vh; max-height: 92vh; padding: 0; border: 1px solid var(--line); border-radius: 12px; }
+.draft-preview-dialog::backdrop { background: #0008; }
+.draft-preview-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; }
+.draft-preview-toolbar > strong { margin-right: auto; }
+.draft-preview-dialog iframe { display: block; width: 100%; max-width: 100%; height: calc(100% - 80px); margin: auto; border: 0; }
+
+.gh-max-wrap input { width: 90px; max-width: 100%; }

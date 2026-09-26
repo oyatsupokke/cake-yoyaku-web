@@ -234,11 +234,12 @@
 /* 「？」ヘルプ：タップで説明が開く（スマホにはホバーが無いため） */
 .tip {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 36px; height: 36px; min-width: 36px; border-radius: 50%;
   border: 1.5px solid #d8b7be; background: #fff; color: #b76e7d;
   font-size: 12px; font-weight: bold; line-height: 1;
   margin-left: 6px; cursor: pointer; vertical-align: middle; padding: 0;
 }
+.tip:focus-visible { outline: 2px solid #b76e7d; outline-offset: 2px; }
 .tip-pop {
   background: #fdf6f0; border: 1px solid #e8cfc0; border-radius: 8px;
   padding: 8px 12px; margin: 6px 0 2px; font-size: .82rem; font-weight: normal;

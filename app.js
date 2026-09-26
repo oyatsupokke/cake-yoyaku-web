@@ -17,20 +17,45 @@ const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 
 // 管理画面のデザイン見本。お客様の下書きや外側の画面位置に干渉しない。
-const THEME_PREVIEW = window.self !== window.top
-  && new URLSearchParams(location.search).get("preview") === "theme";
+const EDITOR_PREVIEW = new URLSearchParams(location.search).get("preview") === "editor";
+const THEME_PREVIEW = EDITOR_PREVIEW || (window.self !== window.top
+  && new URLSearchParams(location.search).get("preview") === "theme");
+let editorCatalog;
+let receiveEditorCatalog;
+const editorCatalogReady = EDITOR_PREVIEW ? new Promise(resolve => { receiveEditorCatalog = resolve; }) : null;
+if (EDITOR_PREVIEW) {
+  window.addEventListener("message", e => {
+    if (e.origin !== location.origin || e.source !== window.parent || e.data?.type !== "cake-editor-catalog" || editorCatalog) return;
+    const c = e.data.catalog;
+    if (!c?.tenant?.id || !Array.isArray(c.products) || !Array.isArray(c.questions) || !Array.isArray(c.slots)) return;
+    editorCatalog = c;
+    receiveEditorCatalog(c);
+  });
+  // Defense in depth: this mode permits only reads, including the two availability RPCs.
+  const previewFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    const method = (init.method || input?.method || "GET").toUpperCase();
+    const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url, location.href);
+    const availability = url.origin === new URL(CONFIG.url).origin
+      && ["/rest/v1/rpc/fn_get_availability", "/rest/v1/rpc/fn_get_slot_availability"].includes(url.pathname);
+    if (!["GET", "HEAD"].includes(method) && !(method === "POST" && availability))
+      return Promise.reject(new Error("プレビューでは送信・保存できません"));
+    return previewFetch(input, init);
+  };
+  window.parent.postMessage({type:"cake-editor-ready"}, location.origin);
+}
 
 /* ---------- 変更モード（?edit=<manage_token> で既存予約を読み込んで差し替え） ---------- */
-const TRIAL_MODE = new URLSearchParams(location.search).get("trial") === "1";
+const TRIAL_MODE = !EDITOR_PREVIEW && new URLSearchParams(location.search).get("trial") === "1";
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
-const EDIT_MODE = !TRIAL_MODE && !!EDIT_TOKEN;
+const EDIT_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && !!EDIT_TOKEN;
 let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
 
 /* ---------- 代行登録モード（?staff=1・管理画面ログイン中のみ） ----------
  * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
  * 警告つきで選べる（サーバー側も fn_staff_place_order で店のログインを検証）。
  * メールアドレスは空欄OK＝空欄なら確認メールは送られない */
-const STAFF_MODE = !TRIAL_MODE && !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
+const STAFF_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
 function staffSession() {
   try { return JSON.parse(localStorage.getItem("pokke_admin_session")); } catch { return null; }
 }
@@ -57,6 +82,14 @@ const state = {
 
 /* ---------- API ---------- */
 async function api(path) {
+  if (EDITOR_PREVIEW) {
+    const c = await editorCatalogReady;
+    const table = path.split("?")[0].split("/").pop();
+    const data = {v_public_tenant:[c.tenant], products:c.products, option_groups:c.globalGroups || [],
+      common_questions:c.questions, pickup_time_slots:c.slots}[table];
+    if (!data) throw new Error("このデータはプレビューでは取得できません");
+    return structuredClone(data);
+  }
   if (TRIAL_MODE && path.startsWith("/rest/v1/v_public_tenant?")) return staffRpc("fn_trial_preview", { p_action: "catalog", p: { shop: CONFIG.shop } });
   const res = await fetch(CONFIG.url + path, {
     headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${TRIAL_MODE ? staffSession()?.access_token : CONFIG.anonKey}` },
@@ -153,7 +186,7 @@ const SESSION_ID = (crypto.randomUUID
   ? crypto.randomUUID()
   : String(Date.now()) + Math.random().toString(16).slice(2));
 function track(step, detail) {
-  if (TRIAL_MODE || !state.tenant || RESTORING || EDIT_MODE || STAFF_MODE) return;  // 変更・代行モードは新規のファネル計測を汚さない
+  if (THEME_PREVIEW || TRIAL_MODE || !state.tenant || RESTORING || EDIT_MODE || STAFF_MODE) return;  // 変更・代行モードは新規のファネル計測を汚さない
   fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
     method: "POST",
     headers: {
@@ -271,6 +304,13 @@ async function load() {
   const tenants = await api(`/rest/v1/v_public_tenant?subdomain=eq.${CONFIG.shop}&select=*`);
   if (!tenants.length) { $("shop-name").textContent = "店舗が見つかりません"; return; }
   state.tenant = tenants[0];
+  if (EDITOR_PREVIEW) {
+    const note = document.createElement("p");
+    note.className = "confirm-box";
+    note.textContent = "編集内容のプレビュー：予約は送信されません。公開前の商品も表示します。空き状況と受付締切は保存済みの設定で確認します。";
+    document.getElementById("app").prepend(note);
+    $("btn-submit").disabled = true;
+  }
   if (TRIAL_MODE) {
     const note = document.createElement("p");
     note.textContent = "店舗専用テスト：実予約は作成されず、メール・LINEは送信されません。画像は端末内で確認します。";
@@ -426,6 +466,7 @@ async function enterEditMode() {
  * （fn_date_orderable）にしか無く、受付前・受付終了後の商品も一覧に並んでいた。
  * お客様から見ると「選べるのにカレンダーが全部灰色の商品」になる（2026-09-06 修正）。 */
 function onSale(p) {
+  if (EDITOR_PREVIEW) return !p.deleted_at;
   const now = Date.now();
   if (p.sale_start_at && now < Date.parse(p.sale_start_at)) return false;
   if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
@@ -556,7 +597,7 @@ function optionPrice(o) {
 function optionMaxQuantity(o) {
   // タルト・バスク上に無理なく載せられるナンバークッキー大は2枚まで。
   if (CONFIG.shop === "pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(state.sel.product?.name)
-      && optName(o) === "ナンバークッキー大") return 2;
+      && optName(o) === "ナンバークッキー大") return Math.min(o.max_quantity || 1, 2);
   return o.max_quantity || 1;
 }
 function requiresReview() {
@@ -809,6 +850,15 @@ function pastelLinkMatches(targetName, optionName) {
   return targetName === "丸絞り1周"
     && (["フルーツ1周", "フルーツ盛り"].includes(optionName) || optionName.endsWith("・カラー"));
 }
+function questionColorLinksTo(q, option) {
+  if (q.pastel_link_option_id) {
+    if (q.pastel_link_option_id === option.id) return true;
+    return CONFIG.shop === "pokke" && q.pastel_link_option_name !== optName(option)
+      && pastelLinkMatches(q.pastel_link_option_name, optName(option));
+  }
+  return CONFIG.shop === "pokke" ? pastelLinkMatches(q.pastel_link_option_name, optName(option))
+    : !!q.pastel_link_option_name && q.pastel_link_option_name === optName(option);
+}
 function pastelHueName(hue) {
   const h=((Number(hue)||0)%360+360)%360;
   if(h<15||h>=345)return "赤系";
@@ -930,11 +980,23 @@ function numberCookieDigits(value) {
   return normalizeNumberCookieText(value).match(/[0-9]/g) || [];
 }
 
+// Explicit question IDs survive renaming and reordering. Legacy data is matched only when unambiguous.
+function previewQuestionForOption(option, kind) {
+  if (!option) return null;
+  const qs = state.questions.filter(q => qLive(q) && qOptionId(q) === option.id);
+  if (option.preview_question_id) return qs.find(q => q.id === option.preview_question_id) || null;
+  const suitable = qs.filter(q => kind === "calendar" ? q.input_type === "date"
+    : ["text", "textarea"].includes(q.input_type));
+  const pattern = kind === "number" ? /数字|ナンバー/ : kind === "message" ? /メッセージ|直書き/ : /日|カレンダー/;
+  const named = suitable.filter(q => pattern.test(q.label || ""));
+  return named.length === 1 ? named[0] : suitable.length === 1 ? suitable[0] : null;
+}
+
 function numberCookieHasPreviewDigits(optionName) {
   for(const id of state.sel.options.keys()){
     const option=findOption(id)?.o;
     if(!option||optName(option)!==optionName||optionIsDetached(optionName))continue;
-    const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===id);
+    const q=previewQuestionForOption(option,"number");
     const qty=Math.max(1,state.sel.options.get(id)?.qty||1);
     return numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text).slice(0,qty).length>0;
   }
@@ -1174,7 +1236,7 @@ function parseCalendarDate(text) {
 function currentCalendarLayer() {
   const option = selectedCalendarOption();
   if (!option) return null;
-  const question = state.questions.find((q) => qLive(q) && qOptionId(q) === option.id);
+  const question = previewQuestionForOption(option, "calendar");
   const date = parseCalendarDate(normAnswer(state.sel.answers.get(question?.id)).text);
   return date ? { ...date, optionId: option.id, questionId: question?.id } : null;
 }
@@ -1192,7 +1254,7 @@ function currentDirectMessageLayer() {
   for (const g of sortedGroups(p)) {
     const option = g.options.find((o) => state.sel.options.has(o.id) && optName(o) === "メッセージをケーキに直書き");
     if (!option) continue;
-    const question = state.questions.find((q) => qLive(q) && qOptionId(q) === option.id);
+    const question = previewQuestionForOption(option, "message");
     const text = String(normAnswer(state.sel.answers.get(question?.id)).text || "").trim();
     return text ? { text, optionId: option.id, questionId: question?.id } : null;
   }
@@ -1200,7 +1262,7 @@ function currentDirectMessageLayer() {
 }
 
 function currentOptionMessage(option) {
-  const question=state.questions.find((q)=>qLive(q)&&qOptionId(q)===option.id);
+  const question=previewQuestionForOption(option,"message");
   if(question)return String(normAnswer(state.sel.answers.get(question.id)).text||"").trim();
   return String(state.sel.options.get(option.id)?.text||"").trim();
 }
@@ -1345,7 +1407,7 @@ function currentLayers() {
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
           if(calendarCake && name==="クッキープレート")continue;
           if(layerUrl.includes('{digit}')){
-            const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id);
+            const q=previewQuestionForOption(o,"number");
             const rawNumber=normAnswer(state.sel.answers.get(q?.id)).text;
             const groupedDigits=numberCookieDigitGroups(rawNumber);
             const digits=groupedDigits.flatMap((groupDigits,group)=>groupDigits.map(digit=>({digit,group})));
@@ -1358,7 +1420,7 @@ function currentLayers() {
           }
           const q=state.questions.find(q=>qLive(q)&&qOptionId(q)===o.id&&isColorQuestionType(q.input_type));
           const linkedQ=state.questions.find(q=>qLive(q)&&isColorQuestionType(q.input_type)
-            &&pastelLinkMatches(q.pastel_link_option_name,name)&&state.sel.options.has(qOptionId(q))
+            &&questionColorLinksTo(q,o)&&state.sel.options.has(qOptionId(q))
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
             :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
@@ -1623,14 +1685,15 @@ function buildDetachedToppingPicker(g, detachedId) {
   return wrap;
 }
 
-function linkedPastelQuestionForTarget(optionName) {
+function linkedPastelQuestionForTarget(option) {
   return state.questions.find((q) => qLive(q) && isColorQuestionType(q.input_type)
-    && q.pastel_link_option_name === optionName
+    && (q.pastel_link_option_id ? q.pastel_link_option_id === option.id : q.pastel_link_option_name === optName(option))
     && state.sel.options.has(qOptionId(q)));
 }
 
-function buildOptionPastelLink(optionName) {
-  const q=linkedPastelQuestionForTarget(optionName);
+function buildOptionPastelLink(option) {
+  const optionName=optName(option);
+  const q=linkedPastelQuestionForTarget(option);
   if(!q)return null;
   const saved=parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text);
   const label=document.createElement("label");
@@ -1682,6 +1745,7 @@ function renderGroups() {
     box.className = "group";
     box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
       (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
+      (g.selection_type !== "single" && g.max_select != null ? `<p class="group-desc">${g.max_select}種類まで選べます</p>` : "") +
       (CONFIG.shop === "pokke" && g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
         state.sel.options.has(o.id) && PREVIEW_POSITION_NOTICE_NAMES.has(optName(o)))
         ? '<p class="group-preview-note">※実際の配置はプレビュー通りではなく、全体のバランスを見て調整いたします。</p>' : "") +
@@ -1762,7 +1826,7 @@ function renderGroups() {
         stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty;
       }
       box.appendChild(row);
-      const optionPastelLink=buildOptionPastelLink(optName(o));
+      const optionPastelLink=buildOptionPastelLink(o);
       if(optionPastelLink)box.appendChild(optionPastelLink);
       if(selected && optName(o)===DETACHED_TOPPING_OPTION){
         box.appendChild(buildDetachedToppingPicker(g,o.id));
@@ -1790,6 +1854,12 @@ function renderGroups() {
 }
 function toggleOption(g, o, input) {
   if (!optionAvailableOnPickup(o)) { input.checked = false; return; }
+  if (!state.sel.options.has(o.id) && g.selection_type !== "single" && g.max_select != null
+      && g.options.filter(x => state.sel.options.has(x.id)).length >= g.max_select) {
+    input.checked = false;
+    toast(`「${g.name}」は${g.max_select}種類まで選べます`);
+    return;
+  }
   if (!state.sel.options.has(o.id)) {
     const capacityConflict = toppingCapacityConflict(o);
     if (capacityConflict) { input.checked = false; toast(capacityConflict); return; }
@@ -2222,7 +2292,7 @@ function shrinkImage(file, maxSide = IMG_MAX_SIDE, quality = 0.85) {
 
 async function uploadOneImage(file, q) {
   const { blob, w, h } = await shrinkImage(file);
-  if (TRIAL_MODE) return { id: crypto.randomUUID(), url: URL.createObjectURL(blob), note: "" };
+  if (TRIAL_MODE || EDITOR_PREVIEW) return { id: crypto.randomUUID(), url: URL.createObjectURL(blob), note: "" };
   const res = await fetch(IMG_ENDPOINT(), {
     method: "POST",
     headers: {
@@ -2252,7 +2322,7 @@ async function uploadOneImage(file, q) {
 /* レイヤー商品は、予約時点の完成イメージを1枚にして非公開保存する。
  * 商品設定を後から変えても、過去予約の見た目を変えないためのスナップショット。 */
 async function uploadOrderPreview() {
-  if (TRIAL_MODE || !currentLayers()) return null;
+  if (TRIAL_MODE || EDITOR_PREVIEW || !currentLayers()) return null;
   await updatePreview();
   const canvas = $("preview-canvas").querySelector("canvas");
   if (!canvas) return null;
@@ -2385,12 +2455,12 @@ function validate() {
     if (f?.o.text_prompt && !(v.text || "").trim())
       return `「${optName(f.o)}」：${f.o.text_prompt}`;
     if (f?.o.layer_url?.includes('{digit}')) {
-      const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
+      const q=previewQuestionForOption(f.o,f.o.layer_url?.includes("{digit}") ? "number" : "calendar");
       const digits=numberCookieDigits(normAnswer(state.sel.answers.get(q?.id)).text);
       if(digits.length!==v.qty)return `「${optName(f.o)}」は、選んだ枚数分の数字をご記入ください`;
     }
     if (CONFIG.shop === "pokke" && f && CALENDAR_OPTION_NAMES.has(optName(f.o))) {
-      const q=state.questions.find((x)=>qLive(x)&&qOptionId(x)===id);
+      const q=previewQuestionForOption(f.o,f.o.layer_url?.includes("{digit}") ? "number" : "calendar");
       const value=normAnswer(state.sel.answers.get(q?.id)).text;
       if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」をカレンダーからお選びください`;
     }
@@ -2510,6 +2580,7 @@ function renderConfirm() {
 }
 
 $("btn-submit").onclick = async () => {
+  if (EDITOR_PREVIEW) { toast("プレビューでは予約を送信できません"); return; }
   const btn = $("btn-submit");
   if (btn.disabled) return;
   btn.disabled = true;

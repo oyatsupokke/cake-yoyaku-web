@@ -2,8 +2,6 @@
  * 商品エディタ v1
  * - 基本情報 / 季節設定（販売期間・受取期間・受取曜日）/ サイズと価格
  * - 選択グループ＆選択肢（追加料金・個数上限・記入欄・注意書き・排他ペア）
- * - 共有リスト（果物など）: 項目の追加は、参照している全商品のグループへ
- *   リンク行を自動作成する（設計メモ「リンク行方式」の実装）
  * すべてスタッフJWT + RLS 経由（自店のデータしか読めない・書けない）
  * ===================================================================== */
 
@@ -17,7 +15,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
 })[ch]);
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const state = {
-  session: null, tenantId: null, tenantSubdomain: null, products: [], sharedLists: [], questions: [], globalGroups: [],
+  session: null, tenantId: null, tenantSubdomain: null, products: [], questions: [], globalGroups: [],
   categories: [],
   closedDates: new Set(),
   current: null, fields: [],
@@ -437,10 +435,9 @@ function buildPhotoField(opts) {
 async function loadAll(keepCurrent = true) {
   drafts.capture(state.fields);
   // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
-  const [products, lists, questions, globalGroups, categories] = await Promise.all([
+  const [products, questions, globalGroups, categories] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
       `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
-    api("GET", `/rest/v1/shared_lists?tenant_id=eq.${state.tenantId}&select=*,shared_list_items(*)`),
     api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&order=display_order` +
       `&select=*,common_question_choices(*),common_question_products(product_id)`),
     api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&product_id=is.null&order=display_order` +
@@ -448,7 +445,6 @@ async function loadAll(keepCurrent = true) {
     api("GET", `/rest/v1/categories?tenant_id=eq.${state.tenantId}&order=display_order`),
   ]);
   state.products = products;
-  state.sharedLists = lists;
   state.questions = questions;
   state.globalGroups = globalGroups;
   state.categories = categories;
@@ -465,7 +461,6 @@ async function loadAll(keepCurrent = true) {
   await state.capacityLoading;
   renderQuestions();
   renderCategories();
-  renderSharedLists();
   $("save-bar").classList.remove("hidden");
   markDirty();
 }
@@ -1535,9 +1530,6 @@ function buildGroupBox(p, g) {
   const box = document.createElement("div");
   box.className = "grp";
   const isGlobal = g.product_id === null;
-  const sharedNote = g.shared_list_id
-    ? `<span class="tag">📎 ${esc(state.sharedLists.find((l) => l.id === g.shared_list_id)?.name || "共有リスト")}</span>`
-    : "";
   box.innerHTML = `
     <div class="grp-bar">
       <input type="text" class="gname inplace" value="${esc(g.name)}" aria-label="グループ名">
@@ -1547,7 +1539,6 @@ function buildGroupBox(p, g) {
       </select>
       <label class="chk"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
       <label class="gh-max-wrap ${g.selection_type === "single" ? "hidden" : ""}">選べる種類数の上限 <input type="number" class="gh-max" min="1" step="1" placeholder="制限なし" value="${esc(g.max_select)}"></label>
-      ${sharedNote}
       <div class="group-scope" role="radiogroup" aria-label="表示する商品">
         <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-all" value="all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
         <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-only" value="only" ${!isGlobal ? "checked" : ""}>このケーキだけに出す</label>
@@ -1572,9 +1563,8 @@ function buildGroupBox(p, g) {
       <div class="g-sample"></div>
       <p class="meta">選択肢 ${g.options.length}件</p>
       <div class="g-options"></div>
-      ${g.shared_list_id ? '<button type="button" class="pill g-shared-edit">連携中の選択肢を編集する</button>' : ""}
       <p class="small">追加・削除・提供停止は、その場で反映されます。</p>
-      <div class="override-add g-add-row ${g.shared_list_id ? "hidden" : ""}">
+      <div class="override-add g-add-row">
         <input type="text" class="ga-name" placeholder="選択肢名" style="width:150px">
         <input type="number" class="ga-price" placeholder="+円" min="0" style="width:80px">
         <button type="button" class="pill ga-add">＋ 選択肢を追加</button>
@@ -1596,9 +1586,6 @@ function buildGroupBox(p, g) {
       </div>
     </div>`;
 
-  box.querySelector(".g-shared-edit")?.addEventListener("click", () => {
-    const legacy = $("legacy-shared-settings"); legacy.open = true; legacy.scrollIntoView({behavior:"smooth",block:"start"});
-  });
   // 画面に出す値の写し。入力のたびにここを更新してプレビューを描き直す
   const view = {
     maxSelect:g.max_select, size:"", name: g.name, required: !!g.is_required, single: g.selection_type === "single",
@@ -1770,13 +1757,12 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const open = state.openOptions.has(o.id);
   const availability = optionAvailability(o);
   row.className = "opt" + (open ? " open" : "") + (availability.available ? "" : " stopped");
-  const isLinked = !!o.shared_list_item_id;
   const qs = questionsOf(o.id);
   const physicalLimit = state.tenantSubdomain === "pokke" && ["フルーツタルト", "バスクチーズケーキ"].includes(p.name) && optDisplayName(o) === "ナンバークッキー大" ? 2 : null;
   row.innerHTML = `
     <div class="opt-line">
-      <input type="text" class="oname inplace" value="${esc(isLinked ? optDisplayName(o) : o.name)}" aria-label="選択肢名"
-        placeholder="${esc(isLinked ? optDisplayName(o) + "（共有リスト）" : "選択肢名")}" ${isLinked ? "disabled" : ""}>
+      <input type="text" class="oname inplace" value="${esc(optDisplayName(o))}" aria-label="選択肢名"
+        placeholder="選択肢名">
       <span class="lbl">+¥</span><input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
       <span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" ${physicalLimit ? `max="${physicalLimit}"` : ""} value="${esc(physicalLimit ? Math.min(o.max_quantity || 1, physicalLimit) : o.max_quantity)}">${physicalLimit ? `<span class="mini">実物の配置上、最大${physicalLimit}枚です</span>` : ""}
       <span class="state-badge ${availability.available ? "on" : ""}">${availability.label}</span>
@@ -1807,7 +1793,6 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><span class="k">提供できる期間（任意）</span>
         <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
         <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
-        ${isLinked ? '<p class="small">以前の共有設定に期間がある場合は、両方を満たす受取日に選べます。</p>' : ""}
       </div>
 
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
@@ -1823,8 +1808,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb option-detail-feature"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
         <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
       <div class="acts">
-        <button type="button" class="pill o-toggle">${isLinked ? (o.is_available ? "この商品だけ停止する" : "この商品の停止を解除") : (o.is_available ? "停止する" : "提供を再開する")}</button>
-        ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}
+        <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
         <button type="button" class="pill danger o-del">選択肢を削除</button>
       </div>
       </section>
@@ -1864,10 +1848,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const rowLight = () => row.closest(".grp").querySelector(`.pv-opts .crow[data-option-id="${o.id}"]`);
 
   const nameEl = row.querySelector(".oname");
-  if (!isLinked) {
-    regField("options", o.id, "name", nameEl);
-    nameEl.addEventListener("input", () => { ov.name = nameEl.value; paintGroup(); });
-  }
+  regField("options", o.id, "name", nameEl);
+  nameEl.addEventListener("input", () => { ov.name = nameEl.value; paintGroup(); });
   linkLight(nameEl, rowLight);
 
   const priceEl = row.querySelector(".o-price");
@@ -2331,73 +2313,6 @@ $("fab").onclick = () => (document.querySelector(".cust.peeking") ? closePreview
 window.addEventListener("resize", () => { if (!narrowScreen()) closePreview(); });
 syncFab();
 
-
-/* ---------- 共有リスト ---------- */
-function renderSharedLists() {
-  const wrap = $("shared-lists");
-  const groups = [...state.products.flatMap(p => p.option_groups || []), ...state.globalGroups];
-  const linkedItems = new Set(groups.flatMap(g => (g.options || []).map(o => o.shared_list_item_id).filter(Boolean)));
-  const usedLists = state.sharedLists.filter(l => groups.some(g => g.shared_list_id === l.id)
-    || (l.shared_list_items || []).some(item => linkedItems.has(item.id)));
-  $("legacy-shared-settings").hidden = !usedLists.length;
-  wrap.innerHTML = "";
-  for (const l of usedLists) {
-    const box = document.createElement("div");
-    box.className = "sl-box";
-    box.innerHTML = `<strong>${esc(l.name)}</strong><div class="sl-items"></div>
-      <div class="override-add">
-        <input type="text" class="sl-new" placeholder="新しい項目（例: いちじく）" style="width:170px">
-        <button type="button" class="pill sl-add">項目追加</button>
-      </div>`;
-    const itemsWrap = box.querySelector(".sl-items");
-    for (const it of [...l.shared_list_items].sort((a, b) => a.display_order - b.display_order)) {
-      const row = document.createElement("div");
-      row.className = "sl-item";
-      row.innerHTML = `
-        <div class="sl-item-main">
-          <input type="text" class="it-name" value="${esc(it.name)}">
-          <span class="state-badge ${it.is_available ? "on" : ""}">${it.is_available ? "提供中" : "停止中"}</span>
-          <button type="button" class="pill it-toggle">${it.is_available ? "停止する" : "提供を再開する"}</button>
-        </div>
-        <div class="sl-item-period">
-          <span class="mini period-label">提供できる受取日の期間（空欄なら制限なし）</span>
-          <span class="period-inputs">
-            <input type="date" class="it-from" value="${esc(it.available_from)}">
-            <span class="mini">〜</span>
-            <input type="date" class="it-until" value="${esc(it.available_until)}">
-          </span>
-        </div>`;
-      regField("shared_list_items", it.id, "name", row.querySelector(".it-name"));
-      regField("shared_list_items", it.id, "available_from", row.querySelector(".it-from"));
-      regField("shared_list_items", it.id, "available_until", row.querySelector(".it-until"));
-      row.querySelector(".it-toggle").onclick = async () => {
-        await api("PATCH", `/rest/v1/shared_list_items?id=eq.${it.id}`, { is_available: !it.is_available });
-        toast(it.is_available ? "停止しました（全商品で非表示になります）" : "提供再開しました");
-        reloadAll();
-      };
-      itemsWrap.appendChild(row);
-    }
-    box.querySelector(".sl-add").onclick = async () => {
-      const name = box.querySelector(".sl-new").value.trim();
-      if (!name) { toast("項目名を入れてください"); return; }
-      const item = await api("POST", "/rest/v1/shared_list_items", [{
-        tenant_id: state.tenantId, list_id: l.id, name,
-        display_order: l.shared_list_items.length,
-      }]);
-      // このリストを使っている全グループにリンク行を自動作成
-      const groups = await api("GET",
-        `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&shared_list_id=eq.${l.id}&select=id,options(id)`);
-      const rows = groups.map((g) => ({
-        tenant_id: state.tenantId, group_id: g.id,
-        shared_list_item_id: item[0].id, display_order: g.options.length,
-      }));
-      if (rows.length) await api("POST", "/rest/v1/options", rows);
-      toast(`「${name}」を追加しました（${rows.length}商品のグループに反映）`);
-      reloadAll();
-    };
-    wrap.appendChild(box);
-  }
-}
 
 /* ---------- 保存忘れ警告 ---------- */
 state.dirty = false;

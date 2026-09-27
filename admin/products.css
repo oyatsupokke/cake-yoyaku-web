@@ -314,14 +314,13 @@
 .lit { background: #fff3d6 !important; box-shadow: 0 0 0 2px #e8b45c; border-radius: 6px; }
 @media (prefers-reduced-motion: no-preference) { .lit { transition: background .12s, box-shadow .12s; } }
 
-/* ---- 排他ペア・共有リスト・追加ボックス（従来から継続） ---- */
+/* ---- 排他ペア・追加ボックス（従来から継続） ---- */
 .excl-panel { width: 100%; background: #fdf3f5; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
 .excl-panel .chip {
   display: inline-block; border: 1.5px solid var(--line); border-radius: 999px;
   padding: 3px 10px; margin: 3px 4px 0 0; cursor: pointer; font-size: .8rem; background: #fff;
 }
 .excl-panel .chip.on { background: var(--primary-deep); color: #fff; border-color: var(--primary-deep); }
-.sl-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
 .group-add-box {
   border: 2px dashed var(--primary); border-radius: 12px;
   padding: 18px 20px; margin: 24px 0; background: #fffafb;
@@ -431,22 +430,9 @@
   .layer-order-actions { grid-column: 1 / -1; justify-content: flex-start; }
 }
 
-/* 共有リストの1項目 = 2段組み（1段目: 名前と操作 / 2段目: 提供期間） */
+/* 質問の回答項目 */
 .sl-item { display: block; padding: 10px 0; font-size: .9rem; border-bottom: 1px dashed var(--line); }
 .sl-item:last-child { border-bottom: none; }
-.sl-item-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.sl-item-main input[type="text"] {
-  flex: 1 1 140px; min-width: 120px; padding: 6px 10px;
-  border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; font-size: .9rem;
-}
-.sl-item-period { margin-top: 8px; }
-.sl-item-period .period-label { display: block; margin-bottom: 4px; }
-.sl-item-period .period-inputs { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-.sl-item-period input[type="date"] {
-  flex: 1 1 0; min-width: 0; padding: 5px 8px;
-  border: 1.5px solid var(--line); border-radius: 8px;
-  font-family: inherit; font-size: .82rem; color: var(--ink); background: #fff;
-}
 .sl-item .pill { padding: 5px 12px; font-size: .78rem; white-space: nowrap; flex: 0 0 auto; }
 .sl-item .mini { white-space: nowrap; }
 .mini { font-size: .74rem; color: #a08a8f; }

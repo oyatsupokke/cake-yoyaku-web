@@ -403,3 +403,7 @@
   box-sizing:border-box; -webkit-appearance:none; appearance:none;
 }
 .admin .report-filters input[type="date"]::-webkit-date-and-time-value { min-width:0; text-align:left; }
+
+.kitchen-period { margin:12px 0 20px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:6px; }
+#kitchen-scope { font-weight:700;font-size:.88rem; }
+#kitchen-scope:empty { display:none; }

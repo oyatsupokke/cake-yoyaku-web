@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790511026">
-<link rel="stylesheet" href="admin.css?v=1790511026">
-<link rel="stylesheet" href="admin-layout.css?v=1790511026">
-<link rel="stylesheet" href="support.css?v=1790511026">
+<link rel="stylesheet" href="../styles.css?v=1790511227">
+<link rel="stylesheet" href="admin.css?v=1790511227">
+<link rel="stylesheet" href="admin-layout.css?v=1790511227">
+<link rel="stylesheet" href="support.css?v=1790511227">
 </head>
 <body>
 <div id="app" class="admin">
@@ -83,8 +83,20 @@
       <div id="tab-kitchen">
         <h2 class="print-title print-only" id="kitchen-title"></h2>
         <div class="daily-section-heading no-print">
-          <div><h2>この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセル・追加希望の承諾前を除く）。</p></div>
+          <div><h2 id="kitchen-heading">この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセル・追加希望の承諾前を除く）。</p></div>
           <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
+        </div>
+        <div class="kitchen-period no-print">
+          <label><input type="checkbox" id="kitchen-range-mode"> 期間を指定してまとめる</label>
+          <div id="kitchen-range-fields" class="hidden">
+            <div class="report-filters">
+              <label class="field">受取日（開始）<input type="date" id="kitchen-from" required></label>
+              <label class="field">受取日（終了）<input type="date" id="kitchen-to" required></label>
+              <button type="button" class="pill" id="kitchen-range-load">この期間の製造数を見る</button>
+            </div>
+            <p class="small">開始日・終了日を含む合計です。下の予約一覧は、上で選んだ1日分を表示します。</p>
+          </div>
+          <p id="kitchen-scope" role="status"></p>
         </div>
         <div id="kitchen-summary"></div>
         <div id="kitchen-detail" class="print-only"></div>
@@ -473,12 +485,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790511026"></script>
-<script src="edit-drafts.js?v=1790511026"></script>
-<script src="report-core.js?v=1790511026"></script>
-<script src="line-settings.js?v=1790511026"></script>
-<script src="admin.js?v=1790511026"></script>
-<script src="reports.js?v=1790511026"></script>
-<script src="support.js?v=1790511026"></script>
+<script src="tips.js?v=1790511227"></script>
+<script src="edit-drafts.js?v=1790511227"></script>
+<script src="report-core.js?v=1790511227"></script>
+<script src="line-settings.js?v=1790511227"></script>
+<script src="admin.js?v=1790511227"></script>
+<script src="reports.js?v=1790511227"></script>
+<script src="support.js?v=1790511227"></script>
 </body>
 </html>

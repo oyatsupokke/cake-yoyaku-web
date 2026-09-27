@@ -251,7 +251,8 @@ async function loadOrders() {
   }
   state.orders = orders;
   renderPickup();
-  renderKitchen();
+  if ($("kitchen-range-mode").checked) await loadKitchenRange();
+  else renderKitchen();
 }
 $("review-filter").onchange = () => loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
 
@@ -457,11 +458,51 @@ async function updateStatus(o, status) {
   loadOrders();
 }
 
+let kitchenRange = null, kitchenGeneration = 0;
+function kitchenOrders() { return $("kitchen-range-mode").checked ? (kitchenRange?.orders || []) : state.orders; }
+async function loadKitchenRange() {
+  const generation = ++kitchenGeneration, tenant = state.tenantId;
+  const from = $("kitchen-from").value, to = $("kitchen-to").value;
+  kitchenRange = null;
+  $("btn-print").disabled = true;
+  $("kitchen-summary").replaceChildren(); $("kitchen-detail").replaceChildren();
+  $("kitchen-heading").textContent = "期間の製造数";
+  if (!from || !to || from > to) { $("kitchen-scope").textContent = "開始日と終了日を確認してください（終了日は開始日以降）。"; return; }
+  $("kitchen-scope").textContent = "製造数を読み込み中…";
+  try {
+    const orders = [];
+    for (;;) {
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items(*,order_item_options(*)),order_answers(*),order_images(id,path,question_id,note,created_at),order_previews(id,path,created_at)&limit=500&offset=${orders.length}`);
+      if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
+      orders.push(...page); if (page.length < 500) break;
+    }
+    kitchenRange = {from, to, orders}; renderKitchen();
+    $("btn-print").disabled = false;
+  } catch {
+    if (generation === kitchenGeneration) $("kitchen-scope").textContent = "読み込めませんでした。「この期間の製造数を見る」で再度お試しください。";
+  }
+}
+$("kitchen-range-mode").onchange = () => {
+  const on = $("kitchen-range-mode").checked;
+  $("kitchen-range-fields").classList.toggle("hidden", !on);
+  if (on) {
+    $("kitchen-from").value ||= state.date;
+    $("kitchen-to").value ||= state.date;
+    loadKitchenRange();
+  } else { ++kitchenGeneration; kitchenRange = null; $("btn-print").disabled = false; renderKitchen(); }
+};
+$("kitchen-range-load").onclick = loadKitchenRange;
+for (const id of ["kitchen-from", "kitchen-to"]) $(id).onchange = loadKitchenRange;
+
 /* ---------- 厨房ビュー ---------- */
 function renderKitchen() {
   const [y, m, d] = state.date.split("-");
   $("kitchen-title").textContent = `${y}年${+m}月${+d}日 製造一覧（${state.tenantName}）`;
-  const active = state.orders.filter((o) => o.status !== "canceled" && !reviewPending(o));
+  const rangeMode = $("kitchen-range-mode").checked;
+  $("kitchen-heading").textContent = rangeMode ? "期間の製造数" : "この日の製造数";
+  $("kitchen-scope").textContent = rangeMode && kitchenRange ? `受取日 ${kitchenRange.from} 〜 ${kitchenRange.to} の合計` : "";
+  if (rangeMode && kitchenRange) $("kitchen-title").textContent = `${kitchenRange.from} 〜 ${kitchenRange.to} 製造一覧（${state.tenantName}）`;
+  const active = kitchenOrders().filter((o) => o.status !== "canceled" && !reviewPending(o));
   // 集計: 商品×サイズ
   const agg = new Map();
   for (const o of active) for (const it of o.order_items) {
@@ -476,7 +517,7 @@ function renderKitchen() {
     total += qty;
   }
   sum += `<tr><td colspan="2"><strong>合計</strong></td><td class="qty-cell">${total}</td></tr></table>`;
-  $("kitchen-summary").innerHTML = active.length ? sum : `<p class="empty-note">この日の製造はありません</p>`;
+  $("kitchen-summary").innerHTML = active.length ? sum : `<p class="empty-note">${rangeMode ? "この期間" : "この日"}の製造はありません</p>`;
 
   // 製造カード（1台ごとの作る内容）
   const wrap = $("kitchen-detail");
@@ -495,7 +536,7 @@ function renderKitchen() {
     const card = document.createElement("div");
     card.className = "kcard";
     card.innerHTML = `
-      <div class="khead"><span>${esc(o.pickup_slot_label)}</span>
+      <div class="khead"><span>${rangeMode ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
         <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       ${o._preview_url ? `<div class="kpreview"><img src="${esc(o._preview_url)}" alt="予約時の完成イメージ"><span>完成イメージ</span></div>` : ""}
@@ -506,7 +547,7 @@ function renderKitchen() {
   }
 }
 $("btn-print").onclick = async () => {
-  await Promise.all(state.orders.filter((o) => o.status !== "canceled").map(ensureOrderPreviewUrl));
+  await Promise.all(kitchenOrders().filter((o) => o.status !== "canceled").map(ensureOrderPreviewUrl));
   renderKitchen();
   await Promise.all([...document.querySelectorAll("#kitchen-detail img")].map((img) =>
     img.complete ? Promise.resolve() : new Promise((resolve) => { img.onload = img.onerror = resolve; })));

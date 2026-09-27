@@ -1746,8 +1746,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         <button type="button" class="pill o-stops">ご用意できない日を設定</button>
         <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
       </div>
-      <div class="fb option-detail-feature"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
-        <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
+
       <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
         <p class="small">空欄のサイズは上の追加料金を使います。同じサイズ名には同じ金額を適用します。</p></div>
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
@@ -1771,6 +1770,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       </section>
       <section class="option-detail-section option-detail-actions">
       <h4>この選択肢の管理</h4>
+      <div class="fb option-detail-feature"><label class="chk"><input type="checkbox" class="o-review" ${o.requires_review ? "checked" : ""}>この選択肢は見積もり・お客様の承諾後に予約確定</label>
+        <p class="small">追加のデザイン希望などに使います。承諾前は枠を仮押さえし、製造数には含めません。写真必須にする場合は、この選択肢の質問で「画像を貼ってもらう」を必須にしてください。</p></div>
       <div class="acts">
         <button type="button" class="pill o-toggle">${isLinked ? (o.is_available ? "この商品だけ停止する" : "この商品の停止を解除") : (o.is_available ? "停止する" : "提供を再開する")}</button>
         ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}

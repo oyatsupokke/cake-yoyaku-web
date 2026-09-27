@@ -1737,7 +1737,6 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
       <section class="option-detail-section">
-      <h4>予約・料金</h4>
       <div class="fb"><span class="k">提供できる期間（任意）</span>
         <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
         <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>

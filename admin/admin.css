@@ -393,3 +393,5 @@
 }
 
 .save-help { display: block; font-size: .72rem; color: #786c70; margin-top: 4px; line-height: 1.5; }
+
+.date-shortcuts { display:flex;gap:8px;flex:0 0 auto; }

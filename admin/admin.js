@@ -229,6 +229,7 @@ function setDate(d) {
 $("date-prev").onclick = () => { const d = new Date(state.date); d.setDate(d.getDate() - 1); setDate(d); };
 $("date-next").onclick = () => { const d = new Date(state.date); d.setDate(d.getDate() + 1); setDate(d); };
 $("date-today").onclick = () => setDate(new Date());
+$("date-tomorrow").onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); setDate(d); };
 $("date-input").onchange = () => { if ($("date-input").value) setDate(new Date($("date-input").value)); };
 
 /* ---------- 注文ロード ---------- */

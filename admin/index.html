@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790510485">
-<link rel="stylesheet" href="admin.css?v=1790510485">
-<link rel="stylesheet" href="admin-layout.css?v=1790510485">
-<link rel="stylesheet" href="support.css?v=1790510485">
+<link rel="stylesheet" href="../styles.css?v=1790510760">
+<link rel="stylesheet" href="admin.css?v=1790510760">
+<link rel="stylesheet" href="admin-layout.css?v=1790510760">
+<link rel="stylesheet" href="support.css?v=1790510760">
 </head>
 <body>
 <div id="app" class="admin">
@@ -72,7 +72,10 @@
       <button type="button" class="cal-nav" id="date-prev">‹</button>
       <input type="date" id="date-input">
       <button type="button" class="cal-nav" id="date-next">›</button>
-      <button type="button" class="pill" id="date-today">今日</button>
+      <div class="date-shortcuts">
+        <button type="button" class="pill" id="date-today">今日</button>
+        <button type="button" class="pill" id="date-tomorrow">明日</button>
+      </div>
     </div>
 
     <!-- 予約・製造：同じ日の製造数と受取順を1画面で確認する -->
@@ -470,12 +473,12 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790510485"></script>
-<script src="edit-drafts.js?v=1790510485"></script>
-<script src="report-core.js?v=1790510485"></script>
-<script src="line-settings.js?v=1790510485"></script>
-<script src="admin.js?v=1790510485"></script>
-<script src="reports.js?v=1790510485"></script>
-<script src="support.js?v=1790510485"></script>
+<script src="tips.js?v=1790510760"></script>
+<script src="edit-drafts.js?v=1790510760"></script>
+<script src="report-core.js?v=1790510760"></script>
+<script src="line-settings.js?v=1790510760"></script>
+<script src="admin.js?v=1790510760"></script>
+<script src="reports.js?v=1790510760"></script>
+<script src="support.js?v=1790510760"></script>
 </body>
 </html>

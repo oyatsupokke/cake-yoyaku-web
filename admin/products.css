@@ -541,3 +541,10 @@
 }
 .products-page input:is(.c-price,.ga-price)::-webkit-inner-spin-button,
 .products-page input:is(.c-price,.ga-price)::-webkit-outer-spin-button{margin:0;-webkit-appearance:none}
+
+/* グループ全体の削除は、個々の選択肢・質問の操作から離して明示する。 */
+.group-delete-panel{margin-top:24px;padding:14px;border:1px solid #dfb5b1;border-radius:6px;background:#fff8f7;color:#713d38}
+.group-delete-panel>summary{font-size:.88rem;font-weight:700;cursor:pointer;min-height:24px}
+.group-delete-panel p{margin:10px 0;font-size:.84rem;line-height:1.7;overflow-wrap:anywhere}
+.group-delete-panel .group-delete-scope{font-weight:700}
+.group-delete-panel .gh-del{max-width:100%;white-space:normal}

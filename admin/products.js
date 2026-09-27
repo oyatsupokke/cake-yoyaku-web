@@ -1117,7 +1117,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     row.innerHTML = `
       <input type="text" class="c-label" value="${esc(c.label)}" placeholder="回答の選択肢">
       <span class="lbl">+¥</span><input type="number" class="c-price" min="0" value="${esc(c.price_delta)}">
-      <button type="button" class="pill danger c-del">削除</button>`;
+      <button type="button" class="pill danger c-del">回答を削除</button>`;
     const cl = row.querySelector(".c-label");
     regField("common_question_choices", c.id, "label", cl);
     cl.addEventListener("input", () => {
@@ -1554,9 +1554,13 @@ function buildGroupBox(p, g) {
         <input type="number" class="ga-price" placeholder="+円" min="0" style="width:80px">
         <button type="button" class="pill ga-add">＋ 選択肢を追加</button>
       </div>
-      <div class="acts">
-        <button type="button" class="pill danger gh-del">グループを削除</button>
-      </div>
+      <details class="group-delete-panel">
+        <summary>このグループ全体の削除</summary>
+        <p class="group-delete-target">対象：<strong class="gh-delete-name">${esc(g.name)}</strong></p>
+        <p>中の選択肢と、それぞれの質問・回答の選択肢もまとめて削除されます。</p>
+        ${isGlobal ? '<p class="group-delete-scope">すべてのケーキから、このグループが消えます。</p>' : ''}
+        <button type="button" class="pill danger gh-del">このグループ全体を削除</button>
+      </details>
       </div>
       <div class="cust">
         <p class="cap">入力内容の見本（操作・サイズ別料金は上の「編集内容で予約画面を確認」から）</p>
@@ -1592,6 +1596,7 @@ function buildGroupBox(p, g) {
   };
   const paint = () => {
     box.querySelector(".pv-name").textContent = view.name || "（グループ名）";
+    box.querySelector(".gh-delete-name").textContent = view.name || "（グループ名）";
     box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
     const d = box.querySelector(".pv-desc");
     d.textContent = view.desc; d.classList.toggle("hidden", !view.desc.trim());
@@ -1648,7 +1653,7 @@ function buildGroupBox(p, g) {
   box.querySelector(".gh-del").onclick = async () => {
     const scope = isGlobal
       ? `\n（すべてのケーキに出しているグループです。${state.products.length}個のケーキ全部から消えます）` : "";
-    if (!confirm(`グループ「${g.name}」を選択肢ごと削除しますか？${scope}`)) return;
+    if (!confirm(`グループ「${nameEl.value.trim() || g.name}」全体を削除しますか？\n中の選択肢${g.options.length}件と、それぞれの質問・回答の選択肢も削除されます。${scope}`)) return;
     try {
       const ids = g.options.map((o) => o.id).join(",");
       if (ids) {
@@ -1770,7 +1775,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="acts">
         <button type="button" class="pill o-toggle">${isLinked ? (o.is_available ? "この商品だけ停止する" : "この商品の停止を解除") : (o.is_available ? "停止する" : "提供を再開する")}</button>
         ${isLinked && !o.shared_list_items?.is_available ? '<span class="small">共有リストで停止中のため、お客様には表示されません。再開はページ下の共有リストで行います。</span>' : ""}
-        <button type="button" class="pill danger o-del">削除</button>
+        <button type="button" class="pill danger o-del">選択肢を削除</button>
       </div>
       </section>
     </div>`;
@@ -1880,7 +1885,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     item.innerHTML = `<div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
       <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
-      <button type="button" class="pill danger o-qdel">削除</button></div>`;
+      <button type="button" class="pill danger o-qdel">質問を削除</button></div>`;
     const qLight = () => row.closest(".grp")?.querySelector(`.pv-opts .cfield[data-question-id="${q.id}"]`);
     const questionFields = buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight });
     item.appendChild(questionFields);
@@ -2137,7 +2142,7 @@ function buildQuestionBox(q) {
       <input type="text" class="qname inplace" value="${esc(q.label)}" aria-label="質問文" placeholder="質問文">
       <span class="state-badge ${q.is_active ? "on" : ""}">${q.is_active ? "使用中" : "停止中"}</span>
       <button type="button" class="pill q-toggle">${q.is_active ? "停止する" : "再開する"}</button>
-      <button type="button" class="pill danger q-del">削除</button>
+      <button type="button" class="pill danger q-del">質問を削除</button>
     </div>
     <div class="q-body">
       <div class="q-main">

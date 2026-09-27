@@ -628,3 +628,5 @@
 
 /* ログイン前は編集用プレビューを表示しない。 */
 #view-app.hidden ~ #fab { display:none; }
+
+.cust .preview-try { margin:0 0 14px;max-width:100%;white-space:normal; }

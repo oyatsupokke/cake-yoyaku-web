@@ -1582,7 +1582,8 @@ function buildGroupBox(p, g) {
 
       </div>
       <div class="cust">
-        <p class="cap">入力内容の見本（選択操作は上の「編集内容で予約画面を確認」から）</p>
+        <p class="cap">お客様に見える内容</p>
+        <button type="button" class="pill preview-try">予約画面で選択を試す</button>
         <div class="card">
           <h4><span class="pv-name"></span><span class="req pv-req">必須</span></h4>
           <p class="desc pv-desc"></p>
@@ -2210,7 +2211,8 @@ function buildQuestionBox(q) {
       <div class="qrow"><div class="k">質問の内容</div><div class="v q-fields-wrap"></div></div>
       </div>
       <div class="cust">
-        <p class="cap">プレビュー</p>
+        <p class="cap">お客様に見える内容</p>
+        <button type="button" class="pill preview-try">予約画面で選択を試す</button>
         <div class="card">
           <h4><span class="pv-label"></span><span class="req pv-req">必須</span></h4>
           <div class="pv-body"></div>
@@ -2459,3 +2461,10 @@ $("draft-preview-open").onclick = async () => {
   } catch (e) { toast(`プレビューを開けませんでした：${e.message}`); }
   finally { button.disabled = false; }
 };
+
+// 見た目のプレビューから、その場で操作できる予約画面へ進める。
+document.addEventListener("click", event => {
+  if (!event.target.closest(".preview-try")) return;
+  closePreview();
+  $("draft-preview-open").click();
+});

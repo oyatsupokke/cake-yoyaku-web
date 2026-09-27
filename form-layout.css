@@ -5,7 +5,7 @@
 #view-form{max-width:650px;margin:auto}
 .step{margin:30px 0 38px;scroll-margin-top:20px}
 .step h2{font-size:1.1rem;font-weight:500;border-bottom:1px solid var(--line);padding-bottom:13px;gap:12px}
-.step-no{background:none;color:var(--mute);border-radius:0;width:auto;font-size:.85rem}
+.step-no{background:none;color:var(--ink);border-radius:0;width:1.25em;height:auto;font-size:1.15em;font-weight:700;line-height:inherit;font-variant-numeric:tabular-nums}
 .cards{gap:20px}
 .card{border:0;border-bottom:1px solid var(--line);border-radius:4px 4px 0 0;text-align:left;padding:14px;box-shadow:none}
 .card.selected{border:0;border-bottom:2px solid var(--selbox);background:var(--sel)}

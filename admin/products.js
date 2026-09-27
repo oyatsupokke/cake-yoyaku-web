@@ -1736,24 +1736,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
-      <section class="option-detail-section">
-      <div class="fb"><span class="k">提供できる期間（任意）</span>
-        <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
-        <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
-        ${isLinked ? '<p class="small">以前の共有設定に期間がある場合は、両方を満たす受取日に選べます。</p>' : ""}
-      </div>
-      <div class="option-detail-rule-actions">
-        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
-        <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
-      </div>
-
-      <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
-        <p class="small">空欄のサイズは上の追加料金を使います。同じサイズ名には同じ金額を適用します。</p></div>
-      <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
-        <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
-        <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
-      </section>
-      <section class="option-detail-section">
+      <section class="option-detail-section option-detail-content">
       <h4>お客様に見える内容</h4>
       <div class="fb"><span class="k">説明</span>
         <textarea class="o-desc" rows="2" placeholder="例: 側面のクリームが剥がれたような塗り方になります">${esc(o.description)}</textarea></div>
@@ -1766,6 +1749,25 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
         <p class="small">質問・回答の追加、削除、停止はその場で反映されます。</p><div class="o-qbox"></div>
         <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
+      </div>
+      </section>
+      <section class="option-detail-section option-detail-pricing">
+      <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
+        <p class="small">空欄のサイズは上の追加料金を使います。同じサイズ名には同じ金額を適用します。</p></div>
+      </section>
+      <section class="option-detail-section option-detail-availability">
+      <div class="fb"><span class="k">提供できる期間（任意）</span>
+        <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
+        <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
+        ${isLinked ? '<p class="small">以前の共有設定に期間がある場合は、両方を満たす受取日に選べます。</p>' : ""}
+      </div>
+
+      <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
+        <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
+        <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
+      <div class="option-detail-rule-actions">
+        <button type="button" class="pill o-stops">ご用意できない日を設定</button>
+        <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
       </div>
       </section>
       <section class="option-detail-section option-detail-actions">

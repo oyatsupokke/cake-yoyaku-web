@@ -1856,10 +1856,11 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     <div class="opt-line">
       <input type="text" class="oname inplace" value="${esc(optDisplayName(o))}" aria-label="選択肢名"
         placeholder="選択肢名">
-      <span class="lbl">+¥</span><input type="number" class="o-price" min="0" value="${esc(o.price_delta)}">
-      <span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" ${physicalLimit ? `max="${physicalLimit}"` : ""} value="${esc(physicalLimit ? Math.min(o.max_quantity || 1, physicalLimit) : o.max_quantity)}">${physicalLimit ? `<span class="mini">実物の配置上、最大${physicalLimit}枚です</span>` : ""}
+      <label class="option-price-field"><span class="lbl">+¥</span><input type="number" class="o-price" aria-label="追加料金（税込・円）" min="0" value="${esc(o.price_delta)}"></label>
+      <label class="option-quantity-field"><span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" ${physicalLimit ? `max="${physicalLimit}"` : ""} value="${esc(physicalLimit ? Math.min(o.max_quantity || 1, physicalLimit) : o.max_quantity)}"></label>
       <span class="state-badge ${availability.available ? "on" : ""}">${availability.label}</span>
       <button type="button" class="pill o-more" aria-expanded="${open}">詳しい設定 ${open ? "▴" : "▾"}</button>
+      ${physicalLimit ? `<span class="mini option-quantity-note">実物の配置上、最大${physicalLimit}枚です</span>` : ""}
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">

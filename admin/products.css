@@ -680,3 +680,28 @@
 .question-condition select { min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: white; font: inherit; }
 .question-create-fields input:not([type=checkbox]), .question-create-fields select { min-height: 44px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
 @media (max-width: 919px) { .question-condition select, .question-create-fields select, .question-create-fields input:not([type=checkbox]) { font-size: 16px; } }
+
+/* Every option uses the same columns; status text cannot move the edit button. */
+.g-options { container-type: inline-size; }
+.products-page .opt-line {
+  display: grid; grid-template-columns: minmax(0, 1fr) 140px 130px;
+  grid-template-areas: "name price quantity" "status status details";
+  gap: 10px 12px; align-items: center;
+}
+.products-page .opt-line .oname { grid-area: name; width: 100%; min-width: 0; height: 44px; box-sizing: border-box; }
+.option-price-field { grid-area: price; }
+.option-quantity-field { grid-area: quantity; }
+.option-price-field, .option-quantity-field { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; margin: 0; }
+.opt-line .lbl { white-space: nowrap; }
+.products-page .opt-line .o-maxq { width: 58px; height: 44px; min-width: 0; box-sizing: border-box; font: inherit; }
+.products-page .opt-line > .state-badge { grid-area: status; justify-self: start; max-width: 100%; }
+.products-page .opt-line .o-more { grid-area: details; justify-self: end; width: 130px; min-height: 44px; margin: 0; white-space: nowrap; }
+.products-page .opt-line .option-quantity-note { grid-column: 1 / -1; }
+@container (max-width: 480px) {
+  .products-page .opt-line {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "name name" "price quantity" "status details";
+  }
+  .option-price-field { justify-content: flex-start; }
+  .products-page .opt-line .o-more { width: 100%; max-width: 130px; padding-inline: 8px; }
+}

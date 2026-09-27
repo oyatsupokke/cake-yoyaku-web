@@ -668,3 +668,11 @@
 .outline-depth-2::before { left:23px;top:-5px;bottom:-5px;width:2px; }
 .outline-depth-2::after { left:23px;top:21px;width:11px;height:2px; }
 .outline-depth-2.outline-branch-last::before { bottom:auto;height:28px; }
+
+/* 目次の階層を文字の大きさ・太さ・余白でも区別する。 */
+.outline-depth-0 { font-size:.94rem;font-weight:700;margin-top:12px;border-top:1px solid var(--line);border-radius:0;padding-top:12px; }
+.outline-depth-0:first-child { margin-top:0;border-top:0; }
+.outline-depth-1 { font-size:.85rem;font-weight:600;color:#3f5146; }
+.outline-depth-2 { font-size:.78rem;font-weight:400;line-height:1.65;color:#566358; }
+.outline-item small { font-size:.68rem;font-weight:400;color:#727b70; }
+.outline-item[aria-current] { border-radius:5px; }

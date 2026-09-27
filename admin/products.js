@@ -1550,6 +1550,15 @@ function buildGroupBox(p, g) {
         <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-all" value="all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
         <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-only" value="only" ${!isGlobal ? "checked" : ""}>このケーキだけに出す</label>
       </div>
+      <details class="group-delete-panel">
+        <summary>グループを削除…</summary>
+        <div class="group-delete-content">
+        <p class="group-delete-target">対象：<strong class="gh-delete-name">${esc(g.name)}</strong></p>
+        <p>中の選択肢と、それぞれの質問・回答の選択肢もまとめて削除されます。</p>
+        ${isGlobal ? '<p class="group-delete-scope">すべてのケーキから、このグループが消えます。</p>' : ''}
+        <button type="button" class="pill danger gh-del">このグループ全体を削除</button>
+        </div>
+      </details>
     </div>
     <div class="grp-body">
       <div class="grp-main">
@@ -1568,13 +1577,7 @@ function buildGroupBox(p, g) {
         <input type="number" class="ga-price" placeholder="+円" min="0" style="width:80px">
         <button type="button" class="pill ga-add">＋ 選択肢を追加</button>
       </div>
-      <details class="group-delete-panel">
-        <summary>このグループ全体の削除</summary>
-        <p class="group-delete-target">対象：<strong class="gh-delete-name">${esc(g.name)}</strong></p>
-        <p>中の選択肢と、それぞれの質問・回答の選択肢もまとめて削除されます。</p>
-        ${isGlobal ? '<p class="group-delete-scope">すべてのケーキから、このグループが消えます。</p>' : ''}
-        <button type="button" class="pill danger gh-del">このグループ全体を削除</button>
-      </details>
+
       </div>
       <div class="cust">
         <p class="cap">入力内容の見本（選択操作は上の「編集内容で予約画面を確認」から）</p>

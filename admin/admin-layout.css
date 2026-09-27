@@ -55,3 +55,14 @@
 @media(min-width:1200px){#app.admin:not(.products-page){max-width:1280px}.admin .th-cols{grid-template-columns:minmax(0,1fr) 370px;gap:28px}}
 @media(max-width:540px){.admin .confirm-box{padding:18px 14px}.admin .th-types{gap:5px}.admin .th-type{padding:12px 4px}.admin .th-row{grid-template-columns:minmax(100px,1fr) 36px auto;gap:6px}.admin-header{flex-wrap:wrap}.admin .grp-body,.admin .q-body{padding:14px 10px}.admin .date-nav{flex-wrap:wrap}.admin .order-head{flex-wrap:wrap}}
 @media print{.admin .confirm-box{border:0}.admin .kitchen-table th,.admin .kitchen-table td{border-bottom:1px solid #999}}
+
+/* 操作ボタンと白い記入欄を、静止時にも見分けられるようにする。 */
+.admin .pill:not(.selected):not(.full){background:#e8efeb;border-color:#93aa9d;color:#294b3c;font-weight:600;box-shadow:0 2px 0 #b8c8bf;cursor:pointer}
+.admin .pill:not(.selected):not(.full):hover:not(:disabled){background:#d8e5dd;border-color:#537660}
+.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill{background:#3e604e;border-color:#3e604e;color:#fff;box-shadow:0 2px 0 #243f31}
+.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill:hover:not(:disabled){background:#2e4c3c;border-color:#2e4c3c}
+.admin .pill.danger:not(.selected):not(.full){background:#fbe9e8;border-color:#c9908c;color:#923b36;box-shadow:0 2px 0 #dfb5b1}
+.admin .pill.danger:not(.selected):not(.full):hover:not(:disabled){background:#f4d8d6;border-color:#ae625d}
+.admin .pill:not(.selected):not(.full):active:not(:disabled){transform:translateY(2px);box-shadow:none}
+.admin :is(.pill,.btn-primary,.btn-secondary):focus-visible{outline:3px solid #3e604e;outline-offset:3px}
+.admin .pill:disabled{opacity:.45;box-shadow:none;cursor:not-allowed;transform:none}

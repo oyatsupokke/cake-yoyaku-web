@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1790520639">
-<link rel="stylesheet" href="admin.css?v=1790520639">
-<link rel="stylesheet" href="products.css?v=1790520639">
-<link rel="stylesheet" href="admin-layout.css?v=1790520639">
+<link rel="stylesheet" href="../styles.css?v=1790522401">
+<link rel="stylesheet" href="admin.css?v=1790522401">
+<link rel="stylesheet" href="products.css?v=1790522401">
+<link rel="stylesheet" href="admin-layout.css?v=1790522401">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -78,7 +78,7 @@
         </div>
         <p id="p-publish-error" class="small warn hidden" role="alert"></p>
         <div class="product-copy-action">
-          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・選択グループ・選択肢の質問・この商品だけの上限・共通の質問の割り当てをコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
+          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・質問・選択肢・この商品だけの上限・質問の表示設定をコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
         </div>
         <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
           <div class="override-add" style="margin:4px 0 0">
@@ -163,31 +163,30 @@
         </div>
       </div>
 
-      <div class="confirm-box">
-        <h3>選択グループ（フルーツ・仕上げ・トッピングなど）<button type="button" class="tip" data-tip="お客様に選んでもらう項目です。「1つ選ぶ」はどれか1つだけ、「複数選べる」はいくつでも。&#10;「必須」にすると選ばないと注文できません。&#10;選択肢には追加料金と、選んだ人にだけ聞く質問を付けられます。&#10;ここで作るグループはこのケーキだけに出ます。他のケーキにも出す場合は、作ったあとグループの中の「すべてのケーキに出す」を入れてください。">？</button></h3>
+      <section class="confirm-box unified-questions">
+        <h3>質問</h3>
+        <p class="small">このケーキで聞く順番に並べます。共通の質問も、表示順はケーキごとに変えられます。</p>
         <div id="groups-list"></div>
-      </div>
-
         <div class="group-add-box">
-          <strong>＋ 新しいグループを追加</strong>
-          <div class="override-add" style="margin-top:8px">
-            <input type="text" id="g-name" placeholder="グループ名（例: チョコがけ）" style="width:170px">
-            <select id="g-type">
-              <option value="single">1つ選ぶ</option>
-              <option value="multiple">複数選べる</option>
-            </select>
-            <label class="radio-line" style="margin:0"><input type="checkbox" id="g-required">必須</label>
-            <button type="button" class="pill" id="btn-g-add">追加する</button>
+          <strong>＋ 質問を追加</strong>
+          <div class="question-create-fields">
+            <label>質問文<input type="text" id="g-name" placeholder="例：果物を選んでください"></label>
+            <label>回答方法<select id="g-type">
+              <option value="single">選択式（1つ選ぶ）</option><option value="multiple">選択式（複数選ぶ）</option>
+              <option value="text">文字入力（1行）</option><option value="textarea">文字入力（複数行）</option>
+              <option value="date">日付</option><option value="image">画像</option><option value="select">プルダウン</option>
+              <option value="color">カラー＋補足</option><option value="pastel_color">パステルカラー＋補足</option>
+            </select></label>
+            <label class="chk"><input type="checkbox" id="g-required">必須</label>
+            <button type="button" class="pill" id="btn-g-add">質問を追加</button>
           </div>
+          <p class="small">追加した質問は、まずこのケーキだけに表示します。</p>
         </div>
-
-    </div>
-
-    <!-- 共通の質問（店全体。商品タブの外にあるのは、中身が店全体の設定だから） -->
-    <div class="confirm-box">
-      <h3>共通の質問<button type="button" class="tip" data-tip="どのケーキでも聞くことをここに作ります（メッセージプレートなど）。既定はすべてのケーキ。特定のケーキだけで聞きたいときは「選んだケーキだけ」に切り替えます。ひとつの選択肢を選んだ人にだけ聞きたいことは、上の選択グループの中で設定します。">？</button></h3>
-      <div id="questions-list"></div>
-      <button type="button" class="pill ghost" id="btn-q-add">＋ 質問を追加</button>
+        <details id="other-questions"><summary>ほかのケーキで使っている質問</summary>
+          <p class="small">同じ質問を使う場合は「表示するケーキ」にこのケーキを追加してください。内容は共通になります。</p>
+          <div id="questions-list"></div>
+        </details>
+      </section>
     </div>
 
     <div id="product-visual-editor" class="hidden">
@@ -224,12 +223,13 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1790520639"></script>
-<script src="edit-drafts.js?v=1790520639"></script>
-<script src="products-menu.js?v=1790520639"></script>
-<script src="pickup-schedule.js?v=1790520639"></script>
-<script src="products.js?v=1790520639"></script>
-<script type="module" src="product-assistant.js?v=1790520639"></script>
-<script src="products-outline.js?v=1790520639"></script>
+<script src="tips.js?v=1790522401"></script>
+<script src="edit-drafts.js?v=1790522401"></script>
+<script src="products-menu.js?v=1790522401"></script>
+<script src="pickup-schedule.js?v=1790522401"></script>
+<script src="../question-flow.js?v=1790522401"></script>
+<script src="products.js?v=1790522401"></script>
+<script type="module" src="product-assistant.js?v=1790522401"></script>
+<script src="products-outline.js?v=1790522401"></script>
 </body>
 </html>

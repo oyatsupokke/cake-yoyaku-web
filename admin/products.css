@@ -113,18 +113,6 @@
   background: #fdeff2; border-left: 6px solid var(--primary-deep); padding: 10px 14px;
 }
 .grp-bar .gname { flex: 1; min-width: 150px; font-size: 1rem; font-weight: bold; }
-/* 全商品への適用は、タイトル帯の右端にまとめる。並び替えボタンより後に配置。 */
-.grp-bar .group-scope { order:2; display:flex; flex-direction:column; align-items:flex-end; flex:0 0 auto; max-width:100%; margin-left:auto; padding-left:14px; border-left:1px solid var(--line); }
-.group-scope { gap:6px; }
-.group-scope .group-scope-choice { display:flex; align-items:center; gap:8px; width:100%; min-height:38px; margin:0; padding:7px 10px; border:1px solid #adbcb1; border-radius:5px; background:#fff; color:#3d5144; font-size:.82rem; cursor:pointer; }
-.group-scope .group-scope-choice:has(input:checked) { background:#3e604e; border-color:#3e604e; color:#fff; font-weight:700; }
-.group-scope .group-scope-choice:focus-within { outline:2px solid #3e604e; outline-offset:2px; }
-.group-scope .group-scope-choice input { flex:0 0 auto; width:16px; height:16px; margin:0; accent-color:#3e604e; }
-@media(max-width:600px){
-  .group-scope .group-scope-choice { width:210px; max-width:100%; min-width:0; }
-  .grp-bar .group-scope { flex-basis:100%; align-items:flex-end; padding:10px 0 0; border-left:0; border-top:1px solid var(--line); }
-}
-
 .grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }
 .tag { font-size: .72rem; background: #fff; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; color: #a08a8f; }
 .tag.hi { border-color: var(--primary-deep); color: var(--primary-deep); }
@@ -264,7 +252,7 @@
   .o-question-bar { margin-left: -11px; margin-right: -11px; }
 }
 
-/* ---- 共通の質問（店全体） ---- */
+/* ---- 文字・日付・画像などの質問 ---- */
 .q { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin: 0 0 16px; background: #fff; }
 .q.stopped { opacity: .72; }
 .q-bar {
@@ -662,3 +650,33 @@
 .outline-depth-2 { font-size:.78rem;font-weight:400;line-height:1.65;color:#566358; }
 .outline-item small { font-size:.68rem;font-weight:400;color:#727b70; }
 .outline-item[aria-current] { border-radius:5px; }
+
+/* One question editor: shared scope, conditions and per-cake order. */
+.question-scope { flex: 1 0 100%; border-top: 1px solid #c5d5c8; padding-top: 12px; margin-top: 4px; min-width: 0; }
+.scope-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.scope-buttons label { display: flex; align-items: center; gap: 6px; border: 1px solid #c1cec1; border-radius: 6px; padding: 8px 10px; background: white; font-size: .82rem; cursor: pointer; }
+.scope-buttons label:has(input:checked) { background: #3e6552; color: white; border-color: #3e6552; font-weight: 700; }
+.scope-buttons input { accent-color: #385c49; }
+.question-condition { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; margin-bottom: 18px; background: #f4f7f3; border-radius: 8px; }
+.question-condition label, .question-create-fields > label:not(.chk), .question-answer-type { display: flex; flex-direction: column; gap: 6px; font-size: .82rem; }
+.question-condition select, .question-create-fields input, .question-create-fields select { min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
+.question-condition .small { grid-column: 1 / -1; margin: 0; }
+.question-create-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto; align-items: end; gap: 12px; margin-top: 12px; }
+#other-questions { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+#other-questions > summary { cursor: pointer; font-weight: 700; }
+.question-scope .scope-note:empty { display: none; }
+#groups-list > .q, #groups-list > .grp { margin: 22px 0; }
+.question-scope .cakes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.question-scope .cakes.hidden { display: none; }
+.question-scope .cakes label { padding: 8px; background: white; border: 1px solid var(--line); border-radius: 5px; font-size: .82rem; }
+@media (max-width: 919px) {
+  .question-create-fields, .question-condition { grid-template-columns: minmax(0, 1fr); }
+  .scope-buttons { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .question-scope .cakes { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
+
+.unified-questions .q-bar { background: #f0f3ed; border-left: 0; }
+.unified-questions .q { border-radius: 8px; border-left: 3px solid var(--primary-deep); }
+.question-condition select { min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: white; font: inherit; }
+.question-create-fields input:not([type=checkbox]), .question-create-fields select { min-height: 44px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+@media (max-width: 919px) { .question-condition select, .question-create-fields select, .question-create-fields input:not([type=checkbox]) { font-size: 16px; } }

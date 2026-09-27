@@ -125,6 +125,30 @@ async function saveChange(c) {
   }
 }
 
+function validateQuestionFlow(changes) {
+  drafts.capture(state.fields);
+  const groups = drafts.overlay('option_groups',[...state.products.flatMap(p => p.option_groups || []),...state.globalGroups]);
+  const questions = drafts.overlay('common_questions',state.questions);
+  for (const item of [...groups,...questions]) {
+    if (item.condition_mode && item.condition_mode !== 'always' && !item.condition_option_id)
+      throw new Error('表示条件にする選択肢を選んでください');
+    if (item.target_product_ids && !item.target_product_ids.length)
+      throw new Error('表示するケーキを1つ以上選んでください');
+    if (item.scope === 'selected' && changes.some(c => c.id === item.id && ('scope' in c.patch || '_product_ids' in c.patch)) && !(item._product_ids || item.common_question_products || []).length)
+      throw new Error('表示するケーキを1つ以上選んでください');
+  }
+  const optionGroups = new Map(groups.flatMap(g => (g.options || []).map(o => [o.id,g])));
+  for (const g of groups) {
+    const seen = new Set([g.id]); let next = g;
+    while (next.condition_mode && next.condition_mode !== 'always' && next.condition_option_id) {
+      next = optionGroups.get(next.condition_option_id);
+      if (!next) break;
+      if (seen.has(next.id)) throw new Error('質問の表示条件が循環しています。条件にする選択肢を変更してください');
+      seen.add(next.id);
+    }
+  }
+}
+
 async function saveAll() {
   if (state.saving) return;
   const invalidDeadline = [...document.querySelectorAll(".o-deadline, .o-size-price, .o-maxq")].find(el => !el.checkValidity());
@@ -137,7 +161,7 @@ async function saveAll() {
   }
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
-  try { changes.forEach(validateChange); }
+  try { changes.forEach(validateChange); validateQuestionFlow(changes); }
   catch (e) { toast(e.message); return; }
   const btn = $("btn-save-all");
   state.saving = true;
@@ -459,7 +483,6 @@ async function loadAll(keepCurrent = true) {
   renderTabs();
   renderEditor();
   await state.capacityLoading;
-  renderQuestions();
   renderCategories();
   $("save-bar").classList.remove("hidden");
   markDirty();
@@ -955,7 +978,7 @@ const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3
 const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 const typeOptions = (sel) => Q_TYPES.map((t) =>
   `<option value="${t.v}" ${t.v === sel ? "selected" : ""}>${t.label}</option>`).join("");
-const questionsOf = (optionId) => state.questions
+const questionsOf = (optionId) => drafts.overlay("common_questions", state.questions)
   .filter((q) => q.option_id === optionId)
   .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 
@@ -1046,7 +1069,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
 
   box.innerHTML = `
     <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
-    <select class="q-type">${typeOptions(q.input_type)}</select>
+    <label class="question-answer-type">回答方法<select class="q-type">${typeOptions(q.input_type)}</select></label>
     <label class="chk"><input type="checkbox" class="q-req" ${q.is_required ? "checked" : ""}>必須にする</label>
     <label class="chk q-imgmax ${q.input_type === "image" ? "" : "hidden"}">枚数
       <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
@@ -1236,11 +1259,8 @@ function optionAvailability(o) {
 }
 // この商品に出るグループ = その商品のグループ ＋「すべてのケーキに出す」グループ
 function groupsForProduct(p) {
-  const positions = new Map((p.group_order || []).map((id, index) => [id, index]));
-  return [...p.option_groups, ...state.globalGroups].sort((a, b) =>
-    (positions.get(a.id) ?? Infinity) - (positions.get(b.id) ?? Infinity)
-    || (a.display_order ?? 0) - (b.display_order ?? 0)
-    || Number(a.product_id === null) - Number(b.product_id === null));
+  return QuestionFlow.ordered(p, [...p.option_groups, ...state.globalGroups], [])
+    .map(entry => entry.data);
 }
 
 const ADMIN_ANIMAL_NAMES = new Set(["ねこクッキー", "うさぎメレンゲ", "くまメレンゲ", "わんこメレンゲ"]);
@@ -1507,23 +1527,100 @@ function renderPreviewLayerSettings(p) {
 }
 
 function renderGroups(p) {
-  const wrap = $("groups-list");
-  wrap.innerHTML = "";
-  const groups = groupsForProduct(p);
-  if (!groups.length) wrap.innerHTML = `<p class="small">グループがありません。下から追加してください。</p>`;
-  const items = groups.map((g) => {
-    const row = buildGroupBox(p, g);
+  if (!p) return;
+  drafts.capture(state.fields);
+  p = drafts.overlay("products",p);
+  const wrap = $("groups-list"), other = $("questions-list");
+  state.fields = state.fields.filter(f => !wrap.contains(f.el) && !other.contains(f.el));
+  wrap.replaceChildren(); other.replaceChildren();
+  const allGroups = drafts.overlay("option_groups", [...state.products.flatMap(x => x.option_groups || []), ...state.globalGroups]);
+  const groups = [...new Map(allGroups.map(g => [g.id, g])).values()];
+  const questions = drafts.overlay("common_questions",state.questions).filter(q => !q.option_id);
+  const entries = QuestionFlow.ordered(p, groups, questions);
+  const included = new Set(entries.map(e => e.key));
+  const excluded = [...groups.map(data => ({kind:"group", key:`group:${data.id}`, data})),
+    ...questions.map(data => ({kind:"question", key:`question:${data.id}`, data}))].filter(e => !included.has(e.key));
+  const items = entries.map(entry => {
+    const row = entry.kind === "group" ? buildGroupBox(p, entry.data) : buildQuestionBox(entry.data);
+    row.dataset.questionKey = entry.key;
     wrap.appendChild(row);
-    return { data: g, row, target: row.querySelector(".grp-bar") };
+    return {data:{...entry.data, id:entry.key}, row, target:row.querySelector(".grp-bar, .q-bar")};
   });
-  const order = document.createElement("input");
-  order.type = "hidden"; order.value = JSON.stringify(p.group_order || []);
-  wrap.appendChild(order);
-  regField("products", p.id, "group_order", order, {get:()=>JSON.parse(order.value)});
-  addOrderControls(wrap, items, "option_groups", ids => { order.value = JSON.stringify(ids); }, false);
-  const hint = document.createElement("p"); hint.className = "small";
-  hint.textContent = "表示順はこのケーキだけに適用されます。並べ替えたら「保存する」で確定してください。";
-  wrap.prepend(hint);
+  for (const entry of excluded) {
+    const owner = state.products.find(x => x.id === entry.data.product_id) || p;
+    const row = entry.kind === "group" ? buildGroupBox(owner, entry.data) : buildQuestionBox(entry.data);
+    row.dataset.questionKey = entry.key;
+    other.appendChild(row);
+  }
+  $("other-questions").hidden = !excluded.length;
+  const order = document.createElement("input"); order.type = "hidden";
+  order.value = JSON.stringify(p.question_order || []); wrap.appendChild(order);
+  regField("products", p.id, "question_order", order, {get:() => JSON.parse(order.value)});
+  addOrderControls(wrap, items, "questions", ids => { order.value = JSON.stringify(ids); }, false);
+  if (!items.length) wrap.insertAdjacentHTML("afterbegin", '<p class="small">このケーキの質問はまだありません。</p>');
+}
+
+// Both storage formats use the same product scope and condition editor.
+function buildQuestionSettings(item, kind, header, main) {
+  const group = kind === "group", table = group ? "option_groups" : "common_questions";
+  const currentProductId = state.current.id;
+  const selectedIds = group ? (item.product_id ? [item.product_id] : item.target_product_ids)
+    : (item.scope === "selected" ? item._product_ids || (item.common_question_products || []).map(x => x.product_id) : null);
+  const initialMode = !selectedIds ? "all" : selectedIds.length === 1 && selectedIds[0] === currentProductId ? "this" : "some";
+  const scope = document.createElement("div"); scope.className = "question-scope";
+  scope.innerHTML = `<span class="k">表示するケーキ</span><div class="scope-buttons">${[
+    ["all","すべてのケーキに出す"], ["this","このケーキだけに出す"], ["some","指定したケーキに出す"]
+  ].map(([value,label]) => `<label><input type="radio" name="scope-${item.id}" value="${value}" class="${group ? 'gh-' : 'sc-'}${value === 'some' ? 'some' : value === 'this' ? 'only' : 'all'}" ${initialMode === value ? 'checked' : ''}>${label}</label>`).join("")}</div>
+    <div class="cakes">${state.products.map(p => `<label><input type="checkbox" data-pid="${p.id}" ${(selectedIds || [currentProductId]).includes(p.id) ? 'checked' : ''}>${esc(p.name)}</label>`).join("")}</div>
+    <p class="small scope-note"></p>`;
+  header.appendChild(scope);
+  const mode = () => scope.querySelector('input[type=radio]:checked').value;
+  const ids = () => mode() === 'all' ? null : mode() === 'this' ? [currentProductId]
+    : [...scope.querySelectorAll('.cakes input:checked')].map(el => el.dataset.pid).sort();
+  if (group) {
+    regField(table,item.id,'product_id',scope,{get:() => ids()?.length === 1 ? ids()[0] : null});
+    regField(table,item.id,'target_product_ids',scope,{get:() => ids()?.length === 1 ? null : ids()});
+  } else {
+    regField(table,item.id,'scope',scope,{get:() => mode() === 'all' ? 'all' : 'selected'});
+    regField(table,item.id,'_product_ids',scope,{get:() => ids() || []});
+  }
+  const paintScope = () => {
+    scope.querySelector('.cakes').classList.toggle('hidden',mode() !== 'some');
+    scope.dataset.shared = String(!ids() || ids().length > 1);
+    scope.querySelector('.scope-note').textContent = scope.dataset.shared === 'true'
+      ? '内容の変更は対象のケーキすべてに反映されます。並び順はケーキごとです。' : '';
+    const appliesNow = !ids() || ids().includes(currentProductId);
+    if (scope.closest('#questions-list') && appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧に移動します。';
+    if (scope.closest('#groups-list') && !appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧から外れます。';
+  };
+  scope.addEventListener('change',() => {paintScope();markDirty();}); paintScope();
+  const allGroups = [...state.products.flatMap(p => p.option_groups || []),...state.globalGroups];
+  const candidates = [...new Map(allGroups.filter(g => !group || g.id !== item.id)
+    .flatMap(g => (g.options || []).map(o => [o.id,{...o,groupName:g.name}]))).values()];
+  const condition = document.createElement('div'); condition.className = 'question-condition';
+  condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">いつも表示する</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
+    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option>${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</select></label>
+    <p class="small">非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
+  main.prepend(condition);
+  const conditionMode = condition.querySelector('.condition-mode'), option = condition.querySelector('.condition-option');
+  conditionMode.value = item.condition_mode || 'always'; option.value = item.condition_option_id || '';
+  regField(table,item.id,'condition_mode',conditionMode);
+  regField(table,item.id,'condition_option_id',option,{get:() => conditionMode.value === 'always' ? null : option.value || null});
+  const previewNote = document.createElement('p'); previewNote.className = 'small preview-condition';
+  main.parentElement.querySelector('.cust .cap').after(previewNote);
+  const paint = () => {
+    condition.querySelector('.condition-target-label').classList.toggle('hidden',conditionMode.value === 'always');
+    previewNote.textContent = conditionMode.value === 'always' ? '' : `表示条件：「${option.selectedOptions[0]?.textContent || '未選択'}」を選んだ${conditionMode.value === 'selected' ? 'ときに表示' : 'ら非表示'}`;
+    previewNote.hidden = conditionMode.value === 'always';
+  };
+  conditionMode.addEventListener('change',paint); option.addEventListener('change',paint); paint();
+}
+
+function conditionDependents(optionIds, excludedGroupId = null) {
+  const ids = new Set(optionIds);
+  return [...state.products.flatMap(p => p.option_groups || []),...state.globalGroups,...state.questions]
+    .filter(x => x.id !== excludedGroupId && !ids.has(x.option_id) && ids.has(x.condition_option_id))
+    .map(x => x.name || x.label || '名前未入力の質問');
 }
 
 function buildGroupBox(p, g) {
@@ -1532,24 +1629,21 @@ function buildGroupBox(p, g) {
   const isGlobal = g.product_id === null;
   box.innerHTML = `
     <div class="grp-bar">
-      <input type="text" class="gname inplace" value="${esc(g.name)}" aria-label="グループ名">
-      <select class="gh-type">
+      <input type="text" class="gname inplace" value="${esc(g.name)}" aria-label="質問文">
+      <label class="question-answer-type">回答方法<select class="gh-type">
         <option value="single" ${g.selection_type === "single" ? "selected" : ""}>1つ選ぶ</option>
         <option value="multiple" ${g.selection_type === "multiple" ? "selected" : ""}>複数選べる</option>
-      </select>
+      </select></label>
       <label class="chk"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
       <label class="gh-max-wrap ${g.selection_type === "single" ? "hidden" : ""}">選べる種類数の上限 <input type="number" class="gh-max" min="1" step="1" placeholder="制限なし" value="${esc(g.max_select)}"></label>
-      <div class="group-scope" role="radiogroup" aria-label="表示する商品">
-        <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-all" value="all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
-        <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-only" value="only" ${!isGlobal ? "checked" : ""}>このケーキだけに出す</label>
-      </div>
+
       <details class="group-delete-panel">
-        <summary>グループを削除…</summary>
+        <summary>質問を削除…</summary>
         <div class="group-delete-content">
         <p class="group-delete-target">対象：<strong class="gh-delete-name">${esc(g.name)}</strong></p>
         <p>中の選択肢と、それぞれの質問・回答の選択肢もまとめて削除されます。</p>
         ${isGlobal ? '<p class="group-delete-scope">すべてのケーキから、このグループが消えます。</p>' : ''}
-        <button type="button" class="pill danger gh-del">このグループ全体を削除</button>
+        <button type="button" class="pill danger gh-del">この質問全体を削除</button>
         </div>
       </details>
     </div>
@@ -1616,7 +1710,7 @@ function buildGroupBox(p, g) {
     n.classList.toggle("accent", view.accent);
     const sample = box.querySelector(".pv-group-sample");
     sample.hidden = !view.sample;
-    sample.innerHTML = view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt="${esc(view.name || 'グループ')}の見本"></span>` : "";
+    sample.innerHTML = view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt="${esc(view.name || '質問')}の見本"></span>` : "";
     box.querySelector(".pv-max").textContent = !view.single && view.maxSelect != null ? `${view.maxSelect}種類まで選べます` : "";
     box.querySelector(".pv-opts").innerHTML = view.opts.filter(o => o.available).map((o) => {
       const from = [o.from, o.sharedFrom].filter(Boolean).sort().at(-1);
@@ -1680,15 +1774,14 @@ function buildGroupBox(p, g) {
   regField("option_groups", g.id, "note_accent", accentEl);
   accentEl.addEventListener("change", () => { view.accent = accentEl.checked; paint(); });
 
-  const allEl = box.querySelector(".gh-all");
-  regField("option_groups", g.id, "product_id", allEl,
-    { get: () => allEl.checked ? null : p.id });
-  box.querySelector(".gh-only").addEventListener("change", markDirty);
+  buildQuestionSettings(g, "group", box.querySelector(".grp-bar"), box.querySelector(".grp-main"));
 
   box.querySelector(".gh-del").onclick = async () => {
+    const dependents = conditionDependents(g.options.map(o => o.id),g.id);
+    if (dependents.length) { toast(`「${dependents.join('」「')}」の表示条件に使われています。先にその条件を変更してください。`); return; }
     const scope = isGlobal
-      ? `\n（すべてのケーキに出しているグループです。${state.products.length}個のケーキ全部から消えます）` : "";
-    if (!confirm(`グループ「${nameEl.value.trim() || g.name}」全体を削除しますか？\n中の選択肢${g.options.length}件と、それぞれの質問・回答の選択肢も削除されます。${scope}`)) return;
+      ? `\n（共通で使っている質問です。対象のケーキすべてから消えます）` : "";
+    if (!confirm(`質問「${nameEl.value.trim() || g.name}」と中の選択肢を削除しますか？\n中の選択肢${g.options.length}件と、それぞれの質問・回答の選択肢も削除されます。${scope}`)) return;
     try {
       const ids = g.options.map((o) => o.id).join(",");
       if (ids) {
@@ -1917,7 +2010,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     };
     const item = document.createElement("div");
     item.className = "sub o-question-item" + (q.is_active === false ? " stopped" : "");
-    item.innerHTML = `<div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
+    item.innerHTML = `<p class="small">表示するケーキ：親の質問と同じ ／ 表示条件：「${esc(optDisplayName(o))}」を選んだとき</p><div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
       <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
       <button type="button" class="pill danger o-qdel">質問を削除</button></div>`;
@@ -1977,6 +2070,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     reloadAll();
   };
   row.querySelector(".o-del").onclick = async () => {
+    const dependents = conditionDependents([o.id]);
+    if (dependents.length) { toast(`「${dependents.join('」「')}」の表示条件に使われています。先にその条件を変更してください。`); return; }
     if (!confirm(`「${optDisplayName(o)}」を削除しますか？`)) return;
     try {
       await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.eq.${o.id},option_b.eq.${o.id})`);
@@ -2081,22 +2176,18 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
 
 /* ---------- グループ追加 ---------- */
 $("btn-g-add").onclick = async () => {
-  const p = state.current;
-  const name = $("g-name").value.trim();
-  if (!name) { toast("グループ名を入れてください"); return; }
-  // 追加は必ず「このケーキだけ」。全ケーキに出すかは、作ったあとグループの中で決める
-  // （商品タブに立ったまま全商品に出るものを作れると、立ち位置と結果が食い違って混乱する）
-  const created = await api("POST", "/rest/v1/option_groups", [{
-    tenant_id: state.tenantId, product_id: p.id, name,
-    selection_type: $("g-type").value, is_required: $("g-required").checked,
-    display_order: groupsForProduct(p).length,
-  }]);
-  $("g-name").value = ""; $("g-required").checked = false;
-  toast(`グループ「${name}」を追加しました`);
-  reloadAll();
+  const p = state.current, name = $("g-name").value.trim(), type = $("g-type").value;
+  if (!p || !name) { toast("質問文を入れてください"); return; }
+  try {
+    await api("POST", "/rest/v1/rpc/fn_add_product_question", {
+      p_product:p.id,p_label:name,p_type:type,p_required:$("g-required").checked,
+    });
+    $("g-name").value = ""; $("g-required").checked = false;
+    toast(`質問「${name}」を追加しました`); await reloadAll();
+  } catch (e) { toast(`追加できませんでした：${e.message}`); }
 };
 
-/* ---------- 共通の質問（店全体） ---------- */
+/* ---------- 質問・回答の並べ替え ---------- */
 // 要素を移動するだけにして、入力中の文章・開閉状態を保つ。保存は既存の保存バーで行う。
 function addOrderControls(container, items, table, onMove = () => {}, persistOrder = true) {
   const compact = table === "common_question_choices";
@@ -2148,27 +2239,7 @@ function addOrderControls(container, items, table, onMove = () => {}, persistOrd
   update();
 }
 
-function renderQuestions() {
-  const wrap = $("questions-list");
-  wrap.innerHTML = "";
-  const common = state.questions.filter((q) => !q.option_id)
-    .sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
-  if (!common.length) {
-    wrap.innerHTML = `<p class="small">まだありません。どのケーキでも聞くこと（メッセージプレートなど）を追加してください。</p>`;
-  }
-  const items = common.map(q => {
-    const row = buildQuestionBox(q);
-    wrap.appendChild(row);
-    return { data: q, row, target: row.querySelector(".q-bar") };
-  });
-  addOrderControls(wrap, items, "common_questions");
-  if (common.length) {
-    const note = document.createElement("p");
-    note.className = "small";
-    note.textContent = "↑・↓で並べ替えて「保存する」で確定します。お客様にもこの順で表示されます。";
-    wrap.prepend(note);
-  }
-}
+function renderQuestions() { renderGroups(state.current); }
 
 function buildQuestionBox(q) {
   const box = document.createElement("div");
@@ -2184,12 +2255,6 @@ function buildQuestionBox(q) {
     </div>
     <div class="q-body">
       <div class="q-main">
-      <div class="qrow"><div class="k">どのケーキで聞くか</div><div class="v">
-        <label class="radio"><input type="radio" name="sc-${q.id}" class="sc-all" ${isAll ? "checked" : ""}>すべてのケーキ</label>
-        <label class="radio"><input type="radio" name="sc-${q.id}" class="sc-some" ${isAll ? "" : "checked"}>選んだケーキだけ</label>
-        <div class="cakes ${isAll ? "hidden" : ""}">${state.products.map((p) =>
-          `<label class="${picked.has(p.id) ? "on" : ""}"><input type="checkbox" data-pid="${p.id}" ${picked.has(p.id) ? "checked" : ""}>${esc(p.name)}</label>`).join("")}</div>
-      </div></div>
       <div class="qrow"><div class="k">質問の内容</div><div class="v q-fields-wrap"></div></div>
       </div>
       <div class="cust">
@@ -2223,26 +2288,14 @@ function buildQuestionBox(q) {
   const fields = buildQuestionFields(q, view, paint, { lightLabel: () => box.querySelector(".pv-label") });
   fields.querySelector(".q-label").remove();
   box.querySelector(".q-fields-wrap").appendChild(fields);
+  box.querySelector(".q-bar").append(fields.querySelector('.question-answer-type'), fields.querySelector('.q-req').closest('label'));
 
   const nameEl = box.querySelector(".qname");
   regField("common_questions", q.id, "label", nameEl);
   nameEl.addEventListener("input", () => { view.label = nameEl.value; paint(); });
   linkLight(nameEl, () => box.querySelector(".pv-label"));
 
-  const allScope = box.querySelector(".sc-all");
-  const cakes = box.querySelector(".cakes");
-  regField("common_questions", q.id, "scope", allScope,
-    { get: () => allScope.checked ? "all" : "selected" });
-  regField("common_questions", q.id, "_product_ids", cakes, {
-    get: () => [...cakes.querySelectorAll("input:checked")].map(cb => cb.dataset.pid).sort(),
-  });
-  for (const el of box.querySelectorAll('.sc-all, .sc-some, .cakes input')) {
-    el.addEventListener("change", () => {
-      cakes.classList.toggle("hidden", allScope.checked);
-      cakes.querySelectorAll("label").forEach(lb => lb.classList.toggle("on", lb.querySelector("input").checked));
-      markDirty();
-    });
-  }
+  buildQuestionSettings(q, "question", box.querySelector(".q-bar"), box.querySelector(".q-main"));
 
   box.querySelector(".q-toggle").onclick = async () => {
     await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: !q.is_active });
@@ -2266,15 +2319,6 @@ function buildQuestionBox(q) {
   paint();
   return box;
 }
-
-$("btn-q-add").onclick = async () => {
-  await api("POST", "/rest/v1/common_questions", [{
-    tenant_id: state.tenantId, label: "", input_type: "text", is_required: false,
-    scope: "all", display_order: Math.max(-1, ...state.questions.filter(q => !q.option_id).map(q => Number(q.display_order) || 0)) + 1,
-  }]);
-  toast("質問を追加しました（質問文を入れてください）");
-  await reloadAll();
-};
 
 /* ---------- プレビューの出し入れ（狭い画面） ----------
  * 入力しながら常時見るのではなく、見たいときに全面で出す。
@@ -2355,7 +2399,9 @@ $("draft-preview-open").onclick = async () => {
   try {
     drafts.capture(state.fields);
     const product = drafts.overlay("products", state.current);
-    const groups = drafts.overlay("option_groups", state.globalGroups);
+    const allGroups = drafts.overlay("option_groups", [...state.products.flatMap(p => p.option_groups || []), ...state.globalGroups]);
+    product.option_groups = allGroups.filter(g => g.product_id === product.id);
+    const groups = allGroups.filter(g => g.product_id === null);
     const questions = drafts.overlay("common_questions", state.questions).map(q => q._product_ids ? {...q,
       common_question_products:q._product_ids.map(product_id=>({product_id}))} : q);
     const slots = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&order=display_order&select=*`);

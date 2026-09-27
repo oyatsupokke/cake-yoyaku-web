@@ -6,8 +6,8 @@
 <title>オーダーケーキのご予約</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1790520639">
-<link rel="stylesheet" href="form-layout.css?v=1790520639">
+<link rel="stylesheet" href="styles.css?v=1790522401">
+<link rel="stylesheet" href="form-layout.css?v=1790522401">
 </head>
 <body>
 <div id="app">
@@ -42,9 +42,9 @@
       <div class="pill-row" id="size-pills"></div>
     </section>
 
-    <!-- 3. カスタマイズ（商品ごとの選択グループ） -->
+    <!-- 3. 質問（選択式・記入欄を商品ごとの順序で表示） -->
     <section class="step hidden" id="sec-groups">
-      <h2><span class="step-no">3</span>カスタマイズ</h2>
+      <h2><span class="step-no">3</span>ケーキの内容を選ぶ</h2>
       <div id="group-list"></div>
     </section>
 
@@ -77,7 +77,7 @@
 
     <!-- 6. お客様情報 -->
     <section class="step hidden" id="sec-customer">
-      <h2><span class="step-no">6</span>お客様情報</h2>
+      <h2><span class="step-no">5</span>お客様情報</h2>
       <div class="field">お名前<span class="req">必須</span>
         <div class="name-row">
           <input type="text" id="cust-sei" autocomplete="family-name" placeholder="姓">
@@ -153,10 +153,11 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="safe-display.js?v=1790520639"></script>
-<script src="booking-retry.js?v=1790520639"></script>
-<script src="booking-window.js?v=1790520639"></script>
-  <script src="app.js?v=1790520639"></script>
-<script src="form-layout.js?v=1790520639"></script>
+<script src="safe-display.js?v=1790522401"></script>
+<script src="booking-retry.js?v=1790522401"></script>
+<script src="booking-window.js?v=1790522401"></script>
+<script src="question-flow.js?v=1790522401"></script>
+  <script src="app.js?v=1790522401"></script>
+<script src="form-layout.js?v=1790522401"></script>
 </body>
 </html>

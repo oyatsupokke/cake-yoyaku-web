@@ -29,22 +29,16 @@
     const editor = document.getElementById('editor');
     if (!editor.classList.contains('hidden')) {
       add(editor.querySelector('.product-compact-card'), '基本情報');
-      for (const group of document.querySelectorAll('#groups-list > .grp')) {
-        add(group, name(group, '.gname', '名前未入力のグループ'), 0, group.querySelector('.gh-all')?.checked ? '全ケーキ共通' : 'このケーキのみ');
-        for (const option of group.querySelectorAll('.g-options > .opt')) {
+      for (const row of document.querySelectorAll('#groups-list > [data-question-key]')) {
+        const scope = row.querySelector('.question-scope');
+        const badge = scope?.dataset.shared === 'true' ? (scope.querySelector('input[value=all]')?.checked ? '全ケーキ共通' : '対象ケーキ共通') : 'このケーキのみ';
+        add(row, name(row, '.gname, .qname', '質問文未入力'), 0, row.classList.contains('stopped') ? '停止中' : badge);
+        for (const option of row.querySelectorAll('.g-options > .opt')) {
           const questions = option.querySelectorAll('.o-question-item');
           add(option, name(option, '.oname', '名前未入力の選択肢'), 1, option.classList.contains('stopped') ? '停止中' : questions.length ? '選んだ人への質問' : '');
           for (const question of questions) add(question, name(question, '.q-label', '質問文未入力'), 2, question.classList.contains('stopped') ? '停止中' : '');
         }
       }
-    }
-    const common = document.getElementById('questions-list');
-    add(common.closest('.confirm-box'), '共通の質問');
-    for (const question of common.querySelectorAll(':scope > .q')) {
-      const all = question.querySelector('.sc-all')?.checked;
-      const included = [...question.querySelectorAll('.cakes input:checked')].some(el => el.dataset.pid === state.current?.id);
-      const badge = question.classList.contains('stopped') ? '停止中' : all ? '全ケーキ共通' : included ? 'このケーキ対象' : '他のケーキ対象';
-      add(question, name(question, '.qname', '質問文未入力'), 1, badge);
     }
     if (!editor.classList.contains('hidden')) add(document.querySelector('.preview-illustration-card'), 'プレビュー用イラスト');
     const product = document.getElementById('p-name').value.trim() || state.current?.name || '商品未選択';

@@ -244,7 +244,7 @@ function clearSavedState() { if (THEME_PREVIEW || TRIAL_MODE) return; try { loca
 function sanitizeSavedOptions(product, entries) {
   const saved = new Map(entries || []), kept = new Map();
   const pairs = product.option_exclusions || [];
-  for (const g of sortedGroups(product)) {
+  for (const g of sortedGroups(product, true)) {
     for (const o of sortedOpts(g)) {
       if (!o.is_available || !saved.has(o.id)) continue;
       if (g.selection_type === "single" && [...kept.keys()].some((id) => g.options.some((x) => x.id === id))) continue;
@@ -349,7 +349,7 @@ async function load() {
   // 共通グループも商品別グループと同じ集合で扱う。復元・価格・必須確認もここを見る。
   state.products = products.map((p) => ({
     ...p,
-    option_groups: [...(p.option_groups || []), ...globalGroups],
+    option_groups: [...(p.option_groups || []), ...globalGroups].filter(g => QuestionFlow.groupApplies(g, p.id)),
   }));
   state.questions = questions;
   state.slots = slots;
@@ -494,13 +494,15 @@ function optionAvailableOnPickup(o, date = state.sel.date) {
 }
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
 const optDesc = (o) => o.description || "";
-function sortedGroups(p) {
-  const positions = new Map((p.group_order || []).map((id, index) => [id, index]));
-  return [...p.option_groups].sort((a, b) =>
-    (positions.get(a.id) ?? Infinity) - (positions.get(b.id) ?? Infinity)
-    || (a.display_order ?? 0) - (b.display_order ?? 0)
-    || Number(a.product_id === null) - Number(b.product_id === null));
+function sortedGroups(p, includeHidden = false) {
+  return QuestionFlow.ordered(p, p.option_groups || [], []).map(entry => entry.data)
+    .filter(g => includeHidden || QuestionFlow.conditionMatches(g, state.sel.options));
 }
+function pruneHiddenQuestions() {
+  if (state.sel.product) QuestionFlow.prune(state.sel.product, state.sel.product.option_groups,
+    state.questions, state.sel.options, state.sel.answers);
+}
+
 function sortedOpts(g) { return [...g.options].sort((a, b) => a.display_order - b.display_order); }
 function findOption(id) {
   for (const g of state.sel.product.option_groups)
@@ -616,7 +618,9 @@ function currentTotal() {
     const f = findOption(id);
     if (f) total += optionPrice(f.o) * v.qty;
   }
+  const askedIds = new Set(askedQuestions().map(q => q.id));
   for (const [qid, raw] of state.sel.answers) {
+    if (!askedIds.has(qid)) continue;
     const q = state.questions.find((x) => x.id === qid);
     if (!q) continue;
     for (const cid of normAnswer(raw).choiceIds) {
@@ -1616,7 +1620,7 @@ function selectVariant(v) {
   $("slot-area").classList.add("hidden");
   loadCalendar();
   renderQuestions();
-  $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);
+  $("sec-questions").classList.add("hidden");
   $("sec-customer").classList.remove("hidden");
   updatePriceBar();
   // サイズごとの専用土台・装飾へ、その場でプレビューを切り替える。
@@ -1642,7 +1646,7 @@ function resetDesign() {
   ensureRequiredFallbacks();
   renderGroups();
   renderQuestions();
-  $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);
+  $("sec-questions").classList.add("hidden");
   updatePriceBar();
   updatePreview();
   saveState();
@@ -1737,6 +1741,7 @@ function openOptionSamplePhoto(url, optionName) {
 }
 
 function renderGroups() {
+  pruneHiddenQuestions();
   const wrap = $("group-list");
   wrap.innerHTML = "";
   // 商品の注意書き（あれば先頭に表示）
@@ -1749,6 +1754,7 @@ function renderGroups() {
   for (const g of sortedGroups(state.sel.product)) {
     const box = document.createElement("div");
     box.className = "group";
+    box.dataset.questionKey = `group:${g.id}`;
     box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3><div class="group-guide">` +
       (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
       (g.selection_type !== "single" && g.max_select != null ? `<p class="group-desc">${g.max_select}種類まで選べます</p>` : "") +
@@ -1839,7 +1845,7 @@ function renderGroups() {
         box.appendChild(buildDetachedToppingPicker(g,o.id));
       }
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
-      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id) : [];
+      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id && QuestionFlow.conditionMatches(x, state.sel.options)) : [];
       if (optionQs.length) {
         const wrapQ = document.createElement("div");
         wrapQ.className = "opt-question";
@@ -1858,6 +1864,7 @@ function renderGroups() {
     }
     wrap.appendChild(box);
   }
+  renderQuestions();
 }
 function toggleOption(g, o, input) {
   if (!optionAvailableOnPickup(o)) { input.checked = false; return; }
@@ -1889,11 +1896,12 @@ function toggleOption(g, o, input) {
       toast(`「${optName(f.o)}」は「${optName(o)}」と組み合わせできないため外れました`);
     }
   }
+  pruneHiddenQuestions();
   sanitizeDetachedToppingNames();
   ensureRequiredFallbacks();
   renderGroups();
   renderQuestions(); // 条件付き質問（選択肢トリガー）の表示を更新
-  $("sec-questions").classList.toggle("hidden", !visibleQuestions().length);
+  $("sec-questions").classList.add("hidden");
   updatePriceBar();
   updatePreview(); // 選択に応じてイラストを組み直す
   // 選択肢の「できない日」を反映してカレンダーを引き直す（表示中なら常に）
@@ -2092,16 +2100,15 @@ function normAnswer(a) {
     images: a?.images ?? [],   // 「画像を貼ってもらう」形式の質問の添付（配列は共有して持ち回る）
   };
 }
-function visibleQuestions() {  // 店全体の質問（選択肢の質問は選択肢の下に出すのでここには含めない）
-  return state.questions.filter((q) =>
-    qLive(q) && !qOptionId(q) &&
-    (q.scope === "all" ||
-     q.common_question_products.some((x) => x.product_id === state.sel.product.id)));
+function visibleQuestions() {
+  if (!state.sel.product) return [];
+  return QuestionFlow.ordered(state.sel.product, [], state.questions).map(entry => entry.data)
+    .filter(q => qLive(q) && QuestionFlow.conditionMatches(q, state.sel.options));
 }
 function optionQuestions() {   // いま選ばれている選択肢にぶら下がる質問
   const out = [];
   for (const id of state.sel.options.keys()) {
-    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id));
+    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id && QuestionFlow.conditionMatches(x, state.sel.options)));
   }
   return out;
 }
@@ -2250,9 +2257,19 @@ function buildQuestionField(q) {
   return field;
 }
 function renderQuestions() {
-  const wrap = $("question-list");
-  wrap.innerHTML = "";
-  for (const q of visibleQuestions()) wrap.appendChild(buildQuestionField(q));
+  pruneHiddenQuestions();
+  const wrap = $("group-list");
+  wrap.querySelectorAll(':scope > .standalone-question').forEach(el => el.remove());
+  $("question-list").replaceChildren();
+  for (const q of visibleQuestions()) {
+    const row = document.createElement('div'); row.className = 'group standalone-question';
+    row.dataset.questionKey = `question:${q.id}`; row.appendChild(buildQuestionField(q)); wrap.appendChild(row);
+  }
+  const rows = new Map([...wrap.children].map(el => [el.dataset.questionKey, el]));
+  for (const entry of QuestionFlow.ordered(state.sel.product, state.sel.product.option_groups, state.questions)) {
+    if (rows.has(entry.key)) wrap.appendChild(rows.get(entry.key));
+  }
+  $("sec-groups").classList.toggle("hidden", !wrap.querySelector('[data-question-key]'));
   for (const q of askedQuestions()) if (q.input_type === "image") paintImageAnswer(q);
 }
 
@@ -2444,9 +2461,10 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
+  pruneHiddenQuestions();
   const capacityError=toppingCapacityError();
   if(capacityError)return capacityError;
-  for (const g of s.product.option_groups) {
+  for (const g of sortedGroups(s.product)) {
     if (g.is_required && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
       return `「${g.name}」を選択してください`;
   }

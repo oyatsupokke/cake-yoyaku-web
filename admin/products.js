@@ -1557,6 +1557,7 @@ function buildGroupBox(p, g) {
           <h4><span class="pv-name"></span><span class="req pv-req">必須</span></h4>
           <p class="desc pv-desc"></p>
           <p class="cnote pv-note"></p>
+          <div class="pv-group-sample"></div>
           <div class="pv-opts"></div>
         </div>
       </div>
@@ -1568,7 +1569,7 @@ function buildGroupBox(p, g) {
   // 画面に出す値の写し。入力のたびにここを更新してプレビューを描き直す
   const view = {
     name: g.name, required: !!g.is_required, single: g.selection_type === "single",
-    desc: g.description || "", note: g.note || "", accent: !!g.note_accent,
+    desc: g.description || "", note: g.note || "", accent: !!g.note_accent, sample: g.sample_image_url || "",
     opts: [...g.options].sort((a, b) => a.display_order - b.display_order).map((o) => {
       const qs = questionsOf(o.id);
       return {
@@ -1590,6 +1591,9 @@ function buildGroupBox(p, g) {
     const n = box.querySelector(".pv-note");
     n.textContent = view.note; n.classList.toggle("hidden", !view.note.trim());
     n.classList.toggle("accent", view.accent);
+    const sample = box.querySelector(".pv-group-sample");
+    sample.hidden = !view.sample;
+    sample.innerHTML = view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt="${esc(view.name || 'グループ')}の見本"></span>` : "";
     box.querySelector(".pv-opts").innerHTML = view.opts.filter(o => o.available).map((o) => `
       <div class="crow" data-option-id="${esc(o.id)}">
         <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
@@ -1672,7 +1676,11 @@ function buildGroupBox(p, g) {
     kind: "samples",
     label: "見本の画像（任意）",
     hint: "色見本・仕上がりの例など。お客様の画面で説明の下に出ます",
-    onChange: (url) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { sample_image_url: url }),
+    onChange: async (url) => {
+      await api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { sample_image_url: url });
+      view.sample = url;
+      paint();
+    },
   }));
   const optWrap = box.querySelector(".g-options");
   view.opts.forEach((ov, i) => {

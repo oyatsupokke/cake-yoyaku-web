@@ -93,7 +93,7 @@
 }
 .fb textarea:focus, .fb input[type="text"]:focus { outline: none; border-color: var(--primary-deep); }
 .o-size-prices label{display:flex;align-items:center;gap:8px;margin-top:7px}
-.products-page .o-size-price,.products-page .o-deadline{
+.products-page .o-deadline{
   display:block;width:180px;min-width:180px;height:44px;margin:0;padding:8px 10px;
   border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);font:inherit;
 }
@@ -525,3 +525,15 @@
 .draft-preview-dialog iframe { display: block; width: 100%; max-width: 100%; height: calc(100% - 80px); margin: auto; border: 0; }
 
 .gh-max-wrap input { width: 90px; max-width: 100%; }
+
+/* 金額欄は、商品価格・追加料金・回答料金で同じ寸法に揃える。 */
+.products-page input:is(.v-price,#v-price,.o-price,.o-size-price,.c-price,.ga-price){
+  width:110px!important;min-width:0;max-width:100%;height:44px;margin:0;padding:8px 10px;
+  border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);
+  font:inherit;font-variant-numeric:tabular-nums;text-align:center;appearance:textfield;-moz-appearance:textfield;
+}
+.products-page input:is(.v-price,#v-price,.o-price,.o-size-price,.c-price,.ga-price):focus{
+  outline:2px solid var(--primary-deep);outline-offset:1px;border-color:var(--primary-deep);
+}
+.products-page input:is(.c-price,.ga-price)::-webkit-inner-spin-button,
+.products-page input:is(.c-price,.ga-price)::-webkit-outer-spin-button{margin:0;-webkit-appearance:none}

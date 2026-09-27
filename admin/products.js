@@ -1783,11 +1783,12 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const priceInputs = sizeNames.map(name => {
     const label = document.createElement("label");
     label.textContent = `${name}：`;
+    const currency = document.createElement("span"); currency.className = "lbl"; currency.textContent = "+¥";
     const input = document.createElement("input");
     input.type = "number"; input.className = "o-size-price";
     input.min = "0"; input.max = "1000000"; input.step = "1";
-    input.placeholder = "共通の追加料金"; input.value = o.size_prices?.[name] ?? "";
-    label.appendChild(input); sizeBox.appendChild(label);
+    input.placeholder = "共通"; input.setAttribute("aria-label", `${name}の追加料金（税込・円）`); input.value = o.size_prices?.[name] ?? "";
+    label.append(currency, input); sizeBox.appendChild(label);
     input.addEventListener("input", () => {
       o.size_prices = Object.fromEntries(priceInputs.filter(x => x.input.value !== "").map(x => [x.name, Number(x.input.value)]));
       markDirty(); repaintMarks();

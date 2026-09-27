@@ -113,7 +113,7 @@
   background: rgba(250, 247, 243, .96); box-shadow: 0 3px 12px rgba(59, 51, 53, .06);
 }
 .settings-jumps-label { display: block; margin-bottom: 7px; font-size: .78rem; color: var(--mute); }
-.settings-jumps-links { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.settings-jumps-links { display: flex; flex-wrap: wrap; gap: 7px; }
 .settings-jumps a {
   flex: 0 0 auto; padding: 6px 11px;
   border: 1.5px solid var(--line); border-radius: 999px;
@@ -407,3 +407,10 @@
 .kitchen-period { margin:12px 0 20px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:6px; }
 #kitchen-scope { font-weight:700;font-size:.88rem; }
 #kitchen-scope:empty { display:none; }
+
+@media (max-width:600px) {
+  .settings-jumps { position:static; }
+  .settings-jumps-links { display:grid;grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .settings-jumps a { display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px;white-space:normal;text-align:center; }
+  .settings-anchor { scroll-margin-top:18px; }
+}

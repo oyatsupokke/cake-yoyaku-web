@@ -548,3 +548,12 @@
 .group-delete-panel p{margin:10px 0;font-size:.84rem;line-height:1.7;overflow-wrap:anywhere}
 .group-delete-panel .group-delete-scope{font-weight:700}
 .group-delete-panel .gh-del{max-width:100%;white-space:normal}
+
+/* 選択肢と、その説明・質問のまとまりを保つ */
+.cust .pv-option { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 12px; }
+.cust .pv-option > .desc, .cust .pv-option > .cnote { margin: 7px 10px; white-space: pre-line; }
+.cust .crow { flex-wrap: wrap; align-items: center; }
+.cust .pv-option-name { flex: 1 1 140px; overflow-wrap: anywhere; }
+.cust .pv-price { margin-left: auto; }
+.cust .pv-size-label { display: block; font-size: .8rem; margin: 8px 0 14px; }
+.cust .pv-size { max-width: 100%; margin-top: 4px; }

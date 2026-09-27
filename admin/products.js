@@ -980,6 +980,20 @@ function linkLight(el, target) {
   return el;
 }
 
+function openAdminSamplePhoto(url, name) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "option-sample-dialog";
+  dialog.setAttribute("aria-label", `${name || "選択肢"}の見本写真`);
+  dialog.innerHTML = '<button type="button" class="option-sample-close" aria-label="閉じる">×</button><p class="option-sample-title"></p><img alt="">';
+  dialog.querySelector(".option-sample-title").textContent = `${name || "選択肢"}の見本`;
+  const img = dialog.querySelector("img");
+  img.src = url; img.alt = `${name || "選択肢"}の見本写真`;
+  dialog.querySelector("button").onclick = () => dialog.close();
+  dialog.onclick = e => { if (e.target === dialog) dialog.close(); };
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.appendChild(dialog); dialog.showModal();
+}
+
 /* お客様側の回答欄がどう見えるか（プレビュー用・操作はできない） */
 function answerFieldHtml(view) {
   const cs = view.choices.filter(c => c.is_available !== false);
@@ -1563,11 +1577,13 @@ function buildGroupBox(p, g) {
       </details>
       </div>
       <div class="cust">
-        <p class="cap">入力内容の見本（操作・サイズ別料金は上の「編集内容で予約画面を確認」から）</p>
+        <p class="cap">入力内容の見本（選択操作は上の「編集内容で予約画面を確認」から）</p>
         <div class="card">
           <h4><span class="pv-name"></span><span class="req pv-req">必須</span></h4>
           <p class="desc pv-desc"></p>
           <p class="cnote pv-note"></p>
+          <p class="desc pv-max"></p>
+          <label class="pv-size-label">料金を確認するサイズ <select class="pv-size"></select></label>
           <div class="pv-group-sample"></div>
           <div class="pv-opts"></div>
         </div>
@@ -1579,11 +1595,13 @@ function buildGroupBox(p, g) {
   });
   // 画面に出す値の写し。入力のたびにここを更新してプレビューを描き直す
   const view = {
-    name: g.name, required: !!g.is_required, single: g.selection_type === "single",
+    maxSelect:g.max_select, size:"", name: g.name, required: !!g.is_required, single: g.selection_type === "single",
     desc: g.description || "", note: g.note || "", accent: !!g.note_accent, sample: g.sample_image_url || "",
     opts: [...g.options].sort((a, b) => a.display_order - b.display_order).map((o) => {
       const qs = questionsOf(o.id);
       return {
+        sharedNote:o.shared_list_items?.note || "", sharedFrom:o.shared_list_items?.available_from || "", sharedUntil:o.shared_list_items?.available_until || "",
+        photo:o.photo_url || "", accent:!!o.note_accent, sizePrices:{...o.size_prices}, deadline:o.order_deadline_days, from:o.pickup_from || "", until:o.pickup_until || "", review:!!o.requires_review, maxQty:o.max_quantity,
         id: o.id, description:o.description || "", note:o.note || "", name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
@@ -1606,15 +1624,39 @@ function buildGroupBox(p, g) {
     const sample = box.querySelector(".pv-group-sample");
     sample.hidden = !view.sample;
     sample.innerHTML = view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt="${esc(view.name || 'グループ')}の見本"></span>` : "";
-    box.querySelector(".pv-opts").innerHTML = view.opts.filter(o => o.available).map((o) => `
-      <div class="crow" data-option-id="${esc(o.id)}">
-        <span>${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
-        <span>${o.price ? "+¥" + o.price.toLocaleString("ja-JP") : "無料"}</span>
-      </div>
-      ${o.description ? `<p class="desc">${esc(o.description)}</p>` : ""}${o.note ? `<p class="cnote">${esc(o.note)}</p>` : ""}
-      ${(o.qs || []).filter(q => q.active !== false).map(q => optionQuestionPreviewHtml(o.id, q)).join("")}`).join("");
+    box.querySelector(".pv-max").textContent = !view.single && view.maxSelect != null ? `${view.maxSelect}種類まで選べます` : "";
+    box.querySelector(".pv-opts").innerHTML = view.opts.filter(o => o.available).map((o) => {
+      const from = [o.from, o.sharedFrom].filter(Boolean).sort().at(-1);
+      const until = [o.until, o.sharedUntil].filter(Boolean).sort()[0];
+      const note = o.note || o.sharedNote;
+      const price = Number(o.sizePrices?.[view.size] ?? o.price) || 0;
+      const priceText = (price ? "+¥" + price.toLocaleString("ja-JP") : "") + (o.review ? (price ? "・" : "") + "別途見積もり" : (price ? "" : "無料"));
+      return `<div class="pv-option">
+        <div class="crow" data-option-id="${esc(o.id)}">
+          <span class="pv-option-name">${view.single ? "○" : "☐"} ${esc(o.name || "（名前なし）")}</span>
+          ${o.photo ? `<button type="button" class="opt-sample-button" data-sample-option="${esc(o.id)}">見本を見る</button>` : ""}
+          <span class="pv-price">${priceText}</span>
+        </div>
+        ${o.deadline != null ? `<p class="desc">受取日の${esc(o.deadline)}日前締切（受付可能日はカレンダーで確認）</p>` : ""}
+        ${o.description ? `<p class="desc">${esc(o.description)}</p>` : ""}${note ? `<p class="cnote${o.accent ? " accent" : ""}">${esc(note)}</p>` : ""}
+        ${from || until ? `<p class="desc">受取日：${esc(from || "制限なし")}〜${esc(until || "制限なし")}</p>` : ""}
+        ${o.maxQty > 1 ? `<p class="desc">数量：1〜${esc(o.maxQty)}個</p>` : ""}
+        ${(o.qs || []).filter(q => q.active !== false).map(q => optionQuestionPreviewHtml(o.id, q)).join("")}
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-sample-option]").forEach(button => {
+      button.onclick = () => {
+        const option = view.opts.find(o => o.id === button.dataset.sampleOption);
+        openAdminSamplePhoto(option.photo, option.name);
+      };
+    });
     applyLight();
   };
+
+  const sizeSelect = box.querySelector(".pv-size");
+  sizeSelect.innerHTML = '<option value="">共通の追加料金</option>' + (p.product_variants || []).map(v => `<option value="${esc(v.size_label)}">${esc(v.size_label)}</option>`).join("");
+  sizeSelect.onchange = () => { view.size = sizeSelect.value; paint(); };
+  box.querySelector(".gh-max").addEventListener("input", e => { view.maxSelect = e.target.value === "" ? null : Number(e.target.value); paint(); });
 
   const nameEl = box.querySelector(".gname");
   regField("option_groups", g.id, "name", nameEl);
@@ -1786,10 +1828,11 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   for (const [column, selector] of [["pickup_from", ".o-from"], ["pickup_until", ".o-until"]]) {
     const input = row.querySelector(selector);
     regField("options", o.id, column, input, { get: () => input.value || null });
+    input.addEventListener("input", () => { ov[column === "pickup_from" ? "from" : "until"] = input.value; paintGroup(); });
   }
   const reviewEl = row.querySelector(".o-review");
   regField("options", o.id, "requires_review", reviewEl);
-  reviewEl.addEventListener("change", () => { o.requires_review = reviewEl.checked; repaintMarks(); });
+  reviewEl.addEventListener("change", () => { o.requires_review = reviewEl.checked; ov.review = reviewEl.checked; repaintMarks(); paintGroup(); });
   const sizeBox = row.querySelector(".o-size-prices");
   const sizeNames = [...new Set([
     ...(g.product_id == null ? state.products : [p]).flatMap(product => (product.product_variants || []).map(v => v.size_label)),
@@ -1806,7 +1849,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     label.append(currency, input); sizeBox.appendChild(label);
     input.addEventListener("input", () => {
       o.size_prices = Object.fromEntries(priceInputs.filter(x => x.input.value !== "").map(x => [x.name, Number(x.input.value)]));
-      markDirty(); repaintMarks();
+      ov.sizePrices = {...o.size_prices}; markDirty(); repaintMarks(); paintGroup();
     });
     return {name, input};
   });
@@ -1827,6 +1870,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   linkLight(priceEl, rowLight);
 
   regField("options", o.id, "max_quantity", row.querySelector(".o-maxq"), { number: true });
+  row.querySelector(".o-maxq").addEventListener("input", e => { ov.maxQty = Number(e.target.value); paintGroup(); });
 
   const deadlineEl = row.querySelector(".o-deadline");
   regField("options", o.id, "order_deadline_days", deadlineEl, {
@@ -1834,7 +1878,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   });
   deadlineEl.addEventListener("input", () => {
     o.order_deadline_days = deadlineEl.value === "" ? null : Number(deadlineEl.value);
-    repaintMarks();
+    ov.deadline = o.order_deadline_days; repaintMarks(); paintGroup();
   });
 
   const descEl = row.querySelector(".o-desc");
@@ -1845,6 +1889,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   regField("options", o.id, "note", noteEl);
   noteEl.addEventListener("input", () => { o.note = noteEl.value; ov.note = noteEl.value; repaintMarks(); paintGroup(); });
   regField("options", o.id, "note_accent", row.querySelector(".o-note-accent"));
+  row.querySelector(".o-note-accent").addEventListener("change", e => { ov.accent = e.target.checked; paintGroup(); });
 
   // 開け閉めは画面の中だけで完結させる（保存も再描画も走らせない＝入力中でも安全）
   const moreBtn = row.querySelector(".o-more");
@@ -1933,7 +1978,10 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     kind: "options",
     label: "見本写真（任意）",
     hint: "登録すると、お客様画面のオプションに「見本を見る」が表示されます",
-    onChange: (url) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { photo_url: url }),
+    onChange: async (url) => {
+      await api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { photo_url: url });
+      o.photo_url = url; ov.photo = url; repaintMarks(); paintGroup();
+    },
   }));
 
   row.querySelector(".o-toggle").onclick = async () => {

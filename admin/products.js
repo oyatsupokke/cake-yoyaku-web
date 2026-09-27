@@ -636,6 +636,7 @@ function renderEditor() {
     try { localStorage.setItem(`pokke_admin_last_product:${state.tenantId}`, p.id); } catch {}
   }
   $("editor").classList.toggle("hidden", !p);
+  $("product-visual-editor").classList.toggle("hidden", !p);
   if (!p) return;
 
   $("p-name").value = p.name;

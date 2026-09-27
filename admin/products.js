@@ -68,7 +68,7 @@ function markDirty() {
   const bar = $("save-bar");
   if (!bar) return;
   bar.classList.toggle("dirty", state.dirty);
-  $("save-status").textContent = state.dirty ? "保存していない変更があります" : "変更はありません";
+  $("save-status").textContent = state.dirty ? "未保存の変更があります" : "変更はありません";
   $("btn-save-all").disabled = !!state.saving || !state.dirty;
 }
 function validateChange(c) {

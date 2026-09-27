@@ -105,5 +105,19 @@
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
   dialog.addEventListener('close', () => trigger.setAttribute('aria-expanded', 'false'));
   wide.addEventListener('change', () => { if (dialog.open) dialog.close(); schedule(); });
+  const mobile = matchMedia('(max-width: 919px)');
+  const bar = document.getElementById('save-bar'), preview = document.getElementById('fab');
+  const save = document.getElementById('btn-save-all');
+  function arrangeActions() {
+    if (mobile.matches) {
+      bar.insertBefore(trigger, save); bar.insertBefore(preview, save);
+    } else {
+      app.appendChild(trigger); document.getElementById('app').appendChild(preview);
+    }
+  }
+  mobile.addEventListener('change', arrangeActions); arrangeActions();
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty('--product-action-height', `${bar.getBoundingClientRect().height}px`);
+  }).observe(bar);
   refresh();
 })();

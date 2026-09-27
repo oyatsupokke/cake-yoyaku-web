@@ -2335,9 +2335,13 @@ syncFab();
 /* ---------- 共有リスト ---------- */
 function renderSharedLists() {
   const wrap = $("shared-lists");
-  $("legacy-shared-settings").hidden = !state.sharedLists.length;
+  const groups = [...state.products.flatMap(p => p.option_groups || []), ...state.globalGroups];
+  const linkedItems = new Set(groups.flatMap(g => (g.options || []).map(o => o.shared_list_item_id).filter(Boolean)));
+  const usedLists = state.sharedLists.filter(l => groups.some(g => g.shared_list_id === l.id)
+    || (l.shared_list_items || []).some(item => linkedItems.has(item.id)));
+  $("legacy-shared-settings").hidden = !usedLists.length;
   wrap.innerHTML = "";
-  for (const l of state.sharedLists) {
+  for (const l of usedLists) {
     const box = document.createElement("div");
     box.className = "sl-box";
     box.innerHTML = `<strong>${esc(l.name)}</strong><div class="sl-items"></div>

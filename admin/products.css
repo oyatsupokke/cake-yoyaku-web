@@ -609,3 +609,6 @@
 @media print { .question-outline,#question-outline-open,.question-outline-dialog {display:none!important;} }
 
 .question-outline-dialog .outline-head { position:sticky;top:-18px;background:#f7f8f6;padding:10px 0;z-index:1; }
+
+/* ログイン前は編集用プレビューを表示しない。 */
+#view-app.hidden ~ #fab { display:none; }

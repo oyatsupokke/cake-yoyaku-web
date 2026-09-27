@@ -8,6 +8,30 @@
 /* #app 側の max-width:560px（styles.css）はIDセレクタで強いので、同じ強さで上書きする。
    これまでこの指定が効かず、商品設定は560px幅のまま出ていた（2026-08-30 に発見） */
 #app.products-page { max-width: 720px; padding-bottom: 90px; }
+.ai-product-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 32px);padding:22px;border:1px solid #b6b6b6;border-radius:8px;color:var(--ink);background:#fff;overflow:auto}
+.ai-product-dialog::backdrop{background:rgba(0,0,0,.55)}
+.ai-product-head,.ai-product-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ai-product-head h2{font-size:1.2rem;margin:0}
+.ai-product-dialog textarea,.ai-product-dialog input,.ai-product-dialog select{font:inherit;box-sizing:border-box;max-width:100%}
+#ai-product-description{width:100%;margin:8px 0 12px;padding:10px;border:1px solid #aaa;border-radius:5px}
+.ai-product-actions{justify-content:flex-start;margin:12px 0}
+#ai-product-status{font-size:.85rem}
+.ai-review-section{margin:18px 0;padding:14px;border:1px solid var(--line);border-radius:6px}
+.ai-review-section h3{font-size:1rem;margin:0 0 10px}
+.ai-review-section .field{display:block;margin:10px 0}
+.ai-review-section input[type=text],.ai-review-section input[type=number],.ai-review-section textarea{width:100%;min-height:40px;padding:7px;border:1px solid #aaa;border-radius:4px}
+.ai-review-section textarea{min-height:70px}
+.ai-review-row{display:grid;grid-template-columns:1fr 150px auto;align-items:end;gap:8px;margin:9px 0}
+.ai-review-group{border-top:1px solid var(--line);padding:12px 0}
+.ai-review-group:first-of-type{border:0}
+.ai-review-group-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ai-review-group-head input[type=text]{flex:1;min-width:160px}
+.ai-review-option{padding:8px 0 8px 14px;border-left:3px solid var(--line)}
+.ai-review-option .ai-review-row{margin:0 0 7px}
+.ai-review-question{display:grid;grid-template-columns:1fr 120px auto auto;gap:7px;align-items:center;margin:7px 0}
+.ai-review-note{padding:10px;background:#fff8e9;border:1px solid #dec28e;border-radius:4px}
+.ai-review-error{color:#9b2020;font-weight:600}
+@media(max-width:600px){.ai-product-dialog{padding:14px}.ai-review-row,.ai-review-question{grid-template-columns:1fr}.ai-review-option{padding-left:8px}}
 .back-link { text-decoration: none; color: var(--primary-deep); }
 .product-header-actions{display:inline-flex;align-items:center;gap:10px}
 .product-header-actions .link-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 8px;line-height:1.4;text-decoration:none}
@@ -559,3 +583,29 @@
 .cust .pv-price { margin-left: auto; }
 .cust .pv-size-label { display: block; font-size: .8rem; margin: 8px 0 14px; }
 .cust .pv-size { max-width: 100%; margin-top: 4px; }
+
+/* 質問の目次：広い画面は左固定、狭い画面は必要な時だけ開く。 */
+.question-outline { display:none; }
+#question-outline-open { position:fixed;left:14px;bottom:74px;z-index:54;padding:11px 16px;border:1px solid #3e604e;border-radius:24px;background:#3e604e;color:#fff;font:inherit;font-size:.85rem;box-shadow:0 3px 12px #0002;cursor:pointer; }
+.question-outline-dialog { position:fixed;inset:auto 0 0;margin:0 auto;width:min(560px,100%);max-width:100%;max-height:80dvh;padding:18px 18px max(22px,env(safe-area-inset-bottom));border:1px solid var(--line);border-radius:14px 14px 0 0;background:#f7f8f6;color:var(--ink);overflow:auto; }
+.question-outline-dialog::backdrop { background:#0006; }
+.outline-head { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.outline-head button { background:#fff;border:1px solid var(--line);border-radius:5px;padding:9px;cursor:pointer;font:inherit;font-size:.8rem; }
+.outline-product { font-size:.8rem;color:var(--mute);overflow-wrap:anywhere;margin:10px 0; }
+.outline-list { display:grid;gap:4px; }
+.outline-item { display:block;width:100%;min-height:44px;padding:9px;text-align:left;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink);font:inherit;font-size:.85rem;cursor:pointer;overflow-wrap:anywhere; }
+.outline-item small { display:block;margin-top:3px;color:var(--mute);font-size:.7rem; }
+.outline-depth-1 { padding-left:20px; }
+.outline-depth-2 { padding-left:34px;font-size:.8rem; }
+.outline-item[aria-current] { background:#e3eee5;border-color:#91ac96;font-weight:bold; }
+.outline-item:hover { background:#edf2ec; }
+.outline-item:focus-visible,#question-outline-open:focus-visible { outline:2px solid #3e604e;outline-offset:2px; }
+.grp,.o-question-item,.q,.preview-illustration-card { scroll-margin-top:18px; }
+@media(min-width:1280px) {
+  body:not(.outline-collapsed) #app.products-page { max-width:1180px;width:calc(100% - 244px);margin-left:244px;margin-right:auto; }
+  body:not(.outline-collapsed) .question-outline { display:block;position:fixed;left:14px;top:24px;bottom:100px;width:218px;padding:14px;background:#f7f8f6;border:1px solid var(--line);border-radius:7px;overflow:auto;z-index:20; }
+  body:not(.outline-collapsed) #question-outline-open { display:none; }
+}
+@media print { .question-outline,#question-outline-open,.question-outline-dialog {display:none!important;} }
+
+.question-outline-dialog .outline-head { position:sticky;top:-18px;background:#f7f8f6;padding:10px 0;z-index:1; }

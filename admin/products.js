@@ -461,11 +461,11 @@ async function loadAll(keepCurrent = true) {
   // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
   const [products, questions, globalGroups, categories] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
-      `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
+      `&select=*,product_variants(*),option_groups(*,options!options_group_id_fkey(*,shared_list_items(*))),option_exclusions(*)`),
     api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&order=display_order` +
       `&select=*,common_question_choices(*),common_question_products(product_id)`),
     api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&product_id=is.null&order=display_order` +
-      `&select=*,options(*,shared_list_items(*))`),
+      `&select=*,options!options_group_id_fkey(*,shared_list_items(*))`),
     api("GET", `/rest/v1/categories?tenant_id=eq.${state.tenantId}&order=display_order`),
   ]);
   state.products = products;

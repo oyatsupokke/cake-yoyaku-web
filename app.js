@@ -339,9 +339,9 @@ async function load() {
   const T = state.tenant.id;
   const [products, globalGroups, questions, slots] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
-        `&select=*,product_variants(*),option_groups(*,options(*,shared_list_items(*))),option_exclusions(*)`),
+        `&select=*,product_variants(*),option_groups(*,options!options_group_id_fkey(*,shared_list_items(*))),option_exclusions(*)`),
     api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
-        `&select=*,options(*,shared_list_items(*))`),
+        `&select=*,options!options_group_id_fkey(*,shared_list_items(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices(*),common_question_products(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),

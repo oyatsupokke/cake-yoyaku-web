@@ -660,3 +660,11 @@
 .ai-money-missing .ai-money-help { display:block; }
 .ai-money-missing input { border:2px solid #b64232;background:#fff6f2; }
 #ai-save-status:empty { display:none; }
+
+/* 選択肢から派生する質問を枝線でつなぐ。折り返しても線は文字に重ねない。 */
+.outline-depth-2 { position:relative;padding-left:39px; }
+.outline-depth-2::before,
+.outline-depth-2::after { content:"";position:absolute;pointer-events:none;background:#8caa96; }
+.outline-depth-2::before { left:23px;top:-5px;bottom:-5px;width:2px; }
+.outline-depth-2::after { left:23px;top:21px;width:11px;height:2px; }
+.outline-depth-2.outline-branch-last::before { bottom:auto;height:28px; }

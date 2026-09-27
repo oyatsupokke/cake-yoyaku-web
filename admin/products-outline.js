@@ -54,9 +54,10 @@
       for (const container of [rail, dialog]) {
         container.querySelector('.outline-product').textContent = product;
         const nav = container.querySelector('nav'); nav.replaceChildren();
-        for (const entry of entries) {
+        for (const [index, entry] of entries.entries()) {
           const button = document.createElement('button'); button.type = 'button';
           button.dataset.target = entry.key; button.className = `outline-item outline-depth-${entry.depth}`;
+          if (entry.depth === 2 && entries[index + 1]?.depth !== 2) button.classList.add("outline-branch-last");
           const label = document.createElement('span'); label.textContent = entry.title; button.appendChild(label);
           if (entry.badge) { const badge = document.createElement('small'); badge.textContent = entry.badge; button.appendChild(badge); }
           button.onclick = () => jump(entry);

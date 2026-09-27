@@ -1743,14 +1743,15 @@ function renderGroups() {
   for (const g of sortedGroups(state.sel.product)) {
     const box = document.createElement("div");
     box.className = "group";
-    box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3>` +
+    box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3><div class="group-guide">` +
       (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
       (g.selection_type !== "single" && g.max_select != null ? `<p class="group-desc">${g.max_select}種類まで選べます</p>` : "") +
       (CONFIG.shop === "pokke" && g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
         state.sel.options.has(o.id) && PREVIEW_POSITION_NOTICE_NAMES.has(optName(o)))
         ? '<p class="group-preview-note">※実際の配置はプレビュー通りではなく、全体のバランスを見て調整いたします。</p>' : "") +
       (g.note ? `<p class="group-note${g.note_accent ? " note-accent" : ""}">${esc(g.note)}</p>` : "") +
-      sampleImageHtml(g.sample_image_url);
+      (safeImageUrl(g.sample_image_url) ? `<p class="group-sample-caption">見本（タップで拡大）</p>${sampleImageHtml(g.sample_image_url)}` : "") +
+      `</div><p class="group-choice-label">${g.selection_type === "single" ? "下から1つお選びください" : "下からお選びください（複数選択可）"}</p>`;
     wireSampleImage(box);
     for (const o of sortedOpts(g)) {
       if (!o.is_available) continue;

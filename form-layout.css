@@ -72,3 +72,27 @@
 /* Service attribution stays separate from the booking controls and fixed total. */
 .booking-credit{margin:40px 0 0;padding:16px 0;text-align:center;color:var(--mute);font-weight:400;line-height:1.6}
 .booking-credit small{font-size:12px}
+
+/* 説明・見本と、押して選ぶ項目の境界を明確にする。 */
+#sec-groups .group>h3{font-size:1.05rem;font-weight:700;margin-bottom:12px}
+#sec-groups .group-guide{padding:12px 14px;margin:0 0 18px;border-left:3px solid var(--line);background:var(--boxbg)}
+#sec-groups .group-guide:empty{display:none}
+#sec-groups .group-guide .sample-img{margin-bottom:0}
+#sec-groups .group-sample-caption{margin:12px 0 6px;font-size:.78rem;color:var(--mute)}
+#sec-groups .group-choice-label{margin:18px 0 10px;font-size:.85rem;font-weight:700;color:var(--ink)}
+#sec-groups .group>.opt{border:1px solid var(--box);background:var(--card);padding:14px 12px;margin:10px 0;border-radius:var(--r);min-height:56px}
+#sec-groups .group>.opt:has(>input:checked){border-color:var(--selbox);box-shadow:inset 0 0 0 1px var(--selbox);background:var(--sel);color:var(--selink)}
+#sec-groups .group>.opt:not(.opt-disabled):hover{border-color:var(--primary-deep)}
+#sec-groups .group>.opt:focus-within{outline:2px solid var(--primary-deep);outline-offset:2px}
+#sec-groups .group>.opt>.opt-name{font-weight:700;min-width:0;overflow-wrap:anywhere}
+#sec-groups .group>.opt .opt-desc,#sec-groups .group>.opt .opt-note{font-weight:400;margin-top:5px;line-height:1.6}
+#sec-groups .group>.opt>.opt-price{font-weight:700}
+#sec-groups .group>.opt>input{flex-shrink:0}
+@media(max-width:540px){
+ #sec-groups .group>.opt{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px}
+ #sec-groups .group>.opt>input{grid-column:1;grid-row:1;margin:0}
+ #sec-groups .group>.opt>.opt-name{grid-column:2;grid-row:1}
+ #sec-groups .group>.opt>.opt-price{grid-column:3;grid-row:1;max-width:7em;white-space:normal;text-align:right;overflow-wrap:anywhere}
+ #sec-groups .group>.opt>.opt-sample-button{grid-column:2;justify-self:start}
+ #sec-groups .group>.opt>.qty-stepper{grid-column:2 / 4;justify-self:end}
+}

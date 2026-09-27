@@ -1225,8 +1225,11 @@ function optionAvailability(o) {
 }
 // この商品に出るグループ = その商品のグループ ＋「すべてのケーキに出す」グループ
 function groupsForProduct(p) {
-  return [...p.option_groups, ...state.globalGroups]
-    .sort((a, b) => (a.display_order - b.display_order) || (a.product_id ? -1 : 1));
+  const positions = new Map((p.group_order || []).map((id, index) => [id, index]));
+  return [...p.option_groups, ...state.globalGroups].sort((a, b) =>
+    (positions.get(a.id) ?? Infinity) - (positions.get(b.id) ?? Infinity)
+    || (a.display_order ?? 0) - (b.display_order ?? 0)
+    || Number(a.product_id === null) - Number(b.product_id === null));
 }
 
 const ADMIN_ANIMAL_NAMES = new Set(["ねこクッキー", "うさぎメレンゲ", "くまメレンゲ", "わんこメレンゲ"]);
@@ -1502,7 +1505,14 @@ function renderGroups(p) {
     wrap.appendChild(row);
     return { data: g, row, target: row.querySelector(".grp-bar") };
   });
-  addOrderControls(wrap, items, "option_groups");
+  const order = document.createElement("input");
+  order.type = "hidden"; order.value = JSON.stringify(p.group_order || []);
+  wrap.appendChild(order);
+  regField("products", p.id, "group_order", order, {get:()=>JSON.parse(order.value)});
+  addOrderControls(wrap, items, "option_groups", ids => { order.value = JSON.stringify(ids); }, false);
+  const hint = document.createElement("p"); hint.className = "small";
+  hint.textContent = "表示順はこのケーキだけに適用されます。並べ替えたら「保存する」で確定してください。";
+  wrap.prepend(hint);
 }
 
 function buildGroupBox(p, g) {
@@ -2045,14 +2055,14 @@ $("btn-g-add").onclick = async () => {
 
 /* ---------- 共通の質問（店全体） ---------- */
 // 要素を移動するだけにして、入力中の文章・開閉状態を保つ。保存は既存の保存バーで行う。
-function addOrderControls(container, items, table, onMove = () => {}) {
+function addOrderControls(container, items, table, onMove = () => {}, persistOrder = true) {
   const compact = table === "common_question_choices";
   const entries = items.map(({ data, row, target }) => {
     const input = document.createElement("input");
     input.type = "hidden";
     input.value = data.display_order ?? 0;
     row.appendChild(input);
-    regField(table, data.id, "display_order", input, { number: true });
+    if (persistOrder) regField(table, data.id, "display_order", input, { number: true });
     const controls = document.createElement("span");
     controls.className = "question-order" + (compact ? " compact" : "");
     if (!compact) {

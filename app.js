@@ -494,7 +494,13 @@ function optionAvailableOnPickup(o, date = state.sel.date) {
 }
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
 const optDesc = (o) => o.description || "";
-function sortedGroups(p) { return [...p.option_groups].sort((a, b) => a.display_order - b.display_order); }
+function sortedGroups(p) {
+  const positions = new Map((p.group_order || []).map((id, index) => [id, index]));
+  return [...p.option_groups].sort((a, b) =>
+    (positions.get(a.id) ?? Infinity) - (positions.get(b.id) ?? Infinity)
+    || (a.display_order ?? 0) - (b.display_order ?? 0)
+    || Number(a.product_id === null) - Number(b.product_id === null));
+}
 function sortedOpts(g) { return [...g.options].sort((a, b) => a.display_order - b.display_order); }
 function findOption(id) {
   for (const g of state.sel.product.option_groups)
@@ -1762,7 +1768,7 @@ function renderGroups() {
       // 後段側は無効表示にし、「なぜ選べないか」が分かるようにする。
       const blockingIds = conflictIds.filter((id) => {
         const f = findOption(id);
-        return f && (f.g.display_order ?? 0) <= (g.display_order ?? 0);
+        return f && sortedGroups(state.sel.product).findIndex(x => x.id === f.g.id) <= sortedGroups(state.sel.product).findIndex(x => x.id === g.id);
       });
       const capacityConflict = toppingCapacityConflict(o);
       const row = document.createElement("label");

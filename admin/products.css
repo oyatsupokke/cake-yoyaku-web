@@ -75,11 +75,14 @@
 .grp-bar .gname { flex: 1; min-width: 150px; font-size: 1rem; font-weight: bold; }
 /* 全商品への適用は、タイトル帯の右端にまとめる。並び替えボタンより後に配置。 */
 .grp-bar .group-scope { order:2; display:flex; flex-direction:column; align-items:flex-end; flex:0 0 auto; max-width:100%; margin-left:auto; padding-left:14px; border-left:1px solid var(--line); }
-.group-scope .group-scope-toggle { display:flex; align-items:center; gap:8px; margin:0; font-size:.85rem; }
-.group-scope .gh-all { flex:0 0 auto; width:18px; height:18px; margin:0; }
-.group-scope .small { margin:4px 0 0; font-size:.75rem; line-height:1.5; }
+.group-scope { gap:6px; }
+.group-scope .group-scope-choice { display:flex; align-items:center; gap:8px; width:100%; min-height:38px; margin:0; padding:7px 10px; border:1px solid #adbcb1; border-radius:5px; background:#fff; color:#3d5144; font-size:.82rem; cursor:pointer; }
+.group-scope .group-scope-choice:has(input:checked) { background:#3e604e; border-color:#3e604e; color:#fff; font-weight:700; }
+.group-scope .group-scope-choice:focus-within { outline:2px solid #3e604e; outline-offset:2px; }
+.group-scope .group-scope-choice input { flex:0 0 auto; width:16px; height:16px; margin:0; accent-color:#3e604e; }
 @media(max-width:600px){
-  .grp-bar .group-scope { flex-basis:100%; padding:10px 0 0; border-left:0; border-top:1px solid var(--line); }
+  .group-scope .group-scope-choice { width:210px; max-width:100%; min-width:0; }
+  .grp-bar .group-scope { flex-basis:100%; align-items:flex-end; padding:10px 0 0; border-left:0; border-top:1px solid var(--line); }
 }
 
 .grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }

@@ -1522,9 +1522,9 @@ function buildGroupBox(p, g) {
       <label class="chk"><input type="checkbox" class="gh-req" ${g.is_required ? "checked" : ""}>必須</label>
       <label class="gh-max-wrap ${g.selection_type === "single" ? "hidden" : ""}">選べる種類数の上限 <input type="number" class="gh-max" min="1" step="1" placeholder="制限なし" value="${esc(g.max_select)}"></label>
       ${sharedNote}
-      <div class="group-scope">
-        <label class="chk group-scope-toggle"><input type="checkbox" class="gh-all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
-        <p class="small">オフ：このケーキだけ</p>
+      <div class="group-scope" role="radiogroup" aria-label="表示する商品">
+        <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-all" value="all" ${isGlobal ? "checked" : ""}>すべてのケーキに出す</label>
+        <label class="group-scope-choice"><input type="radio" name="group-scope-${esc(g.id)}" class="gh-only" value="only" ${!isGlobal ? "checked" : ""}>このケーキだけに出す</label>
       </div>
     </div>
     <div class="grp-body">
@@ -1633,6 +1633,7 @@ function buildGroupBox(p, g) {
   const allEl = box.querySelector(".gh-all");
   regField("option_groups", g.id, "product_id", allEl,
     { get: () => allEl.checked ? null : p.id });
+  box.querySelector(".gh-only").addEventListener("change", markDirty);
 
   box.querySelector(".gh-del").onclick = async () => {
     const scope = isGlobal

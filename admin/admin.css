@@ -395,3 +395,11 @@
 .save-help { display: block; font-size: .72rem; color: #786c70; margin-top: 4px; line-height: 1.5; }
 
 .date-shortcuts { display:flex;gap:8px;flex:0 0 auto; }
+
+/* iPhoneのdate入力の最小幅が集計カードを押し広げないようにする。 */
+.admin .report-filters .field { max-width:100%; }
+.admin .report-filters input[type="date"] {
+  display:block; width:100%; max-width:100%; min-width:0; min-inline-size:0;
+  box-sizing:border-box; -webkit-appearance:none; appearance:none;
+}
+.admin .report-filters input[type="date"]::-webkit-date-and-time-value { min-width:0; text-align:left; }

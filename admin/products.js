@@ -637,6 +637,7 @@ function renderEditor() {
   }
   $("editor").classList.toggle("hidden", !p);
   $("product-visual-editor").classList.toggle("hidden", !p);
+  document.dispatchEvent(new Event("product-editor-rendered"));
   if (!p) return;
 
   $("p-name").value = p.name;

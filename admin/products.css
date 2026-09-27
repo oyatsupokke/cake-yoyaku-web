@@ -12,6 +12,8 @@
 .ai-product-dialog::backdrop{background:rgba(0,0,0,.55)}
 .ai-product-head,.ai-product-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .ai-product-head h2{font-size:1.2rem;margin:0}
+.ai-product-head{position:sticky;top:-22px;margin:-22px -22px 14px;padding:16px 22px;background:#fff;border-bottom:1px solid var(--line);z-index:2}
+#btn-ai-product[hidden]{display:none!important}
 .ai-product-dialog textarea,.ai-product-dialog input,.ai-product-dialog select{font:inherit;box-sizing:border-box;max-width:100%}
 #ai-product-description{width:100%;margin:8px 0 12px;padding:10px;border:1px solid #aaa;border-radius:5px}
 .ai-product-actions{justify-content:flex-start;margin:12px 0}
@@ -31,7 +33,21 @@
 .ai-review-question{display:grid;grid-template-columns:1fr 120px auto auto;gap:7px;align-items:center;margin:7px 0}
 .ai-review-note{padding:10px;background:#fff8e9;border:1px solid #dec28e;border-radius:4px}
 .ai-review-error{color:#9b2020;font-weight:600}
-@media(max-width:600px){.ai-product-dialog{padding:14px}.ai-review-row,.ai-review-question{grid-template-columns:1fr}.ai-review-option{padding-left:8px}}
+.ai-review-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ai-review-check{display:inline-flex;align-items:center;gap:6px;font-size:.88rem}
+.ai-review-check input{width:18px;height:18px;flex:0 0 auto}
+.ai-review-question-box{border-top:1px dashed var(--line);padding:10px 0;margin-top:10px}
+.ai-review-choices{margin-left:12px}
+.ai-product-dialog summary{cursor:pointer;padding:8px 0}
+.ai-review-question .field{margin:0}
+.ai-review-question select{width:100%;min-height:40px}
+.ai-review-option{margin:12px 0}
+.ai-review-note h3{font-size:1rem;margin:0 0 8px}
+.ai-review-note ul{padding-left:22px;line-height:1.7}
+.ai-product-dialog .btn-primary{white-space:normal}
+.ai-product-dialog :disabled{cursor:wait;opacity:.6}
+.ai-product-dialog .field input::placeholder{font-size:.85rem}
+@media(max-width:600px){.ai-product-dialog{padding:14px}.ai-product-head{top:-14px;margin:-14px -14px 14px;padding:12px 14px}.ai-review-row,.ai-review-question{grid-template-columns:1fr}.ai-review-two{grid-template-columns:1fr}.ai-review-option{padding-left:8px}.ai-product-head h2{font-size:1rem;flex:1}}
 .back-link { text-decoration: none; color: var(--primary-deep); }
 .product-header-actions{display:inline-flex;align-items:center;gap:10px}
 .product-header-actions .link-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 8px;line-height:1.4;text-decoration:none}

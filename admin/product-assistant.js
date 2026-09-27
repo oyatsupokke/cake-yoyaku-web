@@ -35,6 +35,8 @@ function restore() {
 }
 function message(text, error = false) {
   status.textContent = text; status.classList.toggle('ai-review-error', error);
+  const feedback = document.getElementById('ai-save-status');
+  if (feedback) { feedback.textContent = text; feedback.classList.toggle('ai-review-error', error); }
 }
 function lock(on) {
   busy = on;
@@ -46,7 +48,10 @@ function lock(on) {
   });
 }
 const textField = (path, label, max = 120) => `<label class="field">${escape(label)}<input type="text" data-path="${path}" maxlength="${max}" value="${escape(get(path))}"></label>`;
-const numberField = (path, label, placeholder = '', max = 1000000, min = 0) => `<label class="field">${escape(label)}<input type="number" data-path="${path}" min="${min}" max="${max}" step="1" value="${escape(get(path))}" placeholder="${escape(placeholder)}"></label>`;
+const numberField = (path, label, placeholder = '', max = 1000000, min = 0) => {
+  const money = /\.price$/.test(path), missing = money && get(path) === null;
+  return `<label class="field ${missing ? 'ai-money-missing' : ''}">${escape(label)}<input type="number" data-path="${path}" ${money ? 'required' : ''} min="${min}" max="${max}" step="1" value="${escape(get(path))}" placeholder="${escape(placeholder)}">${money ? '<span class="ai-money-help">金額を入力してください（空欄は0円円）</span>' : ''}</label>`;
+};
 const checkField = (path, label) => `<label class="ai-review-check"><input type="checkbox" data-path="${path}" ${get(path) ? 'checked' : ''}>${escape(label)}</label>`;
 const action = (name, path, label) => `<button type="button" class="pill" data-action="${name}" data-list="${path}">${escape(label)}</button>`;
 const remove = path => action('remove', path, '削除');
@@ -59,7 +64,7 @@ function questionsHTML(questions, path) {
       <label class="field">回答方法<select data-path="${p}.input_type">${Object.entries(types).map(([key, name]) => `<option value="${key}" ${q.input_type === key ? 'selected' : ''}>${name}</option>`).join('')}</select></label>
       ${checkField(`${p}.required`, '必須')}${remove(p)}</div>
       ${q.input_type === 'image' ? numberField(`${p}.image_max`, '画像の上限枚数', '1〜3枚', 3, 1) : ''}
-      ${['select', 'radio', 'checkbox'].includes(q.input_type) ? `<div class="ai-review-choices">${q.choices.map((c, ci) => `<div class="ai-review-row">${textField(`${p}.choices.${ci}.label`, '回答の選択肢', 100)}${numberField(`${p}.choices.${ci}.price_delta`, '追加料金（税込円）', '無料は0')}${remove(`${p}.choices.${ci}`)}</div>`).join('')}${action('choice', `${p}.choices`, '＋ 回答の選択肢')}</div>` : ''}
+      ${['select', 'radio', 'checkbox'].includes(q.input_type) ? `<div class="ai-review-choices">${q.choices.map((c, ci) => `<div class="ai-review-row">${textField(`${p}.choices.${ci}.label`, '回答の選択肢', 100)}${numberField(`${p}.choices.${ci}.price_delta`, '追加料金（税込円）', '空欄は0円')}${remove(`${p}.choices.${ci}`)}</div>`).join('')}${action('choice', `${p}.choices`, '＋ 回答の選択肢')}</div>` : ''}
       </div>`;
   }).join('') + action('question', path, '＋ 質問を追加');
 }
@@ -70,7 +75,7 @@ function render() {
   const d = suggestion;
   const shared = [...(state.globalGroups || []).map(g => g.name), ...(state.questions || []).filter(q => !q.option_id && q.scope === 'all' && q.is_active !== false).map(q => q.label)].filter(Boolean);
   review.innerHTML = `<h3>設定案を確認・修正</h3>
-    <p class="small">金額の空欄を埋めてください。追加料金がない項目は0円です。写真は商品を保存した後に登録できます。</p>
+    <p class="small">サイズごとの税込価格を入力してください。追加料金の空欄は0円で保存されます。写真は商品を保存した後に登録できます。</p>
     ${shared.length ? `<p class="ai-review-note">既存の共通項目「${shared.map(escape).join('」「')}」もこの商品に表示されます。案の中に同じ質問や選択肢がある場合は、重複するものを削除してください。</p>` : ''}
     <section class="ai-review-section"><h3>商品</h3>${textField('name', '商品名')}
       <label class="field">商品説明<textarea data-path="description" maxlength="1000">${escape(d.description)}</textarea></label>
@@ -88,7 +93,7 @@ function render() {
         ${g.selection_type === 'multiple' ? numberField(`${gp}.max_select`, '選べる種類数の上限', '空欄は上限なし', 20, 1) : ''}
         ${g.options.map((o, oi) => {
           const op = `${gp}.options.${oi}`;
-          return `<div class="ai-review-option"><div class="ai-review-row">${textField(`${op}.name`, '選択肢名', 100)}${numberField(`${op}.price_delta`, '追加料金（税込円）', '無料は0')}${remove(op)}</div>
+          return `<div class="ai-review-option"><div class="ai-review-row">${textField(`${op}.name`, '選択肢名', 100)}${numberField(`${op}.price_delta`, '追加料金（税込円）', '空欄は0円')}${remove(op)}</div>
             <details ${o.questions.length || o.max_quantity || o.deadline_days !== null || o.requires_review ? 'open' : ''}><summary>個数・締切・この選択肢の質問</summary>
               <div class="ai-review-two">${numberField(`${op}.max_quantity`, '注文できる個数の上限', '空欄は1個', 100, 1)}${numberField(`${op}.deadline_days`, 'この選択肢の締切（日数）', '空欄は商品と同じ', 365)}</div>
               ${checkField(`${op}.requires_review`, '見積もり・お客様の承諾後に予約確定')}
@@ -98,6 +103,8 @@ function render() {
     <section class="ai-review-section"><h3>この商品を注文する全員への質問</h3>${questionsHTML(d.questions, 'questions')}</section>
     ${d.review_notes.length ? `<section class="ai-review-note"><h3>確認・追加設定すること</h3><ul>${d.review_notes.map(n => `<li>${escape(n)}</li>`).join('')}</ul><p class="small">このメモは保存後の商品画面にも残ります。</p></section>` : ''}
     <div id="ai-product-errors" class="ai-review-error" role="alert"></div>
+    <p class="small">追加料金の空欄は0円で保存されます。有料のオプションだけ金額を入力してください。</p>
+    <p id="ai-save-status" role="status" aria-live="polite"></p>
     <div class="ai-product-actions"><button type="button" class="btn-primary" id="ai-product-save">${submitted ? '同じ内容で保存結果を確認・再試行' : '非公開で保存して予約画面を確認'}</button></div>
     <p class="small">保存すると新しい商品が1件できます。予約画面で料金や選び方を確認してから、商品画面で公開してください。</p>`;
   lock(busy);
@@ -106,6 +113,7 @@ function render() {
 review.addEventListener('input', event => {
   const el = event.target, path = el.dataset.path;
   if (!path || busy || submitted) return;
+  if (/\.price$/.test(path)) el.closest('.field').classList.toggle('ai-money-missing', el.value === '');
   if (el.tagName === 'SELECT' || el.type === 'checkbox') return;
   set(path, el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value);
   persist();
@@ -178,13 +186,26 @@ generate.onclick = async () => {
 async function save() {
   if (busy || !suggestion) return;
   const invalid = [...review.querySelectorAll('input')].find(el => !el.checkValidity());
-  if (invalid && !submitted) { invalid.reportValidity(); return; }
-  const errors = validateSuggestion(suggestion, true);
-  if (errors.length) {
+  const saveDraft = structuredClone(submitted || suggestion);
+  // 追加料金だけは空欄を0円として保存。基本価格は必須のままにする。
+  const fillExtraPrices = value => {
+    if (!value || typeof value !== 'object') return;
+    if ('price_delta' in value && value.price_delta === null) value.price_delta = 0;
+    Object.values(value).forEach(fillExtraPrices);
+  };
+  fillExtraPrices(saveDraft);
+  const errors = validateSuggestion(saveDraft, true);
+  if (errors.length || (invalid && !submitted)) {
+    message('まだ保存できていません。未入力・入力内容に誤りがある項目を確認してください。サイズごとの税込価格は入力が必要です。', true);
     document.getElementById('ai-product-errors').innerHTML = `<ul>${errors.map(error => `<li>${escape(error)}</li>`).join('')}</ul>`;
-    document.getElementById('ai-product-errors').scrollIntoView({ block: 'center', behavior: 'smooth' }); return;
+    if (invalid && !submitted) {
+      let parent = invalid.parentElement;
+      while (parent && parent !== review) { if (parent.tagName === 'DETAILS') parent.open = true; parent = parent.parentElement; }
+      invalid.scrollIntoView({ block: 'center' }); invalid.focus({ preventScroll: true }); invalid.reportValidity();
+    } else document.getElementById('ai-product-errors').scrollIntoView({ block: 'center' });
+    return;
   }
-  if (!submitted) { submitted = structuredClone(suggestion); requestId = crypto.randomUUID(); persist(); }
+  if (!submitted) { submitted = saveDraft; requestId = crypto.randomUUID(); persist(); }
   lock(true); message('非公開商品を保存しています…');
   let savedId = null;
   try {

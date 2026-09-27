@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1790512819">
-<link rel="stylesheet" href="admin.css?v=1790512819">
-<link rel="stylesheet" href="products.css?v=1790512819">
-<link rel="stylesheet" href="admin-layout.css?v=1790512819">
+<link rel="stylesheet" href="../styles.css?v=1790513842">
+<link rel="stylesheet" href="admin.css?v=1790513842">
+<link rel="stylesheet" href="products.css?v=1790513842">
+<link rel="stylesheet" href="admin-layout.css?v=1790513842">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -53,7 +53,7 @@
     <div class="prod-tabs" id="prod-tabs"></div>
     <div style="margin: 6px 0 16px;">
       <button type="button" class="pill" id="btn-new-product">＋ 新しい商品を追加</button>
-      <button type="button" class="pill" id="btn-ai-product" hidden>文章から設定案を作る</button>
+      <button type="button" class="pill" id="btn-ai-product" hidden>商品設定アシスト</button>
     </div>
 
     <!-- カテゴリ＝商品タブのまとめ方。タブのすぐ下に置く（まりほ指摘 2026-09-07：一番下は遠い） -->
@@ -223,20 +223,20 @@
   <div id="toast" class="toast hidden"></div>
 </div>
 <dialog id="ai-product-dialog" class="ai-product-dialog" aria-labelledby="ai-product-title">
-  <div class="ai-product-head"><h2 id="ai-product-title">文章から商品設定案を作る</h2><button type="button" class="pill" id="ai-product-close">閉じる</button></div>
-  <p class="small">受け付けたいケーキ・サイズと税込価格・お客様に選んでもらうものを書いてください。書かれていない料金は空欄で提案します。</p>
+  <div class="ai-product-head"><h2 id="ai-product-title">商品設定アシスト</h2><button type="button" class="pill" id="ai-product-close">閉じる</button></div>
+  <p class="small">受け付けたいケーキ・サイズと税込価格・お客様に選んでもらうものを書いてください。書かれていない料金は空欄で提案します。追加料金の空欄は0円で保存されます。</p>
   <label class="field" for="ai-product-description">どんなケーキを予約で受けますか</label>
   <textarea id="ai-product-description" rows="7" maxlength="6000" placeholder="例：生クリームのデコレーションケーキ。12cmは3,500円、15cmは4,200円。フルーツは苺かマスカットから必ず1つ。ナンバークッキーは追加300円で、数字を聞く。プレートの文字も聞く。"></textarea>
   <p class="small">入力した文章をOpenAIに送信して設定案を作成します。1回につき1商品を入力してください。</p>
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1790512819"></script>
-<script src="edit-drafts.js?v=1790512819"></script>
-<script src="products-menu.js?v=1790512819"></script>
-<script src="pickup-schedule.js?v=1790512819"></script>
-<script src="products.js?v=1790512819"></script>
-<script type="module" src="product-assistant.js?v=1790512819"></script>
-<script src="products-outline.js?v=1790512819"></script>
+<script src="tips.js?v=1790513842"></script>
+<script src="edit-drafts.js?v=1790513842"></script>
+<script src="products-menu.js?v=1790513842"></script>
+<script src="pickup-schedule.js?v=1790513842"></script>
+<script src="products.js?v=1790513842"></script>
+<script type="module" src="product-assistant.js?v=1790513842"></script>
+<script src="products-outline.js?v=1790513842"></script>
 </body>
 </html>

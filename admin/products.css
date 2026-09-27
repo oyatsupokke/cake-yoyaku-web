@@ -654,3 +654,9 @@
     width:calc(100% - 150px);max-width:1180px;margin-left:150px;margin-right:auto;
   }
 }
+
+/* 商品設定アシスト：未入力の料金を明示する */
+.ai-money-help { display:none;font-size:.8rem;color:#a32920; }
+.ai-money-missing .ai-money-help { display:block; }
+.ai-money-missing input { border:2px solid #b64232;background:#fff6f2; }
+#ai-save-status:empty { display:none; }

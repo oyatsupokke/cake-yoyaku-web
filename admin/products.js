@@ -1049,7 +1049,7 @@ function answerFieldHtml(view) {
 function optionQuestionPreviewHtml(optionId, view) {
   return `<div class="cfield" data-option-id="${esc(optionId)}" data-question-id="${esc(view.id)}">
     <span class="cfield-question-title">${esc(view.label || "（質問文）")}${view.required ? '<span class="req">必須</span>' : ""}</span>
-    ${view.help ? `<span class="cfield-help">${esc(view.help)}</span>` : ""}
+    ${view.help ? `<span class="cfield-help ${view.helpAccent ? "note-accent" : ""}">${esc(view.help)}</span>` : ""}
     ${view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt=""></span>` : ""}
     ${answerFieldHtml(view)}
   </div>`;
@@ -1087,7 +1087,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}">
       <span class="q-choices-title">この質問の回答選択肢</span>
     </div>
-    ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に小さく出ます）">`}`;
+    ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に出ます）"><label class="chk"><input type="checkbox" class="q-help-accent" ${q.help_accent ? "checked" : ""}>目立たせる（赤・太字）</label>`}`;
 
   const labelEl = box.querySelector(".q-label");
   regField("common_questions", q.id, "label", labelEl);
@@ -1098,6 +1098,12 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   if (helpEl) {
     regField("common_questions", q.id, "help_text", helpEl);
     helpEl.addEventListener("input", () => { view.help = helpEl.value; onPaint(); });
+  }
+
+  const helpAccentEl = box.querySelector(".q-help-accent");
+  if (helpAccentEl) {
+    regField("common_questions", q.id, "help_accent", helpAccentEl);
+    helpAccentEl.addEventListener("change", () => { view.helpAccent = helpAccentEl.checked; onPaint(); });
   }
 
   const reqEl = box.querySelector(".q-req");
@@ -1120,6 +1126,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   }));
   box.insertBefore(sample, box.querySelector(".q-choices"));
   if (helpEl) box.insertBefore(helpEl, sample);
+  if (helpAccentEl) box.insertBefore(helpAccentEl.closest("label"), sample);
 
   const maxEl = box.querySelector(".q-imgmax-sel");
   regField("common_questions", q.id, "image_max", maxEl,
@@ -1692,7 +1699,7 @@ function buildGroupBox(p, g) {
         id: o.id, description:o.description || "", note:o.note || "", name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
-          help: q.help_text || "", sample: q.sample_image_url || "",
+          help: q.help_text || "", helpAccent: !!q.help_accent, sample: q.sample_image_url || "",
           linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
           choices: qChoices(q).map((c) => ({ ...c })),
         })),
@@ -2005,7 +2012,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     const qView = ov.qs?.find((x) => x.id === q.id) || {
       id: q.id, label: q.label, type: q.input_type, required: q.is_required,
       active: q.is_active !== false, imageMax: imgMaxOf(q),
-      help: q.help_text || "", sample: q.sample_image_url || "",
+      help: q.help_text || "", helpAccent: !!q.help_accent, sample: q.sample_image_url || "",
       linkLabel: q.pastel_link_option_name ? (q.pastel_link_label || `${q.pastel_link_option_name}も同じ色にする`) : "",
       choices: qChoices(q).map((c) => ({ ...c })),
     };
@@ -2270,7 +2277,7 @@ function buildQuestionBox(q) {
 
   const view = {
     label: q.label, required: !!q.is_required, type: q.input_type, imageMax: imgMaxOf(q),
-    help: q.help_text || "",
+    help: q.help_text || "", helpAccent: !!q.help_accent,
     linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
     sample: q.sample_image_url,
     choices: qChoices(q).map((c) => ({ ...c })),
@@ -2279,7 +2286,7 @@ function buildQuestionBox(q) {
     box.querySelector(".pv-label").textContent = view.label || "（質問文）";
     box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
     box.querySelector(".pv-body").innerHTML =
-      (view.help ? `<span class="cfield-help">${esc(view.help)}</span>` : "") +
+      (view.help ? `<span class="cfield-help ${view.helpAccent ? "note-accent" : ""}">${esc(view.help)}</span>` : "") +
       (view.sample ? `<span class="pv-sample"><img src="${esc(view.sample)}" alt=""></span>` : "") +
       answerFieldHtml(view);
     applyLight();

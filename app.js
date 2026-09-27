@@ -2183,7 +2183,7 @@ function buildQuestionField(q) {
   const field = document.createElement("label");
   field.className = "field";
   field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
-    (q.help_text ? `<span class="help">${esc(q.help_text)}</span>` : "") +
+    (q.help_text ? `<span class="help ${q.help_accent ? "note-accent" : ""}">${esc(q.help_text)}</span>` : "") +
     sampleImageHtml(q.sample_image_url) + answerInputsHtml(q) +
     qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") +
     (!state.sel.date && qChoices(q).some(c => c.pickup_from || c.pickup_until)

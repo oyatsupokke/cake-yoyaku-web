@@ -705,3 +705,5 @@
   .option-price-field { justify-content: flex-start; }
   .products-page .opt-line .o-more { width: 100%; max-width: 130px; padding-inline: 8px; }
 }
+
+.cust .cfield-help.note-accent { color: #d0455f; font-weight: bold; }

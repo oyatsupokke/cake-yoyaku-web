@@ -73,10 +73,14 @@
   background: #fdeff2; border-left: 6px solid var(--primary-deep); padding: 10px 14px;
 }
 .grp-bar .gname { flex: 1; min-width: 150px; font-size: 1rem; font-weight: bold; }
-.grp-bar .group-scope-toggle {
-  flex: 0 0 auto; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
-  background: #fff; white-space: nowrap;
-}
+/* 表示範囲は、名前・回答方法の並びから分けてグループ全体の設定として示す。 */
+.group-scope { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 20px; padding:14px 16px; border-bottom:1px solid var(--line); background:#fff; }
+.group-scope-title { font-size:.85rem; font-weight:600; }
+.group-scope-content { min-width:0; }
+.group-scope .group-scope-toggle { display:flex; align-items:center; gap:8px; margin:0; font-size:.9rem; }
+.group-scope .gh-all { flex:0 0 auto; width:18px; height:18px; margin:0; }
+.group-scope .small { margin:5px 0 0; line-height:1.6; }
+
 .grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }
 .tag { font-size: .72rem; background: #fff; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; color: #a08a8f; }
 .tag.hi { border-color: var(--primary-deep); color: var(--primary-deep); }

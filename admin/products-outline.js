@@ -33,8 +33,7 @@
         add(group, name(group, '.gname', '名前未入力のグループ'), 0, group.querySelector('.gh-all')?.checked ? '全ケーキ共通' : 'このケーキのみ');
         for (const option of group.querySelectorAll('.g-options > .opt')) {
           const questions = option.querySelectorAll('.o-question-item');
-          if (!questions.length) continue;
-          add(option, name(option, '.oname', '名前未入力の選択肢'), 1, option.classList.contains('stopped') ? '停止中' : '選んだ人への質問');
+          add(option, name(option, '.oname', '名前未入力の選択肢'), 1, option.classList.contains('stopped') ? '停止中' : questions.length ? '選んだ人への質問' : '');
           for (const question of questions) add(question, name(question, '.q-label', '質問文未入力'), 2, question.classList.contains('stopped') ? '停止中' : '');
         }
       }

@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>使い方をAIに質問｜ケーキ屋さんの予約帳</title><link rel="stylesheet" href="assistant.css?v=20260928"><script type="module" src="assistant.js?v=f79939c39ae8cf8b"></script></head>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>使い方をAIに質問｜ケーキ屋さんの予約帳</title><link rel="stylesheet" href="assistant.css?v=20260928conversation"><script type="module" src="assistant.js?v=f7df861dd31eca3c"></script></head>
 <body><header><a href="index.html">ケーキ屋さんの予約帳 <span>使い方マニュアル</span></a><a href="../admin/">管理画面へ</a></header>
 <main><div class="heading"><p class="eyebrow">使い方のお手伝い</p><h1>使い方をAIに質問</h1><p>「どこで設定するの？」を、マニュアルをもとにご案内します。</p></div>
 <section class="notice"><strong>Standard版の操作をご案内します</strong><p>予約や設定の変更は行いません。回答には間違いが含まれる場合があるため、参照ページもご確認ください。</p></section>
@@ -7,6 +7,6 @@
 <section id="chat" hidden aria-label="使い方の質問"><div class="chat-tools"><span id="remaining"></span><button id="clear" type="button">会話をクリア</button></div>
 <div id="messages" role="log" aria-live="polite" aria-label="会話"></div>
 <div class="examples"><p>例えば、こんな質問</p><button type="button" data-question="果物の選択肢を作るには？">果物の選択肢を作りたい</button><button type="button" data-question="クリスマスだけ受け付ける商品を作るには？">クリスマスの受付を設定したい</button><button type="button" data-question="確認メールが届かないときは？">メールが届かないとき</button></div>
-<form id="question-form"><label for="question">知りたいこと</label><textarea id="question" rows="3" maxlength="1000" required placeholder="例：プレート不要の人には、文字の入力欄を出さないようにしたい"></textarea><p class="privacy">入力した質問と直近の質問2件をOpenAIへ送信します。お客様の名前・連絡先・パスワードは入力しないでください。会話はこのページを閉じると消えます。</p><div class="send-row"><span id="count">0 / 1,000文字</span><button type="submit" id="send">質問する</button></div></form>
+<form id="question-form"><label for="question">知りたいこと</label><textarea id="question" rows="3" maxlength="1000" required placeholder="例：プレート不要の人には、文字の入力欄を出さないようにしたい"></textarea><p class="privacy">入力した質問と直近の会話（最大3往復）をOpenAIへ送信します。お客様の名前・連絡先・パスワードは入力しないでください。会話はこのページを閉じると消えます。</p><div class="send-row"><span id="count">0 / 1,000文字</span><button type="submit" id="send">質問する</button></div></form>
 <p id="feedback" role="status" aria-live="polite"></p></section>
 <footer><a href="index.html">マニュアルで探す</a><a href="../admin/index.html?tab=support">サポートへ問い合わせる</a><p>AIヘルプには店舗ごとの回数上限があります。休止中もマニュアルは利用できます。</p></footer></main></body></html>

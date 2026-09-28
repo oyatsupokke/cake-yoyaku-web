@@ -16,10 +16,11 @@
   const toggle = document.createElement('button');
   toggle.type = 'button'; toggle.className = 'nav-collapse';
   toggle.setAttribute('aria-controls','admin-tabs');
-  nav.prepend(toggle);
+  nav.after(toggle);
+  toggle.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h12M3 12h9M3 19h12"/><path class="nav-chevron" d="m21 6-6 6 6 6"/></svg>';
   const paint = () => {
     const collapsed = document.body.classList.contains('nav-collapsed');
-    toggle.textContent = collapsed ? '»' : '« メニューを畳む';
+    toggle.querySelector('.nav-chevron').setAttribute('d', collapsed ? 'm16 6 6 6-6 6' : 'm21 6-6 6 6 6');
     toggle.title = collapsed ? 'メニューを広げる' : 'メニューを畳む';
     toggle.setAttribute('aria-label',toggle.title);
     toggle.setAttribute('aria-expanded',String(!collapsed));

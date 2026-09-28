@@ -1,4 +1,4 @@
-import {config} from './assistant-config.js?v=bef5e5316015f031';
+import {config} from './assistant-config.js?v=f79939c39ae8cf8b';
 const $=id=>document.getElementById(id);let session=null,busy=false,previous=[],generation=0;
 function stored(){try{return JSON.parse(localStorage.getItem('pokke_admin_session'));}catch{return null;}}
 function updateCount(){ $('count').textContent=`${$('question').value.length} / 1,000文字`; }

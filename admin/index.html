@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790561759">
-<link rel="stylesheet" href="admin.css?v=1790561759">
-<link rel="stylesheet" href="admin-layout.css?v=1790561759">
-<link rel="stylesheet" href="support.css?v=1790561759">
+<link rel="stylesheet" href="../styles.css?v=1790563709">
+<link rel="stylesheet" href="admin.css?v=1790563709">
+<link rel="stylesheet" href="admin-layout.css?v=1790563709">
+<link rel="stylesheet" href="support.css?v=1790563709">
 </head>
 <body>
 <div id="app" class="admin">
@@ -53,11 +53,11 @@
       <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
       <button type="button" class="tab selected" data-tab="pickup">予約・製造</button>
       <button type="button" class="tab" data-tab="reports">集計・CSV</button>
-      <button type="button" class="tab" data-tab="settings">設定</button>
+      <button type="button" class="tab" data-tab="settings">予約設定</button>
       <a class="tab tab-link" href="./products.html">商品</a>
       <a class="tab tab-link" href="./menu-sheets.html">メニュー表</a>
       <button type="button" class="tab" data-tab="design">デザイン</button>
-      <button type="button" class="tab" data-tab="account">アカウント</button>
+      <button type="button" class="tab" data-tab="account">アカウント・店舗情報</button>
       <button type="button" class="tab" data-tab="billing">ご契約・お支払い</button>
       <button type="button" class="tab" data-tab="support">サポート</button>
       <!-- 画面切替ではなく操作：お客様フォームを代行モードで開く（旧「📞 電話予約を登録」。まりほ指示 2026-09-03でメニューへ移動・改名） -->
@@ -142,10 +142,11 @@
     <!-- 設定（並びの考え方：前半=お店の受け方のルール／後半=お客様に見えるもの。
          商品ごとのこと（締切・公開・上限）はここに置かず商品ページに集約 -->
     <section id="tab-settings" class="hidden">
+      <h2>予約設定</h2>
       <nav class="settings-jumps" aria-label="設定項目へ移動">
         <span class="settings-jumps-label">どこを設定しますか？</span>
         <div class="settings-jumps-links">
-          <a href="#settings-shop">店舗情報</a>
+          <a href="#settings-shop">予約通知・定休日</a>
           <a href="#settings-deadline">締切・上限</a>
           <a href="#settings-pickup">受取日時</a>
           <a href="#settings-customer">お客様設定</a>
@@ -154,10 +155,7 @@
         </div>
       </nav>
       <div class="confirm-box settings-anchor" id="settings-shop">
-        <h3>店舗の基本情報</h3>
-        <label class="field">店名
-          <input type="text" id="t-name">
-        </label>
+        <h3>予約通知・定休日</h3>
         <label class="field">予約通知先メールアドレス<button type="button" class="tip" data-tip="予約・変更・キャンセルのお知らせが届くメールアドレスです。">？</button>
           <input type="email" id="t-email">
         </label>
@@ -371,7 +369,26 @@
     </section>
 
     <section id="tab-account" class="hidden">
-      <h2>アカウント</h2>
+      <h2>アカウント・店舗情報</h2>
+      <div class="confirm-box">
+        <h3>店舗情報</h3>
+        <label class="field">店名
+          <input type="text" id="t-name">
+        </label>
+        <p class="small">店名はお客様の予約画面に表示されます。</p>
+        <label class="field">店舗の電話番号<input type="tel" id="t-shop-phone" autocomplete="tel" maxlength="40"></label>
+        <label class="field">店舗の所在地<textarea id="t-shop-address" autocomplete="street-address" maxlength="500" rows="2"></textarea></label>
+        <p class="small">ここに登録した電話番号・所在地は自動では公開されません。お客様への公開内容は「予約設定」の「特定商取引法に基づく表記」で設定できます。</p>
+      </div>
+      <div class="confirm-box">
+        <h3>ご登録者情報 <small>（お客様には非公開）</small></h3>
+        <p class="small">このサービスの運営から、ご利用について連絡するときの情報です。予約のお知らせの送信先は「予約設定」で設定できます。</p>
+        <label class="field">担当者名<input type="text" id="t-registrant-name" autocomplete="name" maxlength="100"></label>
+        <label class="field">運営からの連絡先メールアドレス<input type="email" id="t-registrant-email" autocomplete="email" maxlength="254"></label>
+        <label class="field">電話番号</label>
+        <label class="radio-line"><input type="checkbox" id="t-registrant-same">店舗と同じ電話番号を使う</label>
+        <input type="tel" id="t-registrant-phone" aria-label="ご登録者の電話番号" autocomplete="tel" maxlength="40">
+      </div>
       <div class="confirm-box">
         <h3>ログイン情報</h3>
         <p class="small">ログインに使うメールアドレスです。お客様への連絡先とは別に管理されます。</p>
@@ -485,13 +502,13 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790561759"></script>
-<script src="edit-drafts.js?v=1790561759"></script>
-<script src="report-core.js?v=1790561759"></script>
-<script src="line-settings.js?v=1790561759"></script>
-<script src="admin.js?v=1790561759"></script>
-<script src="reports.js?v=1790561759"></script>
-<script src="support.js?v=1790561759"></script>
-<script src="navigation.js?v=1790561759"></script>
+<script src="tips.js?v=1790563709"></script>
+<script src="edit-drafts.js?v=1790563709"></script>
+<script src="report-core.js?v=1790563709"></script>
+<script src="line-settings.js?v=1790563709"></script>
+<script src="admin.js?v=1790563709"></script>
+<script src="reports.js?v=1790563709"></script>
+<script src="support.js?v=1790563709"></script>
+<script src="navigation.js?v=1790563709"></script>
 </body>
 </html>

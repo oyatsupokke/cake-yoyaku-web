@@ -592,6 +592,13 @@ async function saveAll() {
   state.saving = true;
   btn.disabled = true;
   btn.textContent = "保存中…";
+  for (const id of ["t-name", "t-registrant-email", "t-email"]) {
+    const input = $(id);
+    if ((id === "t-name" && !input.value.trim()) || !input.checkValidity()) {
+      document.querySelector(`.tab[data-tab="${id === "t-email" ? "settings" : "account"}"]`).click();
+      input.focus(); input.reportValidity(); toast("店名・メールアドレスの入力を確認してください"); return;
+    }
+  }
   try {
     for (const c of changes) {
       await saveChange(c);
@@ -869,12 +876,28 @@ async function loadTenantForm() {
   $("t-name").value = t.name || "";
   $("t-email").value = t.contact_email || "";
   $("t-cutoff").value = (t.order_cutoff_time || "21:00").slice(0, 5);
+function syncRegistrationPhone() {
+  const same = $("t-registrant-same").checked;
+  $("t-registrant-phone").disabled = same;
+  $("t-registrant-phone").hidden = same;
+}
+for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same"]) {
+  $(id).addEventListener(id === "t-registrant-same" ? "change" : "input", () => { syncRegistrationPhone(); markDirty(); });
+}
   $("t-deadline").value = t.default_deadline_days ?? 3;
   const windowMax = t.reservation_plan === "lite" ? 30 : 90;
   $("t-booking-window").max = windowMax;
   $("t-booking-window").value = t.booking_window_days ?? windowMax;
   $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
+  $("t-shop-phone").value = t.phone || "";
+  $("t-shop-address").value = t.address || "";
+  const contact = t.registration_contact || {};
+  $("t-registrant-name").value = contact.name || "";
+  $("t-registrant-email").value = contact.email || "";
+  $("t-registrant-same").checked = !!contact.same_as_shop;
+  $("t-registrant-phone").value = contact.phone || "";
+  syncRegistrationPhone();
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
   $("t-preview-note").value = t.preview_note || "";
   $("t-cancel").value = t.cancel_policy || "";
@@ -935,6 +958,13 @@ async function loadTenantForm() {
   regField("tenants", T, "preview_note", $("t-preview-note"),
     { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
   regField("tenants", T, "cancel_policy", $("t-cancel"));
+  regField("tenants", T, "phone", $("t-shop-phone"));
+  regField("tenants", T, "address", $("t-shop-address"));
+  regField("tenants", T, "registration_contact", $("t-registrant-name"), { get: () => ({
+    name: $("t-registrant-name").value.trim(), email: $("t-registrant-email").value.trim(),
+    same_as_shop: $("t-registrant-same").checked,
+    phone: $("t-registrant-same").checked ? null : $("t-registrant-phone").value.trim()
+  }) });
   regField("tenants", T, "customer_form", $("t-addr-enabled"), {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,
                              required: $("t-addr-enabled").checked && $("t-addr-required").checked } }),
@@ -1187,7 +1217,7 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("tab-account").classList.toggle("hidden", state.tab !== "account");
     $("tab-billing").classList.toggle("hidden", state.tab !== "billing");
     if (state.tab === "account") openAccount();
-    const editing = state.tab === "settings" || state.tab === "design";
+    const editing = ["settings", "design", "account"].includes(state.tab);
     $("date-nav").classList.toggle("hidden", editing || ["reports", "support", "account", "billing"].includes(state.tab));
     // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
     $("save-bar").classList.toggle("hidden", !editing);

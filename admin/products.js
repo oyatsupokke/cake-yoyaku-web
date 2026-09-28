@@ -1765,6 +1765,11 @@ function buildGroupBox(p, g) {
     box.querySelector(".pv-name").textContent = view.name || "（グループ名）";
     box.querySelector(".gh-delete-name").textContent = view.name || "（グループ名）";
     box.querySelector(".pv-req").classList.toggle("hidden", !view.required);
+    let capacity=box.querySelector('.pv-meringue-capacity');
+    if(state.tenantSubdomain==='pokke' && view.opts.some(o=>['わんこメレンゲ','うさぎメレンゲ','くまメレンゲ'].includes(o.name))){
+      if(!capacity){capacity=document.createElement('p');capacity.className='desc pv-meringue-capacity';box.querySelector('.pv-desc').after(capacity);}
+      capacity.textContent='メレンゲは合計4個まで。ナンバークッキー大・カレンダー使用時に載せる動物は合計2個まで（別添えは除く）。';
+    }
     const d = box.querySelector(".pv-desc");
     d.textContent = view.desc; d.classList.toggle("hidden", !view.desc.trim());
     const n = box.querySelector(".pv-note");

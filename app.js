@@ -547,40 +547,42 @@ function sanitizeDetachedToppingNames() {
   setDetachedToppingNames([...detachedToppingNames()].filter(name=>valid.has(name)));
 }
 function optionIsDetached(name) { return detachedToppingNames().has(name); }
+const MERINGUE_NAMES = new Set(["わんこメレンゲ", "うさぎメレンゲ", "くまメレンゲ"]);
+function selectedMeringueCount() {
+  return [...state.sel.options].reduce((sum,[id,v]) => sum + (MERINGUE_NAMES.has(optName(findOption(id)?.o || {})) ? Number(v.qty || 1) : 0),0);
+}
 function selectedAnimalToppingCount() {
-  return [...state.sel.options.keys()].filter((id) => {
+  return [...state.sel.options].reduce((sum,[id,v]) => {
     const name=optName(findOption(id)?.o || {});
-    return ANIMAL_TOPPING_NAMES.has(name) && !optionIsDetached(name);
-  }).length;
+    return sum + (ANIMAL_TOPPING_NAMES.has(name) && !optionIsDetached(name) ? Number(v.qty || 1) : 0);
+  },0);
 }
 function toppingCapacityError() {
   if(CONFIG.shop!=="pokke")return "";
+  if(selectedMeringueCount()>4)return "メレンゲは種類を合わせて合計4個までです";
   const names=[...state.sel.options.keys()].map(id=>optName(findOption(id)?.o||{}));
   const largeOnCake=names.includes("ナンバークッキー大")&&!optionIsDetached("ナンバークッキー大");
   const calendarOnCake=names.some(name=>CALENDAR_OPTION_NAMES.has(name));
   if(calendarOnCake&&selectedAnimalToppingCount()>2)
-    return "カレンダーケーキの側面に付けられる動物トッピングは2匹までです";
+    return "カレンダーケーキの側面に付けられる動物トッピングは合計2個までです";
   return largeOnCake&&selectedAnimalToppingCount()>2
-    ? "ナンバークッキー大と一緒に載せる動物トッピングは2匹までにしてください" : "";
+    ? "ナンバークッキー大と一緒に載せる動物トッピングは合計2個までです" : "";
 }
-// oyatsupokkeの実物サイズ上限：ナンバー大を載せる場合、動物は12/15/18cm共通で2匹まで。
-// 個別に別添えにしたものはケーキ上の面積を使わないため、載せる分だけを数える。
+function toppingQuantityConflict(o, quantity) {
+  if(CONFIG.shop!=="pokke")return "";
+  const previous = state.sel.options;
+  state.sel.options = new Map(previous);
+  state.sel.options.set(o.id,{...previous.get(o.id),qty:quantity});
+  try { return toppingCapacityError(); } finally { state.sel.options=previous; }
+}
 function toppingCapacityConflict(o) {
-  if (CONFIG.shop !== "pokke" || state.sel.options.has(o.id)) return "";
-  const name = optName(o);
-  const largeSelected = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナンバークッキー大")
-    && !optionIsDetached("ナンバークッキー大");
-  const calendarSelected = [...state.sel.options.keys()].some((id) => CALENDAR_OPTION_NAMES.has(optName(findOption(id)?.o || {})));
-  const animals = selectedAnimalToppingCount();
-  if (name === "ナンバークッキー大" && animals > 2)
-    return "動物トッピングを2匹までにすると選べます";
-  if (CALENDAR_OPTION_NAMES.has(name) && animals > 2)
-    return "動物トッピングを2匹までにすると選べます";
-  if (ANIMAL_TOPPING_NAMES.has(name) && calendarSelected && animals >= 2)
-    return "カレンダーケーキの側面に付けられる動物は2匹までです";
-  if (ANIMAL_TOPPING_NAMES.has(name) && largeSelected && animals >= 2)
-    return "ナンバークッキー大と一緒に載せられる動物は2匹までです";
-  return "";
+  return state.sel.options.has(o.id) ? "" : toppingQuantityConflict(o,1);
+}
+function meringueCapacityGuide(g) {
+  if(CONFIG.shop!=="pokke" || !g.options.some(o=>MERINGUE_NAMES.has(optName(o))))return "";
+  const names=[...state.sel.options.keys()].map(id=>optName(findOption(id)?.o||{}));
+  const limited=names.some(name=>CALENDAR_OPTION_NAMES.has(name)) || (names.includes("ナンバークッキー大")&&!optionIsDetached("ナンバークッキー大"));
+  return `<p class="group-desc">メレンゲは合計4個まで・現在${selectedMeringueCount()}個${limited ? `（ケーキに載せる動物は合計2個まで・現在${selectedAnimalToppingCount()}個）` : ""}</p>`;
 }
 // 「なし」を含む必須1択は、ほかの選択で現在値が外れたときも未選択にしない。
 // 現在は oyatsupokke の「フルーツの飾り方」で使用する。
@@ -1109,7 +1111,12 @@ function dynamicLargeNumberSelected() {
     && numberCookieHasPreviewDigits('ナンバークッキー大');
 }
 
-function animalToppingIsBack(name, productName) {
+function animalToppingIsBack(name, productName, copy = 0) {
+  if(copy){
+    const position=animalToppingPlacement(name,copy);
+    const slot=Object.entries(currentAnimalToppingLayout()).find(([,value])=>value===position);
+    if(slot)name=slot[0];
+  }
   // 丸ケーキと、タルト・バスクでは奥側に置く動物が異なる。
   // タルトのねこは手前左に置くため、プレートより前へ重ねる。
   if (productName === "フルーツタルト") return name === "わんこメレンゲ";
@@ -1118,27 +1125,35 @@ function animalToppingIsBack(name, productName) {
   return BACK_ANIMAL_TOPPING_NAMES.has(name);
 }
 
-function animalToppingPlacement(name) {
+function selectedAnimalQuantity(name) {
+  return [...state.sel.options].reduce((n,[id,v])=>n+(optName(findOption(id)?.o||{})===name ? Number(v.qty||1):0),0);
+}
+function animalToppingPlacement(name, copy = 0) {
   if(selectedCalendarOption()){
-    const index=selectedAnimalToppingNames().indexOf(name);
+    const index=selectedAnimalToppingNames().slice(0,selectedAnimalToppingNames().indexOf(name)).reduce((n,x)=>n+selectedAnimalQuantity(x),0)+copy;
     // カレンダーの文字面を空け、選んだ順に左側面→右側面へ配置する。
     return [{cx:250,cy:665,h:205},{cx:520,cy:675,h:205}][index] || null;
   }
   if(dynamicLargeNumberSelected()){
-    const index=selectedAnimalToppingNames().indexOf(name);
+    const index=selectedAnimalToppingNames().slice(0,selectedAnimalToppingNames().indexOf(name)).reduce((n,x)=>n+selectedAnimalQuantity(x),0)+copy;
     const slots=state.sel.product?.name==='バスクチーズケーキ'
       ? [{cx:585,cy:205,h:180},{cx:250,cy:395,h:175}]
       : [{cx:165,cy:405,h:205},{cx:635,cy:405,h:195}];
     return slots[index] || null;
   }
-  return currentAnimalToppingLayout()[name];
+  const layout=currentAnimalToppingLayout();
+  if(!copy)return layout[name];
+  const names=selectedAnimalToppingNames();
+  const unused=Object.keys(layout).filter(x=>!names.includes(x));
+  const offset=names.slice(0,names.indexOf(name)).reduce((n,x)=>n+Math.max(0,selectedAnimalQuantity(x)-1),0)+copy-1;
+  return layout[unused[offset]] || {cx:120+offset*140,cy:550,h:140};
 }
 
 function drawAnimalToppingLayers(ctx, entries) {
   if (!entries.length) return;
   entries.forEach(({img,layer}) => {
     const b = imageAlphaBounds(img, layer.url);
-    const layout = animalToppingPlacement(layer.animalTopping);
+    const layout = animalToppingPlacement(layer.animalTopping,layer.animalCopy || 0);
     if (!layout) return;
     const {cx,cy,h} = layout;
     const w = h * b.w / b.h;
@@ -1447,8 +1462,9 @@ function currentLayers() {
             :null;
           const messagePlateText=ownPreview&&name==="クッキープレート"?currentOptionMessage(o):null;
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
-          layers.push({
-            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name)?64:70):(o.layer_z ?? 50), tint,
+          for(let animalCopy=0;animalCopy<(animalName ? state.sel.options.get(o.id).qty : 1);animalCopy++) layers.push({
+            animalCopy,
+            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name,animalCopy)?64:70):(o.layer_z ?? 50), tint,
             creamOnlyTint: !!linkedQ && ["フルーツ1周", "フルーツ盛り"].includes(name),
             animalTopping: animalName,
             dynamicLargeAnimal,
@@ -1527,7 +1543,7 @@ async function updatePreview() {
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
       if(layers[i].animalTopping){
         if(layers[i].dynamicLargeAnimal)dynamicLargeAnimalEntries.push({img,layer:layers[i]});
-        else if(animalToppingIsBack(layers[i].animalTopping,state.sel.product?.name))
+        else if(animalToppingIsBack(layers[i].animalTopping,state.sel.product?.name,layers[i].animalCopy || 0))
           drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
         else frontAnimalEntries.push({img,layer:layers[i]});
         continue;
@@ -1761,7 +1777,7 @@ function renderGroups() {
     box.className = "group";
     box.dataset.questionKey = `group:${g.id}`;
     box.innerHTML = `<h3>${esc(g.name)}${g.is_required ? '<span class="req">必須</span>' : ""}</h3><div class="group-guide">` +
-      (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") +
+      (g.description ? `<p class="group-desc">${esc(g.description)}</p>` : "") + meringueCapacityGuide(g) +
       (g.selection_type !== "single" && g.max_select != null ? `<p class="group-desc">${g.max_select}種類まで選べます</p>` : "") +
       (CONFIG.shop === "pokke" && g.name === "メレンゲ・クッキートッピング" && g.options.some((o) =>
         state.sel.options.has(o.id) && PREVIEW_POSITION_NOTICE_NAMES.has(optName(o)))
@@ -1788,12 +1804,13 @@ function renderGroups() {
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
       const maxQty = optionMaxQuantity(o);
+      const quantityUnit = MERINGUE_NAMES.has(optName(o)) ? "個" : "枚";
       const price = o.requires_review ? `${optionPrice(o) ? '+'+yen(optionPrice(o))+'・' : ''}別途見積もり` : optionPrice(o) ? `+${yen(optionPrice(o))}` : "無料";
       // 枚数はステッパー（−/＋）で。数字入力欄だけだと枚数と気づけない（まりほ指摘 2026-08-24）
       const qtyUi = maxQty > 1 && selected
-        ? `<span class="qty-stepper" role="group" aria-label="枚数">
+        ? `<span class="qty-stepper" role="group" aria-label="個数">
              <button type="button" class="qty-btn qty-minus" aria-label="減らす">−</button>
-             <span class="qty-count">${esc(sel.qty)}<small>枚</small></span>
+             <span class="qty-count">${esc(sel.qty)}<small>${quantityUnit}</small></span>
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
@@ -1827,21 +1844,18 @@ function renderGroups() {
       const stepper = row.querySelector(".qty-stepper");
       if (stepper) {
         stepper.onclick = (e) => e.stopPropagation();
-        const countEl = stepper.querySelector(".qty-count");
         const step = (delta) => {
           const cur = state.sel.options.get(o.id).qty;
           const v = Math.max(1, Math.min(maxQty, cur + delta));
+          const error=delta>0 ? toppingQuantityConflict(o,v) : "";
+          if(error){toast(error);return;}
           state.sel.options.get(o.id).qty = v;
-          countEl.innerHTML = `${v}<small>枚</small>`;
-          stepper.querySelector(".qty-minus").disabled = v <= 1;
-          stepper.querySelector(".qty-plus").disabled = v >= maxQty;
-          updatePriceBar();
-          updatePreview();
+          renderGroups();updatePriceBar();updatePreview();saveState();
         };
-        stepper.querySelector(".qty-minus").onclick = (e) => { e.stopPropagation(); step(-1); };
-        stepper.querySelector(".qty-plus").onclick = (e) => { e.stopPropagation(); step(1); };
+        stepper.querySelector(".qty-minus").onclick = (e) => { e.preventDefault();e.stopPropagation(); step(-1); };
+        stepper.querySelector(".qty-plus").onclick = (e) => { e.preventDefault();e.stopPropagation(); step(1); };
         stepper.querySelector(".qty-minus").disabled = sel.qty <= 1;
-        stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty;
+        stepper.querySelector(".qty-plus").disabled = sel.qty >= maxQty || !!toppingQuantityConflict(o,sel.qty+1);
       }
       box.appendChild(row);
       const optionPastelLink=buildOptionPastelLink(o);

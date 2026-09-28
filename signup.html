@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>新規登録｜ケーキ予約システム</title>
-<link rel="stylesheet" href="styles.css?v=1790563709">
-<link rel="stylesheet" href="signup.css?v=1790563709">
+<link rel="stylesheet" href="styles.css?v=1790575444">
+<link rel="stylesheet" href="signup.css?v=1790575444">
 </head>
 <body>
 <div id="app">
@@ -24,7 +24,8 @@
   <main id="view-account" class="hidden">
     <div class="confirm-box">
       <h3>お店の情報</h3>
-      <label class="field">店名 <span class="req">必須</span>
+      <label class="field">プラン<select id="s-plan"><option value="standard">Standard（月額4,980円）</option><option value="lite">Lite（月額1,980円・月50台まで）</option></select><small>カード不要で７日間、設定とテスト予約を試せます。Liteは期間内申込で最初の３か月1,480円。</small></label>
+        <label class="field">店名 <span class="req">必須</span>
         <input type="text" id="s-name" placeholder="例）oyatsupokke" autocomplete="organization">
       </label>
       <label class="field">店舗ID（予約ページのURLになります） <span class="req">必須</span>
@@ -34,7 +35,7 @@
       <p class="small" id="subdomain-hint">お客様がアクセスするURL：<code>…?shop=<span id="subdomain-echo">○○○</span></code></p>
       <p class="small hidden" id="subdomain-status"></p>
       <label class="field">住所 <span class="req">必須</span>
-        <input type="text" id="s-address" placeholder="例）愛知県刈谷市○○町1-2-3" autocomplete="street-address">
+        <input type="text" id="s-address" placeholder="都道府県・市区町村・番地・建物名" autocomplete="street-address">
       </label>
       <label class="field">電話番号
         <input type="tel" id="s-phone" placeholder="例）0566-00-0000" autocomplete="tel">
@@ -62,7 +63,7 @@
 
     <div class="trial-note">
       <p><strong>ご利用の流れ</strong></p>
-      <p><strong>カード登録なしで7日間</strong>、お店の設定とテスト予約をお試しいただけます。お試し中はお客様からの本予約を受け付けません。有料契約のお申し込み・決済が完了すると、月額<strong>4,980円（税込）</strong>の課金と本予約の受付が始まります。契約せず期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p>
+      <p><strong>カード登録なしで7日間</strong>、お店の設定とテスト予約をお試しいただけます。お試し中はお客様からの本予約を受け付けません。有料契約のお申し込み・決済が完了すると、選んだプラン（Liteは月額1,980円、Standardは月額4,980円・税込）の課金と本予約の受付が始まります。契約せず期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p>
     </div>
 
     <button type="button" class="btn-primary btn-wide" id="btn-signup">カード登録なしで始める</button>
@@ -81,8 +82,8 @@
   <main id="view-billing" class="hidden">
     <div class="confirm-box center">
       <h3>お支払い登録がまだ完了していません</h3>
-      <p>有料契約の決済が完了すると、月額4,980円（税込）の課金と本予約の受付が始まります。</p>
-      <button type="button" class="btn-primary btn-wide" id="btn-checkout">有料契約へ進む（月額4,980円）</button>
+      <p>有料契約の決済完了から、選択したプランの課金と本予約の受付が始まります。料金と割引は、お支払い画面で確認できます。</p>
+      <button type="button" class="btn-primary btn-wide" id="btn-checkout">有料契約へ進む</button>
       <p id="billing-error" class="error hidden"></p>
     </div>
   </main>
@@ -111,6 +112,6 @@
   </footer>
 </div>
 <div id="toast" class="hidden"></div>
-<script src="signup.js?v=1790563709"></script>
+<script src="signup.js?v=1790575444"></script>
 </body>
 </html>

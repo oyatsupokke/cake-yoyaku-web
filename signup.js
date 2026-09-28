@@ -53,7 +53,7 @@ async function authFetch(path, body, query = "") {
 }
 
 async function rpcSignupTenant(info) {
-  const res = await fetch(`${CONFIG.url}/rest/v1/rpc/fn_signup_tenant`, {
+  const res = await fetch(`${CONFIG.url}/rest/v1/rpc/fn_signup_tenant_plan`, {
     method: "POST",
     headers: {
       apikey: CONFIG.anonKey,
@@ -62,7 +62,7 @@ async function rpcSignupTenant(info) {
     },
     body: JSON.stringify({
       p_name: info.name, p_subdomain: info.subdomain,
-      p_address: info.address, p_phone: info.phone || null,
+      p_address: info.address, p_phone: info.phone || null, p_plan: info.plan || "standard",
     }),
   });
   const json = await res.json().catch(() => ({}));
@@ -110,6 +110,7 @@ async function checkSubdomain() {
 /* ---------- 登録本体 ---------- */
 function collectForm() {
   return {
+    plan: $("s-plan").value,
     name: $("s-name").value.trim(),
     subdomain: $("s-subdomain").value.trim().toLowerCase(),
     address: $("s-address").value.trim(),
@@ -186,6 +187,7 @@ async function resumeFromEmailConfirm() {
     location.href = "admin/";
   } catch (e) {
     registrationAuthenticated = true;
+    $("s-plan").value = pending.plan || "standard";
     for (const field of ["name", "subdomain", "address", "phone"]) $("s-" + field).value = pending[field] || "";
     $("s-email").closest(".confirm-box").classList.add("hidden");
     $("s-agree").checked = true;
@@ -218,3 +220,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   else if (step === "billing") show("billing");
   else show("account");
 });
+
+if (new URLSearchParams(location.search).get("plan") === "lite") $("s-plan").value="lite";

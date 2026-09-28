@@ -657,6 +657,14 @@ function renderEditor() {
   $("product-visual-editor").classList.toggle("hidden", !p);
   document.dispatchEvent(new Event("product-editor-rendered"));
   if (!p) return;
+  const lite = state.tenant?.reservation_plan === 'lite';
+  for (const id of ['p-deadline','p-cap-daily']) $(id).closest('.field').classList.toggle('hidden',lite);
+  const saleCard = $('p-sale-start').closest('.confirm-box');
+  if (saleCard) saleCard.classList.toggle("hidden",lite);
+  $('product-visual-editor').classList.toggle('hidden',lite);
+  (lite ? $('editor') : $('product-visual-editor')).appendChild($('btn-p-delete').closest('.product-delete-action'));
+  for (const option of $('g-type').options) option.hidden = lite && !['select','text','textarea'].includes(option.value);
+  if (lite && !['select','text','textarea'].includes($('g-type').value)) $('g-type').value='select';
 
   $("p-name").value = p.name;
   $("p-desc").value = p.description || "";
@@ -1535,6 +1543,7 @@ function renderPreviewLayerSettings(p) {
 
 function renderGroups(p) {
   if (!p) return;
+  if (state.tenant?.reservation_plan === 'lite') return renderLiteQuestions(p);
   drafts.capture(state.fields);
   p = drafts.overlay("products",p);
   const wrap = $("groups-list"), other = $("questions-list");
@@ -1565,6 +1574,52 @@ function renderGroups(p) {
   regField("products", p.id, "question_order", order, {get:() => JSON.parse(order.value)});
   addOrderControls(wrap, items, "questions", ids => { order.value = JSON.stringify(ids); }, false);
   if (!items.length) wrap.insertAdjacentHTML("afterbegin", '<p class="small">このケーキの質問はまだありません。</p>');
+}
+
+function renderLiteQuestions(p) {
+  drafts.capture(state.fields);
+  const wrap=$('groups-list'), other=$('questions-list');
+  state.fields=state.fields.filter(f=>!wrap.contains(f.el)&&!other.contains(f.el));
+  wrap.replaceChildren(); other.replaceChildren(); $('other-questions').hidden=true;
+  const qs=drafts.overlay('common_questions',state.questions).filter(q=>q.scope==='all'||(q.common_question_products||[]).some(x=>x.product_id===p.id));
+  const standard=document.createElement('div'); standard.className='q';
+  const plate=qs.find(q=>q.lite_standard_kind==='plate'), candles=qs.find(q=>q.lite_standard_kind==='candles');
+  const max=candles?.is_active ? Math.max(0,...candles.common_question_choices.filter(c=>c.is_available).map(c=>parseInt(c.label)||0)) : 0;
+  standard.innerHTML=`<h4>標準の質問</h4><label><input class="lite-plate" type="checkbox" ${plate?.is_active?'checked':''}>プレートの文字を聞く</label>
+    <label class="field">無料ろうそくの上限（0本で非表示）<input class="lite-candles" type="number" min="0" max="30" value="${max}"></label>
+    <button type="button" class="pill lite-standard-save">標準の質問を保存</button><p class="small">備考も表示します。標準の質問は追加質問３つに含みません。</p>`;
+  standard.querySelector('button').onclick=async(e)=>{e.currentTarget.disabled=true;try{
+    const n=Number(standard.querySelector('.lite-candles').value);
+    if(!Number.isInteger(n)||n<0||n>30) throw new Error('無料ろうそくは0〜30本で設定してください');
+    await api('POST','/rest/v1/rpc/fn_lite_standard_questions',{p_product:p.id,p_plate:standard.querySelector('.lite-plate').checked,p_candles:n,p_notes:true});
+    toast('標準の質問を保存しました');await reloadAll();
+  }catch(err){toast(err.message);e.target.disabled=false;}};
+  wrap.appendChild(standard);
+  const additional=qs.filter(q=>!q.lite_standard_kind);
+  $('btn-g-add').disabled=additional.length>=3;
+  const count=document.createElement('p');count.textContent=`追加質問 ${additional.length}／３つ（無料）`;wrap.appendChild(count);
+  for(const q of additional){
+    const box=document.createElement('div');box.className='q';
+    box.innerHTML=`<label class="field">質問文<input class="lite-label" value="${esc(q.label)}"></label>
+      <label>回答方法<select class="lite-type">${[['text','文字入力（1行）'],['textarea','文字入力（複数行）'],['select','選択式']].map(([v,l])=>`<option value="${v}" ${q.input_type===v?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label><input class="lite-required" type="checkbox" ${q.is_required?'checked':''}>必須</label>
+      <div class="lite-choices"></div><button type="button" class="pill lite-choice-add">選択肢を追加</button>
+      <button type="button" class="pill danger lite-question-delete">質問を削除</button>`;
+    regField('common_questions',q.id,'label',box.querySelector('.lite-label'));
+    regField('common_questions',q.id,'input_type',box.querySelector('.lite-type'));
+    regField('common_questions',q.id,'is_required',box.querySelector('.lite-required'));
+    const choices=box.querySelector('.lite-choices'),add=box.querySelector('.lite-choice-add');
+    const updateVisibility=()=>{choices.hidden=add.hidden=box.querySelector('.lite-type').value!=='select';};
+    box.querySelector('.lite-type').addEventListener('change',updateVisibility);updateVisibility();
+    for(const c of drafts.overlay('common_question_choices',qChoices(q))){
+      const row=document.createElement('label');row.className='field';row.innerHTML=`選択肢<input value="${esc(c.label)}"><span><input type="checkbox" ${c.is_available?'checked':''}>表示する</span>`;
+      regField('common_question_choices',c.id,'label',row.querySelector('input'));
+      regField('common_question_choices',c.id,'is_available',row.querySelector('[type=checkbox]'));choices.appendChild(row);
+    }
+    add.onclick=async()=>{try{await api('POST','/rest/v1/common_question_choices',[{tenant_id:state.tenantId,question_id:q.id,label:'新しい選択肢',price_delta:0,display_order:qChoices(q).length}]);await reloadAll();}catch(e){toast(e.message);}};
+    box.querySelector('.lite-question-delete').onclick=async()=>{try{await api('DELETE',`/rest/v1/common_questions?id=eq.${q.id}`);await reloadAll();}catch(e){toast('予約で使われている質問は削除できません：'+e.message);}};
+    wrap.appendChild(box);
+  }
 }
 
 // Both storage formats use the same product scope and condition editor.
@@ -2383,7 +2438,7 @@ window.addEventListener("beforeunload", (e) => {
     $("view-app").classList.remove("hidden");
     // お客様画面プレビューリンク
     const [t, closedOverrides] = await Promise.all([
-      api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=id,name,subdomain,timezone,closed_weekdays,billing_status,trial_ends_at,theme,customer_form,preview_note,booking_window_days,cancel_policy,tokushoho`),
+      api("GET", `/rest/v1/tenants?id=eq.${tu[0].tenant_id}&select=id,name,subdomain,timezone,closed_weekdays,billing_status,trial_ends_at,theme,customer_form,preview_note,reservation_plan,booking_window_days,cancel_policy,tokushoho`),
       api("GET", `/rest/v1/date_overrides?tenant_id=eq.${tu[0].tenant_id}&kind=eq.closed&select=date`),
     ]);
     state.tenant = t[0];

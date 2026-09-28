@@ -239,7 +239,7 @@ async function checkAvailability() {
   availabilityTenant = tenant;
   try {
     const result = await api('GET', '/functions/v1/suggest-product');
-    if (state.tenantId === tenant) document.getElementById('btn-ai-product').hidden = result?.available !== true;
+    if (state.tenantId === tenant) document.getElementById('btn-ai-product').hidden = state.tenant?.reservation_plan === 'lite' || result?.available !== true;
   } catch { /* API接続の準備が終わるまでは入口を表示しない */ }
 }
 async function loadNotes() {

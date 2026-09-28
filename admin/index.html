@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1790563709">
-<link rel="stylesheet" href="admin.css?v=1790563709">
-<link rel="stylesheet" href="admin-layout.css?v=1790563709">
-<link rel="stylesheet" href="support.css?v=1790563709">
+<link rel="stylesheet" href="../styles.css?v=1790575444">
+<link rel="stylesheet" href="admin.css?v=1790575444">
+<link rel="stylesheet" href="admin-layout.css?v=1790575444">
+<link rel="stylesheet" href="support.css?v=1790575444">
 </head>
 <body>
 <div id="app" class="admin">
@@ -409,6 +409,23 @@
         <button type="button" class="pill hidden" id="btn-billing-page-checkout">有料契約へ進む（月額4,980円）</button>
         <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
       </div>
+      <div class="confirm-box hidden" id="billing-upgrade">
+        <h3>Standardへアップグレード</h3>
+        <p>月額4,980円（税込）。月間受付台数の上限がなくなり、最大90日先までの予約や、有料オプション・条件付き質問を利用できます。</p>
+        <p class="small">商品・予約・予約ページのURLは引き継ぎます。受付日数は現在の設定を維持し、切り替え後に変更できます。</p>
+        <p class="small">残りの契約期間の差額を決済したあと、すぐに切り替わります。次回の請求日は変わりません。Liteの初回割引は切り替え時に終了します。</p>
+        <button type="button" class="pill" id="upgrade-preview">変更料金を確認する</button>
+        <div id="upgrade-quote" class="hidden" style="margin-top:16px">
+          <p>今回のお支払い：<strong id="upgrade-amount"></strong>（税込）</p>
+          <p id="upgrade-next"></p>
+          <p id="upgrade-expiry" class="small"></p>
+          <button type="button" class="btn-primary" id="upgrade-confirm"></button>
+        </div>
+        <p id="upgrade-status" role="status" aria-live="polite"></p>
+        <a class="pill hidden" id="upgrade-payment">お支払いを完了する</a>
+        <button type="button" class="pill hidden" id="upgrade-retry">前回の切り替えを再確認する</button>
+        <button type="button" class="pill" id="upgrade-refresh">変更状況を確認する</button>
+      </div>
     </section>
 
     <section id="tab-design" class="hidden" aria-label="デザイン">
@@ -502,13 +519,14 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1790563709"></script>
-<script src="edit-drafts.js?v=1790563709"></script>
-<script src="report-core.js?v=1790563709"></script>
-<script src="line-settings.js?v=1790563709"></script>
-<script src="admin.js?v=1790563709"></script>
-<script src="reports.js?v=1790563709"></script>
-<script src="support.js?v=1790563709"></script>
-<script src="navigation.js?v=20260928help"></script>
+<script src="tips.js?v=1790575444"></script>
+<script src="edit-drafts.js?v=1790575444"></script>
+<script src="report-core.js?v=1790575444"></script>
+<script src="line-settings.js?v=1790575444"></script>
+<script src="billing-upgrade.js?v=1790575444"></script>
+<script src="admin.js?v=1790575444"></script>
+<script src="reports.js?v=1790575444"></script>
+<script src="support.js?v=1790575444"></script>
+<script src="navigation.js?v=1790575444help"></script>
 </body>
 </html>

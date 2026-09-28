@@ -133,7 +133,7 @@ async function showApp() {
   if (!tu.length) { toast("店舗が紐付いていません"); logout(); return; }
   state.tenantId = tu[0].tenant_id;
   const t = await api("GET",
-    `/rest/v1/tenants?id=eq.${state.tenantId}&select=name,subdomain,billing_status,trial_ends_at,theme`);
+    `/rest/v1/tenants?id=eq.${state.tenantId}&select=id,name,subdomain,billing_status,trial_ends_at,theme,reservation_plan,first_paid_at`);
   state.tenantName = t[0]?.name || "";
   // 管理画面の基調色は店の色（見出し・選んだタブ・保存ボタン）。無ければ admin.css の既定色
   const accent = t[0]?.theme?.accent || t[0]?.theme?.primary;
@@ -176,8 +176,15 @@ function renderBillingBanner(t) {
   if (!el || !t) return;
   const status = t.billing_status || "exempt";
   state.billingStatus = status;
+  const lite=t.reservation_plan==='lite';
+  const amount=lite?'1,980':'4,980';
+  const intro=lite&&status==='setup_trial'&&new Date(t.trial_ends_at)>new Date()&&!t.first_paid_at;
+  const priceText=intro?'最初の３か月は月額1,480円（税込）、４か月目から月額1,980円（税込）':`月額${amount}円（税込）`;
+  $('btn-billing-page-checkout').textContent=`有料契約へ（${priceText}）`;
+  renderLiteUsage(t);
+  globalThis.ReservationUpgrade?.render(t);
   const labels = { setup_trial: "カード不要のお試し中", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
-  $("billing-page-status").textContent = labels[status] || "ご契約状況を確認してください";
+  $("billing-page-status").textContent = status === "active" ? `${lite ? "Lite" : "Standard"}でご契約中` : labels[status] || "ご契約状況を確認してください";
   $("billing-page-trial").textContent = ["trialing", "setup_trial"].includes(status) && t.trial_ends_at
     ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}` : "";
   $("billing-page-help").textContent = status === "exempt"
@@ -190,13 +197,13 @@ function renderBillingBanner(t) {
   if (status === "setup_trial") {
     const expired = !t.trial_ends_at || new Date(t.trial_ends_at) <= new Date();
     $("billing-page-status").textContent = expired ? "お試し終了・休止中" : "カード不要のお試し中";
-    $("billing-page-help").textContent = "有料契約の決済完了から月額4,980円（税込）がかかり、本予約の受付を開始します。自動課金はありません。";
+    $("billing-page-help").textContent = `有料契約の決済完了から${priceText}で、本予約の受付を開始します。`;
     html = expired ? "7日間のお試しが終了しました。設定は保存されています。" : "カード不要の7日間お試し中です。本予約は受け付けません。";
     if (!expired) html += ` <a class="pill" href="../?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
-    html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（月額4,980円）</button>`;
+    html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;
   } else if (status === "none") {
     html = `⚠️ お支払い登録が未完了のため、予約フォームはまだ公開されていません。
-      <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（月額4,980円）</button>`;
+      <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;
   } else if (status === "trialing") {
     const days = t.trial_ends_at
       ? Math.max(0, Math.ceil((new Date(t.trial_ends_at) - Date.now()) / 86400000)) : null;
@@ -586,12 +593,6 @@ async function saveAll() {
   if (state.saving) return;
   const windowInput = $("t-booking-window");
   if (windowInput && !windowInput.checkValidity()) { windowInput.reportValidity(); return; }
-  const changes = collectChanges();
-  if (!changes.length) { toast("変更はありません"); return; }
-  const btn = $("btn-save-all");
-  state.saving = true;
-  btn.disabled = true;
-  btn.textContent = "保存中…";
   for (const id of ["t-name", "t-registrant-email", "t-email"]) {
     const input = $(id);
     if ((id === "t-name" && !input.value.trim()) || !input.checkValidity()) {
@@ -599,6 +600,12 @@ async function saveAll() {
       input.focus(); input.reportValidity(); toast("店名・メールアドレスの入力を確認してください"); return;
     }
   }
+  const changes = collectChanges();
+  if (!changes.length) { toast("変更はありません"); return; }
+  const btn = $("btn-save-all");
+  state.saving = true;
+  btn.disabled = true;
+  btn.textContent = "保存中…";
   try {
     for (const c of changes) {
       await saveChange(c);
@@ -870,12 +877,6 @@ function tokushohoValue() {
   return { version: 2, ...fields, text: [first.join("\n"), terms.join("\n"), after.join("\n\n")].filter(Boolean).join("\n\n") };
 }
 function tokushohoComplete() { return Object.entries(TOKUSHO_FIELDS).filter(([key]) => key !== "phone").every(([, id]) => $(id).value.trim()); }
-async function loadTenantForm() {
-  const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
-  initLineSettings(t);
-  $("t-name").value = t.name || "";
-  $("t-email").value = t.contact_email || "";
-  $("t-cutoff").value = (t.order_cutoff_time || "21:00").slice(0, 5);
 function syncRegistrationPhone() {
   const same = $("t-registrant-same").checked;
   $("t-registrant-phone").disabled = same;
@@ -884,12 +885,12 @@ function syncRegistrationPhone() {
 for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same"]) {
   $(id).addEventListener(id === "t-registrant-same" ? "change" : "input", () => { syncRegistrationPhone(); markDirty(); });
 }
-  $("t-deadline").value = t.default_deadline_days ?? 3;
-  const windowMax = t.reservation_plan === "lite" ? 30 : 90;
-  $("t-booking-window").max = windowMax;
-  $("t-booking-window").value = t.booking_window_days ?? windowMax;
-  $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
-  const mode = t.deadline_skip_closed_days ? "business" : "calendar";
+async function loadTenantForm() {
+  const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
+  $('rules-list').closest('.confirm-box').classList.toggle('hidden',t.reservation_plan==='lite');
+  initLineSettings(t);
+  $("t-name").value = t.name || "";
+  $("t-email").value = t.contact_email || "";
   $("t-shop-phone").value = t.phone || "";
   $("t-shop-address").value = t.address || "";
   const contact = t.registration_contact || {};
@@ -898,6 +899,13 @@ for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same
   $("t-registrant-same").checked = !!contact.same_as_shop;
   $("t-registrant-phone").value = contact.phone || "";
   syncRegistrationPhone();
+  $("t-cutoff").value = (t.order_cutoff_time || "21:00").slice(0, 5);
+  $("t-deadline").value = t.default_deadline_days ?? 3;
+  const windowMax = t.reservation_plan === "lite" ? 30 : 90;
+  $("t-booking-window").max = windowMax;
+  $("t-booking-window").value = t.booking_window_days ?? windowMax;
+  $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
+  const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
   $("t-preview-note").value = t.preview_note || "";
   $("t-cancel").value = t.cancel_policy || "";
@@ -951,13 +959,6 @@ for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same
   // 保存バーで一括保存する項目を登録
   const T = state.tenantId;
   regField("tenants", T, "name", $("t-name"));
-  regField("tenants", T, "contact_email", $("t-email"));
-  regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
-  regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
-  regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
-  regField("tenants", T, "preview_note", $("t-preview-note"),
-    { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
-  regField("tenants", T, "cancel_policy", $("t-cancel"));
   regField("tenants", T, "phone", $("t-shop-phone"));
   regField("tenants", T, "address", $("t-shop-address"));
   regField("tenants", T, "registration_contact", $("t-registrant-name"), { get: () => ({
@@ -965,6 +966,13 @@ for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same
     same_as_shop: $("t-registrant-same").checked,
     phone: $("t-registrant-same").checked ? null : $("t-registrant-phone").value.trim()
   }) });
+  regField("tenants", T, "contact_email", $("t-email"));
+  regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
+  regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
+  regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
+  regField("tenants", T, "preview_note", $("t-preview-note"),
+    { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
+  regField("tenants", T, "cancel_policy", $("t-cancel"));
   regField("tenants", T, "customer_form", $("t-addr-enabled"), {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,
                              required: $("t-addr-enabled").checked && $("t-addr-required").checked } }),
@@ -1425,3 +1433,18 @@ $("th-logo-file").addEventListener("change", async () => {
     $("th-logo-file").value = "";
   }
 });
+
+async function renderLiteUsage(t) {
+  let box=document.getElementById('lite-usage');
+  if(!box){box=document.createElement('div');box.id='lite-usage';box.className='confirm-box';$('billing-banner').after(box);}
+  box.hidden=t.reservation_plan!=='lite';if(box.hidden)return;
+  box.textContent='Lite：受取月ごとにネット予約50台まで・最大30日先まで';
+  try{
+    const rows=await api('POST','/rest/v1/rpc/fn_reservation_usage',{p_tenant:t.id});
+    box.replaceChildren();
+    for(const row of rows){const line=document.createElement('p');const month=Number(row.month.slice(5,7));
+      line.textContent=`${month}月受取分：残り${Math.max(0,50-row.used_units)}台（${row.used_units}／50台）${row.used_units>=50?'・この月の新規ネット予約は停止中です':''}`;box.appendChild(line);}
+    const link=document.createElement('a');link.href='?tab=billing';link.textContent='Standardプランを見る（月額4,980円）';box.appendChild(link);
+    const help=document.createElement('p');help.className='small';help.textContent='Standardは月間台数の上限なし・最大90日先まで。「ご契約・お支払い」から変更料金を確認できます。';box.appendChild(help);
+  }catch{box.textContent+='（利用台数を取得できません。再読み込みしてください）';}
+}

@@ -206,10 +206,10 @@ function track(step, detail) {
 
 /* ---------- 入力途中の自動保存（更新しても続きから再開できる） ---------- */
 const SAVE_KEY = `cake_form_${CONFIG.shop}`;
-const RETRY_ENABLED = !EDIT_MODE && !STAFF_MODE && !TRIAL_MODE && !THEME_PREVIEW;
+const RETRY_ENABLED = !EDIT_MODE && !TRIAL_MODE && !THEME_PREVIEW;
 let bookingRetry;
 function retryStore() {
-  return bookingRetry ||= new BookingRetry(sessionStorage, `cake_pending_${CONFIG.url}_${CONFIG.shop}`);
+  return bookingRetry ||= new BookingRetry(sessionStorage, `cake_pending_${CONFIG.url}_${CONFIG.shop}${STAFF_MODE ? "_staff" : ""}`);
 }
 let RESTORING = false;
 
@@ -358,6 +358,11 @@ async function load() {
     await enterEditMode();
   } else if (STAFF_MODE) {
     enterStaffMode();
+    if (RETRY_ENABLED && retryStore().pending()) {
+      $('view-form').classList.add('hidden');$('view-confirm').classList.remove('hidden');
+      $('confirm-detail').textContent='前回の電話予約の登録結果を確認します。';
+      $('btn-submit').textContent='前回の登録結果を確認する';$('btn-back').disabled=true;
+    }
   } else {
     await restoreSaved();
     if (RETRY_ENABLED && retryStore().pending()) {

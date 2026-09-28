@@ -2,12 +2,15 @@
 (() => {
   const nav = document.getElementById('admin-tabs');
   if (!nav) return;
+  const help = document.createElement('a');
+  help.className = 'tab tab-link'; help.href = '../help/assistant.html'; help.target = '_blank'; help.rel = 'noopener'; help.textContent = '使い方をAIに質問';
+  nav.append(help);
   const key = 'cake-admin-nav-collapsed';
   const short = ['予約','集計','設定','商品','表','配色','会員','契約','相談','登録','退出','説明'];
   for (const item of nav.querySelectorAll('.tab')) {
     const label = item.textContent.trim();
     const labels = ['予約・製造','集計・CSV','予約設定','商品','メニュー表','デザイン','アカウント・店舗情報','ご契約・お支払い','サポート','予約の直接登録','ログアウト','使い方マニュアル ↗'];
-    item.dataset.short = short[labels.indexOf(label)] || label.slice(0,2);
+    item.dataset.short = (label === '使い方をAIに質問' ? 'AI' : short[labels.indexOf(label)]) || label.slice(0,2);
     item.title = label;
     item.setAttribute('aria-label', label);
     const text = document.createElement('span'); text.className = 'nav-label'; text.textContent = label;

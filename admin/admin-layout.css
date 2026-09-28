@@ -66,3 +66,37 @@
 .admin .pill:not(.selected):not(.full):active:not(:disabled){transform:translateY(2px);box-shadow:none}
 .admin :is(.pill,.btn-primary,.btn-secondary):focus-visible{outline:3px solid #3e604e;outline-offset:3px}
 .admin .pill:disabled{opacity:.45;box-shadow:none;cursor:not-allowed;transform:none}
+
+/* Shared navigation stays visible while editing a product. */
+.nav-collapse{display:none}
+@media screen and (min-width:920px){
+  body{--admin-nav-width:196px}
+  body.nav-collapsed{--admin-nav-width:64px}
+  body #app.admin:has(#view-app:not(.hidden)){max-width:none;width:calc(100% - var(--admin-nav-width));margin-left:var(--admin-nav-width);margin-right:0;padding-left:24px;padding-right:24px;box-sizing:border-box}
+  #app.admin .admin-body{display:block}
+  #app.admin #admin-tabs{position:fixed;inset:0 auto 0 0;top:0;width:var(--admin-nav-width);height:100dvh;box-sizing:border-box;padding:16px 10px;overflow-y:auto;display:flex;gap:5px;background:#eef2ed;border-right:1px solid var(--line);z-index:65}
+  #admin-tabs .nav-collapse{display:block;flex:none;min-height:40px;margin-bottom:12px;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink);font:inherit;cursor:pointer}
+  #app.admin #admin-tabs .tab{min-height:44px;padding:10px 8px;font-size:.85rem;line-height:1.4;text-decoration:none;box-sizing:border-box}
+  #app.admin #admin-tabs .tab.selected{background:#dce9de;border-left-color:#3e604e;font-weight:700;color:#294b3c}
+  body.nav-collapsed #admin-tabs .nav-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  body.nav-collapsed #admin-tabs .tab::before{content:attr(data-short);font-size:.75rem;font-weight:600}
+  body.nav-collapsed #app.admin #admin-tabs .tab{text-align:center;padding:11px 2px}
+  #app.admin #save-bar{left:var(--admin-nav-width)}
+  #app.products-page .product-navigation{display:block}
+  body #app.products-page:has(#view-app:not(.hidden)){--outline-space:0px;width:calc(100% - var(--admin-nav-width) - var(--outline-space));margin-left:calc(var(--admin-nav-width) + var(--outline-space));max-width:none}
+  body .question-outline{display:none!important}
+  body #question-outline-open,body.outline-collapsed #question-outline-open{display:block;position:sticky;top:12px;left:auto;bottom:auto;width:max-content;margin:0 0 18px;border-radius:6px;z-index:21}
+}
+@media screen and (min-width:1600px){
+  body:not(.outline-collapsed) #app.products-page:has(#view-app:not(.hidden)){--outline-space:230px}
+  body:not(.outline-collapsed) .question-outline{display:block!important;left:calc(var(--admin-nav-width) + 12px);top:24px;width:206px;bottom:100px}
+  body:not(.outline-collapsed) #question-outline-open{display:none}
+}
+@media screen and (max-width:919px){
+  #admin-tabs{overflow-y:auto;z-index:80}
+  .admin-body.menu-open::before{z-index:75}
+}
+@media print{.nav-collapse{display:none!important}}
+@media screen and (min-width:920px) and (max-width:1599px){
+  body:not(.outline-collapsed) #question-outline-open{display:block}
+}

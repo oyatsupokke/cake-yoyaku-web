@@ -9,13 +9,13 @@
   const trigger = document.createElement('button');
   trigger.type = 'button'; trigger.id = 'question-outline-open'; trigger.textContent = '☰ 質問一覧';
   trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-controls', 'question-outline-dialog');
-  app.appendChild(trigger);
+  document.getElementById("editor").prepend(trigger);
   const dialog = document.createElement('dialog');
   dialog.id = 'question-outline-dialog'; dialog.className = 'question-outline-dialog';
   dialog.setAttribute('aria-label', '質問の目次');
   dialog.innerHTML = '<div class="outline-head"><strong>質問の目次</strong><button type="button" class="outline-close">閉じる</button></div><p class="outline-product"></p><nav class="outline-list" aria-label="設定項目"></nav>';
   app.appendChild(dialog);
-  const wide = matchMedia('(min-width: 1280px)');
+  const wide = matchMedia('(min-width: 1600px)');
   let entries = [], signature = '', scheduled = false, scrollScheduled = false, nextId = 0;
   const ids = new WeakMap();
   const name = (el, selector, fallback) => el.querySelector(selector)?.value?.trim() || fallback;
@@ -106,7 +106,7 @@
     if (mobile.matches) {
       bar.insertBefore(trigger, save); bar.insertBefore(preview, save);
     } else {
-      app.appendChild(trigger); document.getElementById('app').appendChild(preview);
+      document.getElementById("editor").prepend(trigger); document.getElementById('app').appendChild(preview);
     }
   }
   mobile.addEventListener('change', arrangeActions); arrangeActions();

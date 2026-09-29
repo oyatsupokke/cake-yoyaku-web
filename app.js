@@ -755,7 +755,10 @@ const MOCO_OPTION_NAMES = new Set([
 ]);
 const MOCO_FULL_OPTION_NAMES = new Set(["全面・白", "全面・カラー"]);
 const MOCO_EDGE_OPTION_NAMES = new Set(["フチのみ・白", "フチのみ・カラー"]);
-const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
+// 素材はサイトの直下（/assets/）にある。cakebook.jp の予約ページは /<店舗ID>/ で開くので、
+// ページの場所（location.href）基準だと /oyatsupokke/assets/… を探して404になる。
+// <base href="/"> を反映する document.baseURI 基準にする（旧URLのgithub.ioはどちらでも同じ）。2026-09-30
+const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, document.baseURI).href;
 const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-corrected`);
 const sizeSpecificMocoLayerAsset = (size, name) => cakeLayerAsset(
   `${size}/${MOCO_FULL_OPTION_NAMES.has(name) ? "moco-full.png" : "moco-edge.png"}?v=20260921-size`

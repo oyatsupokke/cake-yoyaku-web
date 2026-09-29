@@ -2406,7 +2406,8 @@ async function addImageFiles(q, files) {
   if (room <= 0) { toast(`「${q.label}」は${imgMax(q)}枚までです`); return; }
   if (list.length > room) toast(`あと${room}枚まで追加できます`);
   for (const file of list.slice(0, room)) {
-    const slot = { id: null, url: null, note: "", busy: true };
+    // 元の写真を手元に残す＝「切り取る」を何度押しても元の写真から切り直せる
+    const slot = { id: null, url: null, note: "", busy: true, file };
     images.push(slot);
     paintImageAnswer(q);
     try {
@@ -2420,6 +2421,26 @@ async function addImageFiles(q, files) {
     }
     paintImageAnswer(q);
   }
+}
+
+/* 貼った写真を切り取って差し替える。切った画像を新しく送り、この枠の画像を入れ替える
+ * （前の画像は予約に紐づかないまま残り、サーバー側の24時間の掃除で消える） */
+async function cropImageSlot(q, slot) {
+  const cropped = await ImageCrop.open(slot.file, { allowOriginal: false, title: "写真の使う範囲を決める" });
+  if (!cropped) return;
+  const before = { id: slot.id, url: slot.url };
+  slot.busy = true;
+  paintImageAnswer(q);
+  try {
+    const up = await uploadOneImage(cropped, q);
+    slot.id = up.id;
+    slot.url = up.url;
+  } catch (e) {
+    Object.assign(slot, before);
+    toast(e.message);
+  }
+  slot.busy = false;
+  paintImageAnswer(q);
 }
 
 /* 質問1つぶんの添付欄を描き直す（サムネイル・×・「写真を選ぶ」の出し分け） */
@@ -2440,11 +2461,14 @@ function paintImageAnswer(q) {
       cell.innerHTML =
         `<span class="img-thumb"><img src="${esc(safeImageUrl(slot.url))}" alt="">` +
         `<button type="button" class="rm" title="外す">×</button></span>` +
+        (slot.file instanceof Blob && window.ImageCrop ? `<button type="button" class="img-crop-btn">切り取る</button>` : "") +
         `<input type="text" class="img-note-input" maxlength="100" placeholder="この写真について（任意）">`;
       cell.querySelector(".rm").onclick = () => {
         images.splice(images.indexOf(slot), 1);
         paintImageAnswer(q);
       };
+      // 切り取りは押したときだけ（2026-09-30）。お客様の手順は増やさない
+      cell.querySelector(".img-crop-btn")?.addEventListener("click", () => cropImageSlot(q, slot));
       const noteEl = cell.querySelector(".img-note-input");
       noteEl.value = slot.note || "";
       noteEl.oninput = () => { slot.note = noteEl.value; };

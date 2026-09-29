@@ -166,15 +166,18 @@ async function photoBlob(file){
 }
 $('selected-items').addEventListener('change',e=>{
  if(!e.target.hasAttribute('data-photo-file'))return;
- const file=e.target.files?.[0];if(!file)return;
+ const picked=e.target.files?.[0];if(!picked)return;
  const item=state.sheet.items[Number(e.target.closest('[data-index]').dataset.index)];
+ e.target.value='';
  withBusy(async()=>{
+  // メニュー表の写真は形のまま載るので、自由な形で切る（2026-09-30）
+  const file=window.ImageCrop?await ImageCrop.open(picked,{allowOriginal:true,title:'メニュー表に使う範囲を決める'}):picked;
+  if(!file)return;
   say('メニュー用の写真を読み込んでいます…');
   const blob=await photoBlob(file),path=`${state.tenantId}/menus/${crypto.randomUUID()}.jpg`;
   await api('POST','/storage/v1/object/shop-images/'+path,blob);
   item.photo_path=path;renderSelected();changed();say('メニュー用の写真に変更しました。「設定を保存」で確定します。');
  });
- e.target.value='';
 });
 $('selected-items').addEventListener('input',e=>{const key=e.target.dataset.field,row=e.target.closest('[data-index]');if(!key||!row)return;state.sheet.items[Number(row.dataset.index)][key]=e.target.value;changed();});
 for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color'],['font','font_key']])$(id).addEventListener('input',()=>{state.sheet[key]=$(id).value;changed();});

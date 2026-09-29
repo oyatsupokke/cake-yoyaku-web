@@ -1408,8 +1408,11 @@ $("th-reset").onclick = () => {
 };
 $("th-logo-clear").onclick = () => { $("th-logo-url").value = ""; themeShowLogo(""); markDirty(); pushThemePreview(); };
 $("th-logo-file").addEventListener("change", async () => {
-  const file = $("th-logo-file").files[0];
-  if (!file) return;
+  const picked = $("th-logo-file").files[0];
+  if (!picked) return;
+  // ロゴは形のまま表示されるので自由な形で切る。透過PNGは透過のまま残す
+  const file = window.ImageCrop ? await ImageCrop.open(picked, { keepPng: true, allowOriginal: true, maxSide: 1000, title: "ロゴの使う範囲を決める" }) : picked;
+  if (!file) { $("th-logo-file").value = ""; return; }
   if (!file.type.startsWith("image/")) { toast("画像ファイルを選んでください"); return; }
   if (file.size > 2 * 1024 * 1024) { toast("画像が大きすぎます（2MBまで）"); return; }
   try {

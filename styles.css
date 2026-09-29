@@ -385,6 +385,8 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
   border: 1px solid var(--box); border-radius: var(--r); background: var(--bg); color: var(--ink);
 }
 .img-note-input:focus { outline: none; border-color: var(--accent); }
+/* 貼った写真を切り取る（押したときだけ・2026-09-30） */
+.img-crop-btn { font: inherit; font-size: .8rem; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line, #ddd); background: #fff; color: inherit; cursor: pointer; min-height: 32px; }
 .img-thumb {
   position: relative; display: block; width: 116px; height: 116px; overflow: hidden;
   border: 1px solid var(--box); border-radius: var(--r); background: var(--boxbg);

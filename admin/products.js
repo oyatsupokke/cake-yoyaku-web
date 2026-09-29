@@ -423,7 +423,13 @@ function buildPhotoField(opts) {
   const input = box.querySelector('input[type="file"]');
   const pick = box.querySelector(".photo-pick");
   input.onchange = async () => {
-    const file = input.files?.[0];
+    const picked = input.files?.[0];
+    input.value = ""; // 同じ写真をもう一度選べるように
+    if (!picked) return;
+    // 商品写真は一覧で横長4:3、選んだ後の見本で正方形に切られて出るので、その形で切ってもらう
+    const file = window.ImageCrop ? await ImageCrop.open(picked, kind === "products"
+      ? { aspectRatio: 4 / 3, squareGuide: true, allowOriginal: true }
+      : { allowOriginal: true }) : picked;
     if (!file) return;
     pick.textContent = "アップロード中…";
     try {

@@ -55,6 +55,13 @@ const TRIAL_MODE = !EDITOR_PREVIEW && new URLSearchParams(location.search).get("
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
 const EDIT_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && !!EDIT_TOKEN;
 let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
+/* 本体価格。SELECTTYPEから移行した予約は、同じケーキ・同じサイズなら予約時の値段のまま
+ * （orders.price_lock・2026-09-30）。実際の請求はサーバー側 fn_apply_price_lock が決め、ここは表示を合わせるだけ */
+function basePrice(v) {
+  const lock = EDIT_MODE ? EDIT_ORDER?.price_lock : null;
+  const locked = lock && lock.variant_id === v?.id ? Number(lock.unit_price) : NaN;
+  return Number.isInteger(locked) && locked >= 0 && locked < v.price ? locked : v.price;
+}
 
 /* ---------- 代行登録モード（?staff=1・管理画面ログイン中のみ） ----------
  * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
@@ -404,6 +411,29 @@ function enterStaffMode() {
     "内容を確認のうえ「この内容で登録する」を押すと、予約として登録されます。";
 }
 
+/* 旧フォーム（SELECTTYPE）から移ったご予約は、前の選択肢を今のフォームに引き継げない。
+ * 選び直してもらうために、前のご予約内容を変更画面の先頭に見せる（2026-09-30） */
+// 旧フォームの商品名はサイズ込み（例「生クリームデコレーション15cm」）なので、サイズを二重に書かない
+function legacyCakeName(name, size) {
+  const n = String(name || ""), sz = String(size || "");
+  return !sz || n.includes(sz) ? n : `${n} ${sz}`;
+}
+function showLegacyOrderNote(validIds) {
+  const legacy = (EDIT_ORDER?.options || []).filter((o) => !o.option_id || !validIds.has(o.option_id));
+  const locked = !!EDIT_ORDER?.price_lock;
+  if (!legacy.length && !locked) return;
+  const box = document.createElement("div");
+  box.className = "legacy-order-note";
+  const items = legacy.map((o) => `<li>${esc(o.option_name || "")}${o.quantity > 1 ? ` ×${o.quantity}` : ""}${o.text ? `「${esc(o.text)}」` : ""}</li>`).join("");
+  box.innerHTML =
+    `<p class="legacy-title">前のご予約内容</p>` +
+    `<p>${esc(legacyCakeName(EDIT_ORDER.product_name, EDIT_ORDER.variant_label))}</p>` +
+    (items ? `<ul>${items}</ul><p class="legacy-help">予約フォームが新しくなったため、上の内容は引き継がれていません。同じ内容をご希望の場合は、下から選び直してください。</p>` : "") +
+    (locked ? `<p class="legacy-help">同じケーキ・同じサイズなら、ケーキ本体はご予約時の価格のままです。新しく追加するオプションは、表示の価格が加わります。</p>` : "");
+  const first = document.querySelector("#view-form .step");
+  if (first) first.before(box); else $("view-form").prepend(box);
+}
+
 /* ---------- 変更モードの初期化：既存予約を読み込んでフォームに展開 ---------- */
 async function enterEditMode() {
   let r = null;
@@ -455,6 +485,7 @@ async function enterEditMode() {
     renderGroups();
     updatePreview();
     updatePriceBar();
+    showLegacyOrderNote(validIds);
 
     // 受取日時：予約中の日時をそのまま展開（日を変えなければ締切に関係なく変更を確定できる）
     const [ey, em] = EDIT_ORDER.pickup_date.split("-").map(Number);
@@ -625,7 +656,7 @@ function requiresReview() {
 }
 function currentTotal() {
   if (!state.sel.variant) return null;
-  let total = state.sel.variant.price;
+  let total = basePrice(state.sel.variant);
   for (const [id, v] of state.sel.options) {
     const f = findOption(id);
     if (f) total += optionPrice(f.o) * v.qty;
@@ -1620,7 +1651,7 @@ function renderSizes() {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "pill" + (state.sel.variant?.id === v.id ? " selected" : "");
-    el.textContent = `${v.size_label}　${yen(v.price)}`;
+    el.textContent = `${v.size_label}　${yen(basePrice(v))}`;
     el.onclick = () => selectVariant(v);
     wrap.appendChild(el);
   }
@@ -2600,7 +2631,7 @@ function renderConfirm() {
   const rows = [];
   const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
-  row("価格", yen(s.variant.price));
+  row("価格", basePrice(s.variant) < s.variant.price ? `${yen(basePrice(s.variant))}（ご予約時の価格）` : yen(s.variant.price));
   for (const [id, v] of s.options) {
     const f = findOption(id);
     const price = f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料";

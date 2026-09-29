@@ -422,3 +422,10 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 
 /* 写真を出す商品は「選択中のケーキ」も一覧のカードと同じ横長4:3（2026-09-30） */
 .preview-canvas.is-photo { height: auto; aspect-ratio: 4 / 3; }
+
+/* 旧フォームから移ったご予約の、前のご予約内容（変更画面の先頭・2026-09-30） */
+.legacy-order-note { border: 1px solid var(--line, #ddd); border-radius: 10px; background: #fffaf0; padding: 12px 14px; margin: 12px 0 18px; font-size: .9rem; line-height: 1.7; text-align: left; }
+.legacy-order-note .legacy-title { font-weight: bold; margin: 0 0 4px; }
+.legacy-order-note p { margin: 0 0 4px; }
+.legacy-order-note ul { margin: 4px 0 6px; padding-left: 1.3em; }
+.legacy-order-note .legacy-help { font-size: .82rem; color: #6f6560; }

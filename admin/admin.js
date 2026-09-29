@@ -417,6 +417,26 @@ function renderQuoteEditor(el,o) {
     detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額）\n${q.description}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
     box.appendChild(detail);
   }
+  // SELECTTYPEから移した承認待ち（見積もりの話ではない）。旧側で承認したら、ここで確定にするだけ（2026-09-30）
+  if (!q && o.review_state === 'requested' && o.status === 'new' && String(o.internal_memo || '').startsWith('SELECTTYPE')) {
+    const p = document.createElement('p');
+    p.textContent = '旧予約フォーム（SELECTTYPE）から移した、承認待ちのご予約です。SELECTTYPEで承認したら「確定にする」を押してください（お客様へのメールは送りません）。キャンセルした場合は、下のキャンセルを使ってください。';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn-primary'; btn.textContent = '確定にする';
+    btn.onclick = async () => {
+      if (!confirm(`No.${o.order_number} ${o.customer_name}様のご予約を確定にしますか？`)) return;
+      btn.disabled = true;
+      try {
+        const r = await api('POST', '/rest/v1/rpc/fn_confirm_migrated_order', { p_order: o.id });
+        if (!r.ok) throw new Error(r.message);
+        toast('確定にしました');
+        await loadOrders();
+      } catch (e) { toast(e.message); btn.disabled = false; }
+    };
+    box.append(p, btn);
+    el.appendChild(box);
+    return;
+  }
   if (reviewPending(o) && o.status !== 'canceled') {
     const form = document.createElement('form');
     form.innerHTML = `<p>追加希望を確認し、対応内容と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>

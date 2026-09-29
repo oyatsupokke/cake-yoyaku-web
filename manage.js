@@ -26,6 +26,23 @@ const state = {
   slotFull: {},
 };
 
+/* 内容変更はお店の予約ページを変更モードで開く（2026-09-30）。
+ * cakebook.jp ではトップ（index.html）がサービス紹介ページで、予約ページは /<店舗ID>/。
+ * 以前の index.html?edit= だと紹介ページに飛んでしまっていた。
+ * 旧URL（github.io）はトップが予約ページのままなので ?shop= で店を渡す */
+async function openEditForm() {
+  const token = encodeURIComponent(TOKEN);
+  let shop = "";
+  try {
+    const [t] = await api(`/rest/v1/v_public_tenant?select=subdomain&id=eq.${encodeURIComponent(state.data.tenant.id)}`);
+    shop = t?.subdomain || "";
+  } catch { /* 取れなければ下で旧来の飛び先へ */ }
+  if (!/^[a-z0-9][a-z0-9-]{0,48}$/.test(shop)) { location.href = `index.html?edit=${token}`; return; }
+  location.href = location.hostname.endsWith("github.io")
+    ? `index.html?shop=${shop}&edit=${token}`
+    : `/${shop === "pokke" ? "oyatsupokke" : shop}/?edit=${token}`;
+}
+
 async function api(path) {
   const res = await fetch(CONFIG.url + path, {
     headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}` },
@@ -161,9 +178,7 @@ function renderOrder() {
   if (allowed.slot)
     btn("受取日時を変更する", "btn-secondary", `${deadlines.slot}受け付けています`, openSlotView);
   if (allowed.content)
-    btn("ご注文内容を変更する", "btn-secondary", `${deadlines.content}受け付けています`, () => {
-      location.href = `index.html?edit=${encodeURIComponent(TOKEN)}`;
-    });
+    btn("ご注文内容を変更する", "btn-secondary", `${deadlines.content}受け付けています`, openEditForm);
   if (allowed.cancel)
     btn("このご予約をキャンセルする", "btn-danger", `${deadlines.cancel}受け付けています`, openCancelView);
   if (o.quote) {

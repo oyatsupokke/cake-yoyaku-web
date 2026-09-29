@@ -419,3 +419,6 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
   display: block; max-width: 100%; width: auto; max-height: 220px;
   border: 1px solid var(--line); border-radius: var(--r-lg);
 }
+
+/* 写真を出す商品は「選択中のケーキ」も一覧のカードと同じ横長4:3（2026-09-30） */
+.preview-canvas.is-photo { height: auto; aspect-ratio: 4 / 3; }

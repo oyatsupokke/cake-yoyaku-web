@@ -1521,6 +1521,8 @@ async function updatePreview() {
   const box = $("preview-canvas");
   const p = state.sel.product;
   const layers = currentLayers();
+  // 写真を出す商品は、商品一覧のカードと同じ横長4:3の枠にする（イラストは正方形のまま・2026-09-30）
+  box.classList.toggle("is-photo", !layers && !!p?.photo_url);
 
   if (layers) {
     const token = ++previewToken;

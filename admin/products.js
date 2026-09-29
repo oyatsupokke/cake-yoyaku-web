@@ -1201,7 +1201,9 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     details.innerHTML = `<summary>詳しい設定${c.pickup_from || c.pickup_until ? "・提供期間あり" : ""}</summary>
       <strong>提供できる期間（任意）</strong>
       <p class="small">ケーキの受取日がこの期間内なら、この回答を選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
-      <div class="answer-choice-period"><label>開始日<input type="date" class="c-from" value="${esc(c.pickup_from || "")}"></label><label>終了日<input type="date" class="c-until" value="${esc(c.pickup_until || "")}"></label></div>`;
+      <div class="answer-choice-period"><label>開始日<input type="date" class="c-from" value="${esc(c.pickup_from || "")}"></label><label>終了日<input type="date" class="c-until" value="${esc(c.pickup_until || "")}"></label></div>
+      <label class="period-hide"><input type="checkbox" class="c-hide-outside" ${c.hide_outside_period ? "checked" : ""}> 期間外はお客様に表示しない</label>`;
+    regField("common_question_choices", c.id, "hide_outside_period", details.querySelector(".c-hide-outside"));
     for (const [column, selector] of [["pickup_from", ".c-from"], ["pickup_until", ".c-until"]]) {
       const input = details.querySelector(selector);
       regField("common_question_choices", c.id, column, input, { get: () => input.value || null });
@@ -1897,9 +1899,20 @@ function buildGroupBox(p, g) {
     },
   }));
   const optWrap = box.querySelector(".g-options");
-  view.opts.forEach((ov, i) => {
+  const optRows = view.opts.map((ov, i) => {
     const o = g.options.find((x) => x.id === ov.id);
-    optWrap.appendChild(buildOptionRow(p, g, o, view, ov, i, paint));
+    const row = buildOptionRow(p, g, o, view, ov, i, paint);
+    optWrap.appendChild(row);
+    // 印の行（.marks）は入力のたびに描き直されるので、並べ替えボタンは別の置き場所に置く
+    const holder = document.createElement("div");
+    holder.className = "opt-order";
+    row.querySelector(".marks").after(holder);
+    return { data: o, row, target: holder };
+  });
+  // 選択肢の並べ替え（2026-09-30）。↑↓で画面の中だけ動かし、保存バーで表示順を確定する
+  if (optRows.length > 1) addOrderControls(optWrap, optRows, "options", (ids) => {
+    view.opts.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    paint();
   });
 
   paint();
@@ -1963,6 +1976,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><span class="k">提供できる期間（任意）</span>
         <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
         <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
+        <label class="period-hide"><input type="checkbox" class="o-hide-outside" ${o.hide_outside_period ? "checked" : ""}> 期間外はお客様に表示しない</label>
+        <p class="small">チェックなし：期間外の受取日では「期間外」と表示して選べないようにします。チェックあり：期間外は予約ページに出しません。</p>
       </div>
 
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
@@ -1990,6 +2005,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     regField("options", o.id, column, input, { get: () => input.value || null });
     input.addEventListener("input", () => { ov[column === "pickup_from" ? "from" : "until"] = input.value; paintGroup(); });
   }
+  regField("options", o.id, "hide_outside_period", row.querySelector(".o-hide-outside"));
   const reviewEl = row.querySelector(".o-review");
   regField("options", o.id, "requires_review", reviewEl);
   reviewEl.addEventListener("change", () => { o.requires_review = reviewEl.checked; ov.review = reviewEl.checked; repaintMarks(); paintGroup(); });
@@ -2268,7 +2284,7 @@ $("btn-g-add").onclick = async () => {
 /* ---------- 質問・回答の並べ替え ---------- */
 // 要素を移動するだけにして、入力中の文章・開閉状態を保つ。保存は既存の保存バーで行う。
 function addOrderControls(container, items, table, onMove = () => {}, persistOrder = true) {
-  const compact = table === "common_question_choices";
+  const compact = table === "common_question_choices" || table === "options";
   const entries = items.map(({ data, row, target }) => {
     const input = document.createElement("input");
     input.type = "hidden";

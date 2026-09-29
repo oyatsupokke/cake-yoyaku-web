@@ -1799,6 +1799,11 @@ function openOptionSamplePhoto(url, optionName) {
   else window.open(src,'_blank','noopener,noreferrer');
 }
 
+// 選択肢がすべて「期間外は表示しない」で隠れているグループは、見出しごと出さない
+function groupAllHidden(g) {
+  const live = (g.options || []).filter((o) => o.is_available && !(o.shared_list_item_id && !o.shared_list_items));
+  return live.length > 0 && live.every((o) => hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id));
+}
 function renderGroups() {
   pruneHiddenQuestions();
   const wrap = $("group-list");
@@ -1811,6 +1816,7 @@ function renderGroups() {
     wrap.appendChild(pn);
   }
   for (const g of sortedGroups(state.sel.product)) {
+    if (groupAllHidden(g)) continue;
     const box = document.createElement("div");
     box.className = "group";
     box.dataset.questionKey = `group:${g.id}`;
@@ -1828,6 +1834,7 @@ function renderGroups() {
       if (!o.is_available) continue;
       // 共有リスト由来なのに項目が取れない=停止中（RLSで非表示）→ 出さない
       if (o.shared_list_item_id && !o.shared_list_items) continue;
+      if (hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id)) continue;
       const conflictIds = conflictsWithSelected(o.id);
       // 上にある大分類はいつでも変更できる。選ぶと、矛盾する後段の選択を toggleOption が外す。
       // 後段側は無効表示にし、「なぜ選べないか」が分かるようにする。
@@ -2130,6 +2137,20 @@ function choiceAvailableOnPickup(c, date = state.sel.date) {
   return c.is_available !== false && (!date ||
     ((!c.pickup_from || date >= c.pickup_from) && (!c.pickup_until || date <= c.pickup_until)));
 }
+/* 「期間外はお客様に表示しない」にした選択肢・回答の選択肢（2026-09-30）。
+ * 受取日を選んだ後は、その日が期間外なら出さない。受取日を選ぶ前（選択肢の方が先に並ぶ）は、
+ * どの受取日でも選べないもの＝期間が終わった／予約できる範囲より先に始まるものだけ隠す。
+ * お店の代行登録と管理画面の見本では全部出す */
+function hiddenOutsidePeriod(item, period = item) {
+  if (!item?.hide_outside_period || STAFF_MODE || EDITOR_PREVIEW) return false;
+  const from = period?.pickup_from || null, until = period?.pickup_until || null;
+  if (!from && !until) return false;
+  const date = state.sel.date;
+  if (date) return !((!from || date >= from) && (!until || date <= until));
+  const day = (offset) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
+  return (!!until && until < day(0)) || (!!from && from > day(state.tenant?.booking_window_days ?? 90));
+}
+const visibleChoices = (cs) => cs.filter((c) => !hiddenOutsidePeriod(c));
 function choicePeriodText(c) {
   return c.pickup_from || c.pickup_until
     ? `（受取日：${c.pickup_from || "制限なし"}〜${c.pickup_until || "制限なし"}）` : "";
@@ -2178,7 +2199,7 @@ function isMessageQuestion(q){
 }
 
 function answerInputsHtml(q) {
-  const cs = qChoices(q);
+  const cs = visibleChoices(qChoices(q)); // 「期間外は表示しない」の回答は隠す
   const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
   if (q.input_type === "image") {
     return `<span class="img-box" id="img-box-${esc(q.id)}">` +
@@ -2546,7 +2567,7 @@ function validate() {
   const capacityError=toppingCapacityError();
   if(capacityError)return capacityError;
   for (const g of sortedGroups(s.product)) {
-    if (g.is_required && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
+    if (g.is_required && !groupAllHidden(g) && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
       return `「${g.name}」を選択してください`;
   }
   for (const [id, v] of s.options) {

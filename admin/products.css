@@ -709,3 +709,9 @@
 }
 
 .cust .cfield-help.note-accent { color: #d0455f; font-weight: bold; }
+
+/* 期間外はお客様に表示しない（2026-09-30） */
+.period-hide { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .88rem; }
+.period-hide input { width: auto; margin: 0; }
+/* 選択肢の並べ替え */
+.products-page .opt .opt-order { display: flex; justify-content: flex-end; margin-top: 4px; }

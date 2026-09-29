@@ -1,5 +1,5 @@
 /* Initial setup requests use the published support mailbox; never send or charge automatically. */
-const SUPPORT_EMAIL = 'info@oyatsupokke.com';
+const SUPPORT_EMAIL = 'support@cakebook.jp';
 const SUPPORT_TYPES = {
  guided: { label: '初期設定サポート（60分）', price: '5,500円（税込）／1回' },
  setup: { label: '初期設定代行', price: '12,000円（税込）／1店舗（範囲外は事前見積もり）' },
@@ -67,6 +67,6 @@ $('support-mail-link').addEventListener('click', () => {
  $('support-feedback').textContent = 'まだ依頼は送信されていません。メールアプリで内容を確認し、送信してください。開かない場合は下の「本文をコピー」をご利用ください。';
 });
 $('support-copy').onclick = async () => {
- try { await navigator.clipboard.writeText(supportPrepared); $('support-feedback').textContent = '本文をコピーしました。宛先 info@oyatsupokke.com に貼り付けて送信してください。'; }
+ try { await navigator.clipboard.writeText(supportPrepared); $('support-feedback').textContent = '本文をコピーしました。宛先 support@cakebook.jp に貼り付けて送信してください。'; }
  catch { $('support-mail-text').focus(); $('support-mail-text').select(); $('support-feedback').textContent = '本文を選択しました。コピーしてメールに貼り付けてください。'; }
 };

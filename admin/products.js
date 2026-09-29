@@ -1466,7 +1466,7 @@ function renderLayerOrder(p) {
       <div class="layer-order-actions">
         <label class="layer-visible"><input type="checkbox" ${hidden.has(entry.key) ? "" : "checked"}>表示</label>
         ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : entry.automatic
-          ? `<span class="tag hi">位置・前後は自動調整</span>` : `
+          ? `<span class="tag hi">位置・前後は自動調整</span>${POKKE_ONLY_TAG}` : `
           <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) || entries[index - 1]?.automatic ? "disabled" : ""}>1つ後ろへ</button>
           <button type="button" class="pill layer-front" ${index === entries.length - 1 || entries[index + 1]?.automatic ? "disabled" : ""}>1つ前へ</button>`}
       </div>`;
@@ -1912,6 +1912,9 @@ function marksHtml(o, ov) {
     + (Object.keys(o.size_prices || {}).length ? '<span class="mk">サイズ別料金あり</span>' : "");
 }
 
+// oyatsupokkeだけに出る特別な設定の目印（他店の画面にはこの設定自体が出ない）
+const POKKE_ONLY_TAG = `<span class="tag pokke-only" title="oyatsupokkeだけの特別な設定です。他のお店の画面には出ません">oyatsupokke専用</span>`;
+
 function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   const row = document.createElement("div");
   const open = state.openOptions.has(o.id);
@@ -1927,7 +1930,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <label class="option-quantity-field"><span class="lbl">個数上限</span><input type="number" class="o-maxq maxq" min="1" placeholder="1" ${physicalLimit ? `max="${physicalLimit}"` : ""} value="${esc(physicalLimit ? Math.min(o.max_quantity || 1, physicalLimit) : o.max_quantity)}"></label>
       <span class="state-badge ${availability.available ? "on" : ""}">${availability.label}</span>
       <button type="button" class="pill o-more" aria-expanded="${open}">詳しい設定 ${open ? "▴" : "▾"}</button>
-      ${physicalLimit ? `<span class="mini option-quantity-note">実物の配置上、最大${physicalLimit}枚です</span>` : ""}
+      ${physicalLimit ? `<span class="mini option-quantity-note">実物の配置上、最大${physicalLimit}枚です ${POKKE_ONLY_TAG}</span>` : ""}
     </div>
     <div class="marks">${marksHtml(o, ov)}</div>
     <div class="more ${open ? "" : "hidden"}">
@@ -2058,6 +2061,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     const binding = document.createElement("label");
     binding.className = "sub";
     binding.textContent = "イラストに使う回答";
+    if (customAnswer || o.layer_url?.includes("{digit}")) binding.insertAdjacentHTML("beforeend", " " + POKKE_ONLY_TAG);
     const select = document.createElement("select");
     select.className = "o-preview-question";
     select.innerHTML = `<option value="">自動判定（候補が1つのとき）</option>` + qs.filter(q => calendarAnswer ? q.input_type === "date" : ["text", "textarea"].includes(q.input_type)).map(q =>

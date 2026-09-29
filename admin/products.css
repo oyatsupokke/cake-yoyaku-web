@@ -116,6 +116,8 @@
 .grp-bar select { padding: 5px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; background: #fff; }
 .tag { font-size: .72rem; background: #fff; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; color: #a08a8f; }
 .tag.hi { border-color: var(--primary-deep); color: var(--primary-deep); }
+/* oyatsupokkeだけに出る特別な設定の目印 */
+.tag.pokke-only { border-style: dashed; color: #8a6d2f; border-color: #c9a85a; background: #fffaf0; white-space: nowrap; font-weight: normal; }
 .grp-body { padding: 13px 14px 15px; }
 .fb { display: flex; flex-direction: column; gap: 3px; margin: 0 0 11px; }
 .fb .k { font-size: .75rem; color: #a08a8f; }

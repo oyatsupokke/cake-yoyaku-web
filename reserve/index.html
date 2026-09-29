@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base href="/">
+<script>
+// Keep old shared booking links working while showing each shop's public URL.
+const bookingParams = new URLSearchParams(location.search);
+if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key => bookingParams.has(key))) {
+  const internalShop = bookingParams.get("shop") || "";
+  const slug = internalShop === "pokke" ? "oyatsupokke" : internalShop;
+  if (/^[a-z0-9][a-z0-9-]{0,48}$/.test(slug)) {
+    bookingParams.delete("shop");
+    location.replace("/" + slug + "/" + (bookingParams.size ? "?" + bookingParams : "") + location.hash);
+  }
+}
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>オーダーケーキのご予約</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles.css?v=1790697842">
+<link rel="stylesheet" href="form-layout.css?v=1790697842">
+</head>
+<body>
+<div id="app">
+
+  <header class="shop-header">
+    <img id="shop-logo" class="shop-logo hidden" alt="">
+    <h1 id="shop-name">読み込み中…</h1>
+    <p class="shop-sub" id="shop-sub">オーダーケーキのご予約</p>
+  </header>
+
+  <main id="view-form">
+
+    <!-- 選択中のケーキ（プレビュー枠） -->
+    <section class="preview-box" id="preview-box">
+      <div class="preview-canvas" id="preview-canvas">
+        <span class="preview-placeholder">🎂</span>
+      </div>
+      <p class="preview-caption">選択中のケーキ</p>
+      <p class="preview-note hidden" id="preview-note"></p>
+      <button type="button" id="btn-reset-design" class="btn-reset-design">選んだデザインをリセット</button>
+    </section>
+
+    <!-- 1. ケーキを選ぶ -->
+    <section class="step" id="sec-products">
+      <h2><span class="step-no">1</span>ケーキを選ぶ</h2>
+      <div class="cards" id="product-cards"></div>
+    </section>
+
+    <!-- 2. サイズ -->
+    <section class="step hidden" id="sec-size">
+      <h2><span class="step-no">2</span>サイズを選ぶ</h2>
+      <div class="pill-row" id="size-pills"></div>
+    </section>
+
+    <!-- 3. 質問（選択式・記入欄を商品ごとの順序で表示） -->
+    <section class="step hidden" id="sec-groups">
+      <h2><span class="step-no">3</span>ケーキの内容を選ぶ</h2>
+      <div id="group-list"></div>
+    </section>
+
+    <!-- 4. 受取日時 -->
+    <section class="step hidden" id="sec-date">
+      <h2><span class="step-no">4</span>受取日を選ぶ</h2>
+      <div class="cal-header">
+        <button type="button" id="cal-prev" class="cal-nav">‹</button>
+        <span id="cal-title"></span>
+        <button type="button" id="cal-next" class="cal-nav">›</button>
+      </div>
+      <div class="cal-legend">
+        <span><i class="dot open"></i>受付中</span>
+        <span><i class="dot few"></i>残りわずか</span>
+        <span><i class="dot full"></i>締め切り</span>
+      </div>
+      <p class="small" id="booking-window-note"></p>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div id="slot-area" class="hidden">
+        <h3>受取時間</h3>
+        <div class="pill-row" id="slot-pills"></div>
+      </div>
+    </section>
+
+    <!-- 5. ご記入欄（共通質問） -->
+    <section class="step hidden" id="sec-questions">
+      <h2><span class="step-no">5</span>ご記入欄</h2>
+      <div id="question-list"></div>
+    </section>
+
+    <!-- 6. お客様情報 -->
+    <section class="step hidden" id="sec-customer">
+      <h2><span class="step-no">5</span>お客様情報</h2>
+      <div class="field">お名前<span class="req">必須</span>
+        <div class="name-row">
+          <input type="text" id="cust-sei" autocomplete="family-name" placeholder="姓">
+          <input type="text" id="cust-mei" autocomplete="given-name" placeholder="名">
+        </div>
+      </div>
+      <div class="field">フリガナ<span class="req">必須</span>
+        <div class="name-row">
+          <input type="text" id="cust-sei-kana" placeholder="セイ">
+          <input type="text" id="cust-mei-kana" placeholder="メイ">
+        </div>
+      </div>
+      <label class="field">お電話番号<span class="req">必須</span>
+        <input type="tel" id="cust-phone" autocomplete="tel">
+      </label>
+      <label class="field">メールアドレス<span class="req">必須</span>
+        <input type="email" id="cust-email" autocomplete="email">
+      </label>
+      <label class="field hidden" id="field-postal">郵便番号<span class="req hidden" id="req-postal">必須</span>
+        <input type="text" id="cust-postal" inputmode="numeric" autocomplete="postal-code" placeholder="448-0000">
+        <span class="help" id="postal-hint">7桁を入力すると住所が自動で入ります</span>
+      </label>
+      <label class="field hidden" id="field-address">ご住所<span class="req hidden" id="req-address">必須</span>
+        <input type="text" id="cust-address" autocomplete="street-address" placeholder="愛知県刈谷市…">
+      </label>
+      <div class="pay-note">お支払い方法：<strong>店頭でのお支払い</strong>（受取時にお支払いください）</div>
+      <button type="button" class="btn-primary" id="btn-confirm">入力内容を確認する</button>
+    </section>
+
+  </main>
+
+  <!-- 確認画面 -->
+  <main id="view-confirm" class="hidden">
+    <h2 class="confirm-title">ご注文内容の確認</h2>
+    <div class="confirm-box" id="confirm-detail"></div>
+    <div class="confirm-box">
+      <h3>キャンセルについて</h3>
+      <p id="cancel-policy" class="small"></p>
+    </div>
+    <!-- 特定商取引法に基づく表記（店が設定していないときは表示しない） -->
+    <div class="confirm-box hidden" id="tokushoho-box">
+      <details class="legal-details">
+        <summary>特定商取引法に基づく表記</summary>
+        <p id="tokushoho-text" class="small"></p>
+      </details>
+    </div>
+    <p class="preview-note">内容をご確認のうえ「この内容で注文する」を押すと、ご注文が確定します。</p>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" id="btn-back">修正する</button>
+      <button type="button" class="btn-primary" id="btn-submit">この内容で注文する</button>
+    </div>
+    <p id="submit-error" class="error hidden"></p>
+  </main>
+
+  <!-- 完了画面 -->
+  <main id="view-done" class="hidden">
+    <div class="done-box">
+      <div class="done-emoji">🎉</div>
+      <h2>ご注文ありがとうございます！</h2>
+      <p>ご注文番号：<strong id="done-number"></strong></p>
+      <p>合計金額：<strong id="done-total"></strong>（店頭でのお支払い）</p>
+      <p id="done-pickup" class="small"></p>
+    </div>
+  </main>
+
+  <footer class="booking-credit"><small>Powered by <a href="https://cakebook.jp/" target="_blank" rel="noopener">CakeBook</a></small></footer>
+
+  <!-- 金額バー -->
+  <div class="price-bar" id="price-bar">
+    <span id="price-summary">ケーキを選んでください</span>
+    <strong id="price-total"></strong>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+
+</div>
+<script src="safe-display.js?v=1790697842"></script>
+<script src="booking-retry.js?v=1790697842"></script>
+<script src="booking-window.js?v=1790697842"></script>
+<script src="question-flow.js?v=1790697842"></script>
+  <script src="app.js?v=1790697842"></script>
+<script src="form-layout.js?v=1790697842"></script>
+</body>
+</html>

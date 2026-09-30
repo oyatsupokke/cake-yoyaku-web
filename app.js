@@ -1500,7 +1500,9 @@ function currentLayers() {
             ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
-        const layerUrl=ownSizedLayer(o)||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
+        // サイズ別の登録は「選択肢そのものの絵」のときだけ使う。ほかの選択で絵が替わる場合
+        // （サイド寄せのハーブ・いちじく・カレンダーの丸絞り・タルト等のプレート）はそちらを優先する
+        const layerUrl=(rawLayerUrl===o.layer_url&&ownSizedLayer(o))||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。

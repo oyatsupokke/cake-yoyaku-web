@@ -1,0 +1,57 @@
+/* CakeBook LP の動き。html.cb-motion は motion.js が付ける（動きを減らす設定の端末・JSが動かない環境では付かない＝全部そのまま見える） */
+
+/* ---- スクロールで順に現れる ---- */
+/* 横から入る要素で横スクロールが出ないように（clip はスクロール領域を作らないのでヘッダーの sticky はそのまま） */
+.cb-motion .cb{overflow-x:clip}
+.cb-motion .cb-rv,.cb-motion .cb-hero-copy>*,.cb-motion .cb-shots>*{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--rv-d,0s)}
+.cb-motion .cb-rv.cb-rv-left{transform:translateX(-28px)}
+.cb-motion .cb-rv.cb-rv-right{transform:translateX(34px)}
+.cb-motion .cb-rv.cb-rv-zoom{transform:scale(.94)}
+.cb-motion .cb-rv.is-in,.cb-motion .cb-hero-copy>.is-in,.cb-motion .cb-shots>.is-in{opacity:1;transform:none}
+
+/* ---- ファーストビュー ---- */
+@keyframes cb-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes cb-float-sm{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.cb-motion .cb-hero .cb-shot-phone.is-in{animation:cb-float 6s ease-in-out 1.2s infinite}
+.cb-motion .cb-hero .cb-browser.is-in{animation:cb-float-sm 7s ease-in-out 1.6s infinite}
+
+/* 見出しの強調部分に下線を引く */
+.cb-motion .cb-hero h1 em{background:linear-gradient(transparent 72%,rgba(185,63,74,.16) 72%) no-repeat 0 0/0% 100%;transition:background-size 1s cubic-bezier(.2,.7,.2,1) .9s}
+.cb-motion .cb-hero h1.is-in em{background-size:100% 100%}
+
+/* ---- ヘッダー：スクロールしたら影 ---- */
+.cb-header{transition:box-shadow .3s}
+.cb-header.is-scrolled{box-shadow:0 6px 20px -12px rgba(40,20,20,.35)}
+
+/* ---- ボタン：矢印が少し進む ---- */
+.cb-btn svg{transition:transform .2s}
+.cb-btn:hover svg{transform:translateX(4px)}
+
+/* ---- 悩みカード・手順・プラン：触れると少し浮く ---- */
+.cb-worry-grid>article,.cb-steps>li,.cb-plan{transition:transform .25s,box-shadow .25s}
+@media (hover:hover){
+  .cb-worry-grid>article:hover,.cb-steps>li:hover,.cb-plan:hover{transform:translateY(-4px);box-shadow:0 16px 30px -18px rgba(40,20,20,.3)}
+}
+.cb-motion .cb-worry-grid>article.cb-rv.is-in:hover,.cb-motion .cb-steps>li.cb-rv.is-in:hover,.cb-motion .cb-plan.cb-rv.is-in:hover{transform:translateY(-4px)}
+
+/* ---- 予約画面の見本：飾りが「ぽん」と乗る ---- */
+.cb-motion [class*=cb-dl-]{transform:translateY(-8px) scale(1.04);transition:opacity .35s,transform .45s cubic-bezier(.3,1.5,.5,1)}
+.cb-motion .cb-demo:has(#cb-choco-choco:checked) .cb-dl-choco-choco,
+.cb-motion .cb-demo:has(#cb-choco-berry:checked) .cb-dl-choco-berry,
+.cb-motion .cb-demo:has(#cb-fruit-ring:checked) .cb-dl-fruit-ring,
+.cb-motion .cb-demo:has(#cb-fruit-side:checked) .cb-dl-fruit-side,
+.cb-motion .cb-demo:has(#cb-fruit-pile:checked) .cb-dl-fruit-pile,
+.cb-motion .cb-demo:has(#cb-topping-wanko:checked) .cb-dl-topping-wanko,
+.cb-motion .cb-demo:has(#cb-topping-usagi:checked) .cb-dl-topping-usagi,
+.cb-motion .cb-demo:has(#cb-topping-kuma:checked) .cb-dl-topping-kuma{transform:none}
+.cb-opt{transition:background .15s,border-color .15s,transform .15s}
+.cb-motion .cb-opt.is-auto{transform:scale(1.03)}
+
+/* 自動で切り替わっている間の目印（触ると消える） */
+.cb-demo-hint{display:block;margin-top:6px;font-size:11px;color:#a8606f;text-align:center;transition:opacity .3s}
+.cb-demo-hint.is-off{opacity:0}
+
+@media (prefers-reduced-motion:reduce){
+  .cb-motion .cb-rv,.cb-motion .cb-hero-copy>*,.cb-motion .cb-shots>*{opacity:1!important;transform:none!important;transition:none!important}
+  .cb-motion .cb-hero .cb-shot-phone,.cb-motion .cb-hero .cb-browser{animation:none!important}
+}

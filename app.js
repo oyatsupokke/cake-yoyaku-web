@@ -781,6 +781,9 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
     "fruit-side-muscat.png": "12cm/fruit-side-muscat.png",
     "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
+    "fruit-ring-fig.png": "12cm/fruit-ring-fig.png",
+    "fruit-side-fig.png": "12cm/fruit-side-fig.png",
+    "fruit-pile-fig.png": "12cm/fruit-pile-fig.png",
     "fruit-side-herb.png": "12cm/fruit-side-herb.png",
     "herb-ring.png": "12cm/herb-ring.png",
     "dog-cake.png": "12cm/dog-cake.png",
@@ -793,6 +796,9 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-muscat.png": "18cm/fruit-ring-muscat.png",
     "fruit-side-muscat.png": "18cm/fruit-side-muscat.png",
     "fruit-pile-muscat.png": "18cm/fruit-pile-muscat.png",
+    "fruit-ring-fig.png": "18cm/fruit-ring-fig.png",
+    "fruit-side-fig.png": "18cm/fruit-side-fig.png",
+    "fruit-pile-fig.png": "18cm/fruit-pile-fig.png",
     "fruit-side-herb.png": "18cm/fruit-side-herb.png",
     "herb-ring.png": "18cm/herb-ring.png",
     "dog-cake.png": "18cm/dog-cake.png",
@@ -855,6 +861,11 @@ function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
   "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
+};
+const OYATSU_FIG_DECORATION_LAYERS = {
+  "フルーツ1周": "fruit-ring-fig.png",
+  "フルーツサイド寄せ": "fruit-side-fig.png",
+  "フルーツ盛り": "fruit-pile-fig.png",
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 const DEFAULT_COLOR = "#D97A86";
@@ -1463,7 +1474,10 @@ function currentLayers() {
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const rawLayerUrl=CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
+        const rawLayerUrl=CONFIG.shop==="pokke" && p.name==="デコレーションケーキ"
+          && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]
+          ? cakeLayerAsset(OYATSU_FIG_DECORATION_LAYERS[name])
+          :CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
           && state.sel.variant?.size_label==="15cm" && name==="丸絞り1周"
           ? cakeLayerAsset("calendar/15cm/round-piping.png")
           :CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"

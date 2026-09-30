@@ -21,6 +21,7 @@ const state = {
   current: null, fields: [],
   // 選択肢の「詳しい設定」を開いているもの。普段はたたんでおく（画面が縦に延々と続かないように）
   openOptions: new Set(),
+  openSizeLayers: new Set(), // 「サイズ別のイラスト」を開いている欄（再描画しても開いたまま）
 };
 
 /* ---------- 入力欄をスクロールから守る（2026-09-06） ----------
@@ -402,8 +403,68 @@ function buildLayerField(opts) {
       btn.textContent = "削除";
     }
   };
+  if (opts.sizes?.length > 1 && opts.onSizeChange) box.appendChild(buildSizeLayerFields(opts));
   return box;
 }
+
+/* サイズ別のイラスト（2026-09-30）。空欄のサイズは上の共通の1枚を使う。
+ * 保存は {"サイズ名":"URL"} をそのまま書き換える（その場で反映・保存バー不要）。
+ * 差し替え・削除しても元のファイルは消さない（コピーした商品と共有していることがあるため） */
+function buildSizeLayerFields({ sizes, sizeUrls, onSizeChange, sizeKey }) {
+  const map = sizeUrls && typeof sizeUrls === "object" ? { ...sizeUrls } : {};
+  const count = sizes.filter((size) => map[size]).length;
+  const details = document.createElement("details");
+  details.className = "size-layers";
+  details.open = state.openSizeLayers.has(sizeKey);
+  details.ontoggle = () => { if (details.open) state.openSizeLayers.add(sizeKey); else state.openSizeLayers.delete(sizeKey); };
+  details.innerHTML = `<summary>サイズ別のイラスト（任意）${count ? `<span class="tag hi">${count}サイズ登録済み</span>` : ""}</summary>
+    <p class="mini">サイズによって絵を変えたいときだけ登録します。空欄のサイズは上の共通のイラストを使います。サイズ名が同じなら、ほかの商品でも同じ絵になります。</p>
+    <div class="size-layer-rows"></div>`;
+  const rows = details.querySelector(".size-layer-rows");
+  for (const size of sizes) {
+    const url = map[size] || "";
+    const row = document.createElement("div");
+    row.className = "size-layer-row";
+    row.innerHTML = `<span class="size-layer-label">${esc(size)}</span>
+      <span class="photo-thumb layer-thumb small ${url ? "" : "empty"}">${url ? `<img src="${esc(url)}" alt="">` : "共通"}</span>
+      <label class="pill photo-pick">${url ? "差し替える" : "イラストを選ぶ"}<input type="file" accept="image/png" hidden></label>
+      <button type="button" class="pill danger size-layer-del" ${url ? "" : "hidden"}>削除</button>`;
+    const pick = row.querySelector(".photo-pick");
+    row.querySelector('input[type="file"]').onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      pick.textContent = "アップロード中…";
+      try {
+        const newUrl = await uploadLayer(file);
+        await onSizeChange({ ...map, [size]: newUrl });
+        toast(`${size}のイラストを保存しました`);
+        reloadAll();
+      } catch (err) {
+        toast(err.message);
+        pick.textContent = url ? "差し替える" : "イラストを選ぶ";
+      }
+    };
+    row.querySelector(".size-layer-del").onclick = async (e) => {
+      e.currentTarget.disabled = true;
+      const next = { ...map };
+      delete next[size];
+      try {
+        await onSizeChange(next);
+        toast(`${size}のイラストを外しました（共通のイラストに戻ります）`);
+        reloadAll();
+      } catch (err) {
+        toast("削除できませんでした：" + err.message);
+        e.currentTarget.disabled = false;
+      }
+    };
+    rows.appendChild(row);
+  }
+  return details;
+}
+// 商品のサイズ名（表示順）。質問の回答のように店全体で使う欄は、全商品のサイズ名をまとめる
+const productSizeLabels = (p) => [...(p?.product_variants || [])]
+  .sort((a, b) => a.display_order - b.display_order).map((v) => v.size_label).filter(Boolean);
+const allSizeLabels = () => [...new Set(state.products.flatMap(productSizeLabels))];
 
 // 画像アップロード欄を組み立てる（表示・選択・削除）
 function buildPhotoField(opts) {
@@ -1229,6 +1290,8 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       label: "プレビュー用イラスト（この回答を選んだ時・任意）",
       onChange: patch => api("PATCH", `/rest/v1/common_question_choices?id=eq.${c.id}`,
         patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
+      sizes: allSizeLabels(), sizeUrls: c.size_layer_urls, sizeKey: `common_question_choices:${c.id}`,
+      onSizeChange: (map) => api("PATCH", `/rest/v1/common_question_choices?id=eq.${c.id}`, { size_layer_urls: map }),
     });
     details.appendChild(layer);
     regField("common_question_choices", c.id, "layer_z", layer.querySelector(".layer-z"), { number: true });
@@ -1503,12 +1566,15 @@ function renderPreviewLayerSettings(p) {
   const fieldsWrap = $("p-layer-fields");
   baseWrap.innerHTML = "";
   fieldsWrap.innerHTML = "";
+  const sizes = productSizeLabels(p);
   baseWrap.appendChild(buildLayerField({
     url: p.layer_url,
     label: "ケーキの土台",
     hint: "透過PNG・800×800px",
     showZ: false,
     onChange: ({ url }) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { layer_url: url }),
+    sizes, sizeUrls: p.size_layer_urls, sizeKey: `products:${p.id}`,
+    onSizeChange: (map) => api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { size_layer_urls: map }),
   }));
 
   for (const g of groupsForProduct(p)) {
@@ -1526,6 +1592,8 @@ function renderPreviewLayerSettings(p) {
       orderKey: `option_groups:${g.id}`,
       onChange: (patch) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`,
         patch.url !== undefined ? { default_layer_url: patch.url } : { default_layer_z: patch.z }),
+      sizes, sizeUrls: g.default_size_layer_urls, sizeKey: `option_groups:${g.id}`,
+      onSizeChange: (map) => api("PATCH", `/rest/v1/option_groups?id=eq.${g.id}`, { default_size_layer_urls: map }),
     });
     body.appendChild(groupField);
     regField("option_groups", g.id, "default_layer_z", groupField.querySelector(".layer-z"), { number: true });
@@ -1540,6 +1608,8 @@ function renderPreviewLayerSettings(p) {
         orderKey: `options:${o.id}`,
         onChange: (patch) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`,
           patch.url !== undefined ? { layer_url: patch.url } : { layer_z: patch.z }),
+        sizes, sizeUrls: o.size_layer_urls, sizeKey: `options:${o.id}`,
+        onSizeChange: (map) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { size_layer_urls: map }),
       });
       body.appendChild(optionField);
       regField("options", o.id, "layer_z", optionField.querySelector(".layer-z"), { number: true });

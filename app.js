@@ -784,6 +784,9 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-fig.png": "12cm/fruit-ring-fig.png",
     "fruit-side-fig.png": "12cm/fruit-side-fig.png",
     "fruit-pile-fig.png": "12cm/fruit-pile-fig.png",
+    "fruit-ring-kyoho.png": "12cm/fruit-ring-kyoho.png",
+    "fruit-side-kyoho.png": "12cm/fruit-side-kyoho.png",
+    "fruit-pile-kyoho.png": "12cm/fruit-pile-kyoho.png",
     "fruit-side-herb.png": "12cm/fruit-side-herb.png",
     "herb-ring.png": "12cm/herb-ring.png",
     "dog-cake.png": "12cm/dog-cake.png",
@@ -799,6 +802,9 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-fig.png": "18cm/fruit-ring-fig.png",
     "fruit-side-fig.png": "18cm/fruit-side-fig.png",
     "fruit-pile-fig.png": "18cm/fruit-pile-fig.png",
+    "fruit-ring-kyoho.png": "18cm/fruit-ring-kyoho.png",
+    "fruit-side-kyoho.png": "18cm/fruit-side-kyoho.png",
+    "fruit-pile-kyoho.png": "18cm/fruit-pile-kyoho.png",
     "fruit-side-herb.png": "18cm/fruit-side-herb.png",
     "herb-ring.png": "18cm/herb-ring.png",
     "dog-cake.png": "18cm/dog-cake.png",
@@ -1450,11 +1456,21 @@ function drawSizedCalendarLayer(ctx, cal) {
 }
 
 // 今の選択内容から、重ねる素材を下から順に並べる
+/* サイズ別のイラスト（店が商品設定で登録・2026-09-30）。選んだサイズ用があればそのURL、無ければ null。
+ * 登録があるときは、oyatsupokke用の直書きの差し替え（sizeSpecificLayerUrl）より優先する */
+function ownSizedLayer(item, key = "size_layer_urls") {
+  const size = state.sel.variant?.size_label;
+  const map = item?.[key];
+  const url = size && map && typeof map === "object" ? map[size] : null;
+  return typeof url === "string" && url ? url : null;
+}
 function currentLayers() {
   const p = state.sel.product;
-  if (!p?.layer_url) return null;
+  if (!p) return null;
+  const baseUrl = ownSizedLayer(p) || (p.layer_url ? sizeSpecificLayerUrl(p.layer_url, "base") : null);
+  if (!baseUrl) return null;
   const ownPreview = CONFIG.shop === "pokke";
-  const layers = [{ url: sizeSpecificLayerUrl(p.layer_url, "base"), z: 0 }];
+  const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
       layers.push({ url: cakeLayerAsset(x.file), z: x.z });
@@ -1484,7 +1500,7 @@ function currentLayers() {
             ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
-        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
+        const layerUrl=ownSizedLayer(o)||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
@@ -1539,9 +1555,9 @@ function currentLayers() {
           }
         }
       }
-    } else if (g.default_layer_url) {
+    } else if (g.default_layer_url || ownSizedLayer(g, "default_size_layer_urls")) {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
-      layers.push({ url: sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
+      layers.push({ url: ownSizedLayer(g, "default_size_layer_urls") || sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
     }
   }
   if (dogNumberCombo) {
@@ -1553,8 +1569,9 @@ function currentLayers() {
   for (const q of askedQuestions()) {
     const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
     for (const c of qChoices(q)) {
-      if (ids.includes(c.id) && choiceAvailableOnPickup(c) && c.layer_url) {
-        layers.push({ url: c.layer_url, z: c.layer_z ?? 50 });
+      const choiceLayer = ownSizedLayer(c) || c.layer_url;
+      if (ids.includes(c.id) && choiceAvailableOnPickup(c) && choiceLayer) {
+        layers.push({ url: choiceLayer, z: c.layer_z ?? 50 });
       }
     }
   }

@@ -715,3 +715,12 @@
 .period-hide input { width: auto; margin: 0; }
 /* 選択肢の並べ替え */
 .products-page .opt .opt-order { display: flex; justify-content: flex-end; margin-top: 4px; }
+
+/* サイズ別のイラスト（2026-09-30） */
+.size-layers { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.size-layers summary { cursor: pointer; font-size: .88rem; }
+.size-layers .tag { margin-left: 6px; }
+.size-layer-rows { display: grid; gap: 8px; margin-top: 8px; }
+.size-layer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.size-layer-label { min-width: 3.5em; font-weight: bold; font-size: .9rem; }
+.photo-thumb.layer-thumb.small { width: 56px; height: 56px; font-size: .72rem; }

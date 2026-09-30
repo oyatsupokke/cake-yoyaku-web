@@ -946,6 +946,12 @@ function pastelHueName(hue) {
 function loadImg(url) {
   url = safeImageUrl(url);
   if (!url) return Promise.resolve(null);
+  // 公開済みの同名PNGは長くキャッシュされるため、描き直さず色だけ替えた版を読み直す。
+  if (CONFIG.shop === "pokke" && layerFileName(url).endsWith("-kyoho.png")) {
+    const freshUrl = new URL(url, location.href);
+    freshUrl.searchParams.set("v", "20260930-color-only");
+    url = freshUrl.href;
+  }
   if (imgCache.has(url)) return imgCache.get(url);
   const p = new Promise((resolve) => {
     const img = new Image();

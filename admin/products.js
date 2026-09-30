@@ -419,7 +419,7 @@ function buildSizeLayerFields({ sizes, sizeUrls, onSizeChange, sizeKey }) {
   // 1つでも登録済みなら最初から開いて、何が入っているか見えるようにする
   details.open = count > 0 || state.openSizeLayers.has(sizeKey);
   const summaryText = () => details.open
-    ? `サイズ別のイラスト${count ? `（${count}サイズ登録済み）` : ""}　閉じる ▴`
+    ? `▴ サイズ別${count ? `（${count}サイズ登録済み）` : ""}`
     : "＋ サイズ別で登録する";
   details.innerHTML = `<summary class="size-layers-toggle"></summary>
     <p class="mini">サイズによって絵を変えたいときだけ登録します。空欄のサイズは上の共通のイラストを使います。サイズ名が同じなら、ほかの商品でも同じ絵になります。</p>

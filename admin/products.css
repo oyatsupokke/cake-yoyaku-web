@@ -717,12 +717,16 @@
 .products-page .opt .opt-order { display: flex; justify-content: flex-end; margin-top: 4px; }
 
 /* サイズ別のイラスト（2026-09-30） */
-.size-layers { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.size-layers { margin-top: 8px; }
+/* イラスト欄どうしの区切りは、サイズ別の欄まで含めた「後ろ」に引く（ボタンが次の選択肢の物に見えないように・2026-09-30） */
+.preview-layer-group-fields > .photo-field, #p-layer > .photo-field, .answer-choice-details > .photo-field { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.preview-layer-group-fields > .photo-field:last-child { border-bottom: 0; margin-bottom: 0; }
 .size-layers summary.size-layers-toggle { list-style: none; cursor: pointer; display: inline-block; font-size: .85rem; padding: 6px 14px; border: 1px solid var(--line); border-radius: 99px; background: #fff; color: inherit; }
 .size-layers summary.size-layers-toggle::-webkit-details-marker { display: none; }
 .size-layers:not([open]) summary.size-layers-toggle { border-color: var(--primary-deep); color: var(--primary-deep); }
 .size-layers[open] summary.size-layers-toggle { border: 0; padding: 0; font-weight: bold; }
 .size-layer-rows { display: grid; gap: 8px; margin-top: 8px; }
-.size-layer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.size-layer-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.size-layer-row .pill { padding: 4px 10px; font-size: .8rem; white-space: nowrap; }
 .size-layer-label { min-width: 3.5em; font-weight: bold; font-size: .9rem; }
 .photo-thumb.layer-thumb.small { width: 56px; height: 56px; font-size: .72rem; }

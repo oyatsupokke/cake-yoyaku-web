@@ -718,8 +718,10 @@
 
 /* サイズ別のイラスト（2026-09-30） */
 .size-layers { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
-.size-layers summary { cursor: pointer; font-size: .88rem; }
-.size-layers .tag { margin-left: 6px; }
+.size-layers summary.size-layers-toggle { list-style: none; cursor: pointer; display: inline-block; font-size: .85rem; padding: 6px 14px; border: 1px solid var(--line); border-radius: 99px; background: #fff; color: inherit; }
+.size-layers summary.size-layers-toggle::-webkit-details-marker { display: none; }
+.size-layers:not([open]) summary.size-layers-toggle { border-color: var(--primary-deep); color: var(--primary-deep); }
+.size-layers[open] summary.size-layers-toggle { border: 0; padding: 0; font-weight: bold; }
 .size-layer-rows { display: grid; gap: 8px; margin-top: 8px; }
 .size-layer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .size-layer-label { min-width: 3.5em; font-weight: bold; font-size: .9rem; }

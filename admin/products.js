@@ -415,11 +415,21 @@ function buildSizeLayerFields({ sizes, sizeUrls, onSizeChange, sizeKey }) {
   const count = sizes.filter((size) => map[size]).length;
   const details = document.createElement("details");
   details.className = "size-layers";
-  details.open = state.openSizeLayers.has(sizeKey);
-  details.ontoggle = () => { if (details.open) state.openSizeLayers.add(sizeKey); else state.openSizeLayers.delete(sizeKey); };
-  details.innerHTML = `<summary>サイズ別のイラスト（任意）${count ? `<span class="tag hi">${count}サイズ登録済み</span>` : ""}</summary>
+  // 開け閉めできると一目で分かるよう、閉じているときはボタンの見た目にする（まりほ指摘 2026-09-30）。
+  // 1つでも登録済みなら最初から開いて、何が入っているか見えるようにする
+  details.open = count > 0 || state.openSizeLayers.has(sizeKey);
+  const summaryText = () => details.open
+    ? `サイズ別のイラスト${count ? `（${count}サイズ登録済み）` : ""}　閉じる ▴`
+    : "＋ サイズ別で登録する";
+  details.innerHTML = `<summary class="size-layers-toggle"></summary>
     <p class="mini">サイズによって絵を変えたいときだけ登録します。空欄のサイズは上の共通のイラストを使います。サイズ名が同じなら、ほかの商品でも同じ絵になります。</p>
     <div class="size-layer-rows"></div>`;
+  const summary = details.querySelector("summary");
+  summary.textContent = summaryText();
+  details.ontoggle = () => {
+    if (details.open) state.openSizeLayers.add(sizeKey); else state.openSizeLayers.delete(sizeKey);
+    summary.textContent = summaryText();
+  };
   const rows = details.querySelector(".size-layer-rows");
   for (const size of sizes) {
     const url = map[size] || "";

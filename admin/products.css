@@ -730,3 +730,11 @@
 .size-layer-row .pill { padding: 4px 10px; font-size: .8rem; white-space: nowrap; }
 .size-layer-label { min-width: 3.5em; font-weight: bold; font-size: .9rem; }
 .photo-thumb.layer-thumb.small { width: 56px; height: 56px; font-size: .72rem; }
+
+/* 組み合わせで絵を変える（2026-09-30） */
+.combo-group-pick { display: grid; gap: 4px; font-size: .85rem; margin: 6px 0 4px; }
+.combo-group-pick select { font-size: .9rem; }
+.combo-row { padding: 6px 0; border-bottom: 1px dotted var(--line); }
+.combo-row:last-child { border-bottom: 0; }
+.combo-row .size-layers { margin: 4px 0 0 1em; }
+.size-layer-label.combo-label { min-width: 6.5em; max-width: 9em; overflow-wrap: anywhere; }

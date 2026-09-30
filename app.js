@@ -1464,6 +1464,19 @@ function ownSizedLayer(item, key = "size_layer_urls") {
   const url = size && map && typeof map === "object" ? map[size] : null;
   return typeof url === "string" && url ? url : null;
 }
+/* 組み合わせ別のイラスト（2026-09-30）。この選択肢と一緒に選ばれている選択肢の絵があればそのURL。
+ * 先頭から見て最初に当たったものを使い、その組み合わせにサイズ別があればそれを優先する */
+function comboLayer(o) {
+  const rules = Array.isArray(o?.combo_layers) ? o.combo_layers : [];
+  const size = state.sel.variant?.size_label;
+  for (const rule of rules) {
+    if (!rule?.when || !state.sel.options.has(rule.when)) continue;
+    const sized = size && rule.sizes && typeof rule.sizes === "object" ? rule.sizes[size] : null;
+    const url = (typeof sized === "string" && sized) || (typeof rule.url === "string" && rule.url) || null;
+    if (url) return url;
+  }
+  return null;
+}
 function currentLayers() {
   const p = state.sel.product;
   if (!p) return null;
@@ -1472,8 +1485,10 @@ function currentLayers() {
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
+    // タルト・バスクに常に付く果物。ナガノパープルを選んだら巨峰の絵に替える（2026-09-30）
+    const kyoho = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナガノパープル");
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      layers.push({ url: cakeLayerAsset(x.file), z: x.z });
+      layers.push({ url: cakeLayerAsset(kyoho ? x.file.replace("-muscat.png", "-kyoho.png") : x.file), z: x.z });
     }
   }
   const detachedNames=detachedToppingNames();
@@ -1502,7 +1517,8 @@ function currentLayers() {
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
         // サイズ別の登録は「選択肢そのものの絵」のときだけ使う。ほかの選択で絵が替わる場合
         // （サイド寄せのハーブ・いちじく・カレンダーの丸絞り・タルト等のプレート）はそちらを優先する
-        const layerUrl=(rawLayerUrl===o.layer_url&&ownSizedLayer(o))||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
+        // 店が登録した組み合わせの絵がいちばん優先（例：いちじく×フルーツ1周）
+        const layerUrl=comboLayer(o)||(rawLayerUrl===o.layer_url&&ownSizedLayer(o))||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
           if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。

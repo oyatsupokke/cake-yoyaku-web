@@ -1,0 +1,10 @@
+/* LPの改行。HTMLの文節の切れ目に <wbr> が入っている（scripts/lp-tools/polish.mjs）ので、文節の途中では改行しない。
+   入りきらない長い語だけは途中で折り返す（はみ出し防止）。 */
+.cb{word-break:keep-all;overflow-wrap:break-word;line-break:strict}
+/* 最後の行が短くなりすぎないように（対応ブラウザだけ効く。表のセルは列幅の計算が崩れるので対象外） */
+.cb p,.cb li,.cb summary,.cb dd,.cb small,.cb label{text-wrap:pretty}
+.cb h1,.cb h2,.cb h3{text-wrap:balance}
+/* 試算表の「条件」「月の時間」は短いので1行で */
+.cb-workload th:nth-child(n+2),.cb-workload td:nth-child(n+2){white-space:nowrap}
+/* ボタンが2行になるときは均等に（「登録なしで／デモを体験」） */
+.cb .cb-btn{text-wrap:balance;text-align:center}

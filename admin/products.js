@@ -471,6 +471,95 @@ function buildSizeLayerFields({ sizes, sizeUrls, onSizeChange, sizeKey }) {
   }
   return details;
 }
+/* 組み合わせ別のイラスト（2026-09-30）。例：「フルーツ1周」の絵を、果物（いちじく等）ごとに替える。
+ * 飾り方の側に「この選択肢を一緒に選んでいる時はこの絵」を持たせる。保存はその場で反映。
+ * rules = [{when: 選択肢ID, url, sizes: {サイズ名: URL}}] */
+function buildComboLayerFields({ groups, rules, sizes, comboKey, onComboChange }) {
+  const list = Array.isArray(rules) ? rules.map((r) => ({ ...r, sizes: { ...(r.sizes || {}) } })) : [];
+  const live = list.filter((r) => r.url || Object.keys(r.sizes).length);
+  const details = document.createElement("details");
+  details.className = "size-layers combo-layers";
+  details.open = live.length > 0 || state.openSizeLayers.has(comboKey);
+  const summaryText = () => details.open
+    ? `▴ 組み合わせ${live.length ? `（${live.length}件登録済み）` : ""}`
+    : "＋ 組み合わせで絵を変える";
+  details.innerHTML = `<summary class="size-layers-toggle"></summary>
+    <p class="mini">ほかの選択肢と一緒に選ばれた時だけ、別の絵にします（例：いちじく×フルーツ1周）。登録のない組み合わせは上の絵のままです。</p>
+    <label class="combo-group-pick">どの選択肢で絵を変える？<select></select></label>
+    <div class="size-layer-rows combo-rows"></div>`;
+  const summary = details.querySelector("summary");
+  summary.textContent = summaryText();
+  details.ontoggle = () => {
+    if (details.open) state.openSizeLayers.add(comboKey); else state.openSizeLayers.delete(comboKey);
+    summary.textContent = summaryText();
+  };
+  const candidates = groups.filter((g) => (g.options || []).length);
+  const select = details.querySelector("select");
+  const groupOf = (id) => candidates.find((g) => g.options.some((o) => o.id === id));
+  const initial = groupOf(live[0]?.when) || candidates.find((g) => /フルーツ|果物/.test(g.name || "")) || candidates[0];
+  select.innerHTML = candidates.map((g) => {
+    const n = live.filter((r) => g.options.some((o) => o.id === r.when)).length;
+    return `<option value="${esc(g.id)}" ${g === initial ? "selected" : ""}>${esc(g.name || "名称未設定のグループ")}${n ? `（${n}件登録済み）` : ""}</option>`;
+  }).join("");
+  const save = async (next, message) => {
+    const cleaned = next.filter((r) => r.url || Object.keys(r.sizes || {}).length);
+    await onComboChange(cleaned);
+    toast(message);
+    reloadAll();
+  };
+  const upsert = (when, patch) => {
+    const next = list.map((r) => ({ ...r, sizes: { ...r.sizes } }));
+    let rule = next.find((r) => r.when === when);
+    if (!rule) { rule = { when, url: null, sizes: {} }; next.push(rule); }
+    patch(rule);
+    return next;
+  };
+  const rowsWrap = details.querySelector(".combo-rows");
+  const paint = () => {
+    rowsWrap.innerHTML = "";
+    const g = candidates.find((x) => x.id === select.value);
+    for (const o of [...(g?.options || [])].sort((a, b) => a.display_order - b.display_order)) {
+      const rule = list.find((r) => r.when === o.id);
+      const url = rule?.url || "";
+      const row = document.createElement("div");
+      row.className = "combo-row";
+      row.innerHTML = `<div class="size-layer-row"><span class="size-layer-label combo-label">${esc(optDisplayName(o))}</span>
+        <span class="photo-thumb layer-thumb small ${url ? "" : "empty"}">${url ? `<img src="${esc(url)}" alt="">` : "なし"}</span>
+        <label class="pill photo-pick">${url ? "差し替える" : "イラストを選ぶ"}<input type="file" accept="image/png" hidden></label>
+        <button type="button" class="pill danger combo-del" ${rule ? "" : "hidden"}>削除</button></div>`;
+      const pick = row.querySelector(".photo-pick");
+      row.querySelector('input[type="file"]').onchange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        pick.textContent = "アップロード中…";
+        try {
+          const newUrl = await uploadLayer(file);
+          await save(upsert(o.id, (r) => { r.url = newUrl; }), `「${optDisplayName(o)}」の時の絵を保存しました`);
+        } catch (err) { toast(err.message); pick.textContent = url ? "差し替える" : "イラストを選ぶ"; }
+      };
+      row.querySelector(".combo-del").onclick = async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          await save(list.filter((r) => r.when !== o.id), `「${optDisplayName(o)}」の時の絵を外しました`);
+        } catch (err) { toast("削除できませんでした：" + err.message); e.currentTarget.disabled = false; }
+      };
+      // 組み合わせごとのサイズ別（例：いちじく×12cm）
+      if (sizes.length > 1) row.appendChild(buildSizeLayerFields({
+        sizes, sizeUrls: rule?.sizes || {}, sizeKey: `${comboKey}:${o.id}`,
+        onSizeChange: (map) => onComboChange(upsert(o.id, (r) => { r.sizes = map; }).filter((r) => r.url || Object.keys(r.sizes || {}).length)),
+      }));
+      rowsWrap.appendChild(row);
+    }
+  };
+  select.onchange = paint;
+  paint();
+  if (!candidates.length) {
+    details.querySelector(".combo-group-pick").remove();
+    rowsWrap.innerHTML = `<p class="mini">組み合わせに使えるほかのグループがありません。</p>`;
+  }
+  return details;
+}
+
 // 商品のサイズ名（表示順）。質問の回答のように店全体で使う欄は、全商品のサイズ名をまとめる
 const productSizeLabels = (p) => [...(p?.product_variants || [])]
   .sort((a, b) => a.display_order - b.display_order).map((v) => v.size_label).filter(Boolean);
@@ -1621,6 +1710,11 @@ function renderPreviewLayerSettings(p) {
         sizes, sizeUrls: o.size_layer_urls, sizeKey: `options:${o.id}`,
         onSizeChange: (map) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { size_layer_urls: map }),
       });
+      optionField.appendChild(buildComboLayerFields({
+        groups: groupsForProduct(p).filter((x) => x.id !== g.id),
+        rules: o.combo_layers, sizes, comboKey: `combo:${o.id}`,
+        onComboChange: (rules) => api("PATCH", `/rest/v1/options?id=eq.${o.id}`, { combo_layers: rules }),
+      }));
       body.appendChild(optionField);
       regField("options", o.id, "layer_z", optionField.querySelector(".layer-z"), { number: true });
     }

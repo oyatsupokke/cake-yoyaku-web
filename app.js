@@ -1505,8 +1505,8 @@ function currentLayers() {
           : chosenFruit.has("ナガノパープル") ? "kyoho" : "muscat";
         if (["12cm", "18cm"].includes(size) || (size === "15cm" && fruit === "fig"))
           file = `${size}/tart-fruit-${fruit}.png`;
-        if (size === "18cm" && chosenFruit.has("フルーツミックス"))
-          file = "18cm/tart-fruit-mix.png";
+        if (["12cm", "18cm"].includes(size) && chosenFruit.has("フルーツミックス"))
+          file = `${size}/tart-fruit-mix.png`;
       }
       layers.push({ url: cakeLayerAsset(file), z: x.z });
     }

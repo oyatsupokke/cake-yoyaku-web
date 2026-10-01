@@ -1995,7 +1995,7 @@ function renderGroups() {
         box.appendChild(buildDetachedToppingPicker(g,o.id));
       }
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
-      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id && QuestionFlow.questionApplies(x, state.sel.product.id) && QuestionFlow.conditionMatches(x, state.sel.options)) : [];
+      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id && QuestionFlow.conditionMatches(x, state.sel.options, state.sel.answers)) : [];
       if (optionQs.length) {
         const wrapQ = document.createElement("div");
         wrapQ.className = "opt-question";
@@ -2280,12 +2280,12 @@ function normAnswer(a) {
 function visibleQuestions() {
   if (!state.sel.product) return [];
   return QuestionFlow.ordered(state.sel.product, [], state.questions).map(entry => entry.data)
-    .filter(q => qLive(q) && QuestionFlow.conditionMatches(q, state.sel.options));
+    .filter(q => qLive(q) && QuestionFlow.conditionMatches(q, state.sel.options, state.sel.answers));
 }
 function optionQuestions() {   // いま選ばれている選択肢にぶら下がる質問
   const out = [];
   for (const id of state.sel.options.keys()) {
-    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id && QuestionFlow.questionApplies(x, state.sel.product.id) && QuestionFlow.conditionMatches(x, state.sel.options)));
+    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id && QuestionFlow.conditionMatches(x, state.sel.options, state.sel.answers)));
   }
   return out;
 }
@@ -2429,6 +2429,11 @@ function buildQuestionField(q) {
     }
     updatePriceBar();
     updatePreview();
+    // この回答を表示条件にしている質問があれば、出し入れのために描き直す（2026-10-02）
+    if ((multi || q.input_type === "select") && qChoices(q).some((c) => state.questions.some((x) => x.condition_choice_id === c.id))) {
+      renderGroups();
+      renderQuestions();
+    }
     // 「選べない日」のある回答を選んだら、カレンダーのその日を受付なしにして描き直す
     if (multi || q.input_type === "select") {
       if (Object.keys(state.avail || {}).length && qChoices(q).some((c) => (c.choice_availability_overrides || []).length)) renderCalendar();

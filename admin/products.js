@@ -131,7 +131,7 @@ function validateQuestionFlow(changes) {
   const groups = drafts.overlay('option_groups',[...state.products.flatMap(p => p.option_groups || []),...state.globalGroups]);
   const questions = drafts.overlay('common_questions',state.questions);
   for (const item of [...groups,...questions]) {
-    if (item.condition_mode && item.condition_mode !== 'always' && !item.condition_option_id)
+    if (item.condition_mode && item.condition_mode !== 'always' && !item.condition_option_id && !item.condition_choice_id)
       throw new Error('表示条件にする選択肢を選んでください');
     if (item.target_product_ids && !item.target_product_ids.length)
       throw new Error('表示するケーキを1つ以上選んでください');
@@ -1899,6 +1899,8 @@ function buildQuestionSettings(item, kind, header, main, parentName = "") {
   const selectedIds = group ? (item.product_id ? [item.product_id] : item.target_product_ids)
     : (item.scope === "selected" ? item._product_ids || (item.common_question_products || []).map(x => x.product_id) : null);
   const initialMode = !selectedIds ? "all" : selectedIds.length === 1 && selectedIds[0] === currentProductId ? "this" : "some";
+  // 小質問は親の選択肢が出るケーキにだけ出るので「表示するケーキ」は持たせない（2026-10-02 まりほ判断）
+  if (!sub) {
   const scope = document.createElement("div"); scope.className = "question-scope";
   scope.innerHTML = `<span class="k">表示するケーキ</span><div class="scope-buttons">${[
     ["all","すべてのケーキに出す"], ["this","このケーキだけに出す"], ["some","指定したケーキに出す"]
@@ -1922,23 +1924,30 @@ function buildQuestionSettings(item, kind, header, main, parentName = "") {
     scope.querySelector('.scope-note').textContent = scope.dataset.shared === 'true'
       ? '内容の変更は対象のケーキすべてに反映されます。並び順はケーキごとです。' : '';
     const appliesNow = !ids() || ids().includes(currentProductId);
-    if (sub) { if (!appliesNow) scope.querySelector('.scope-note').textContent += ' このケーキでは、この質問は出ません。'; return; }
     if (scope.closest('#questions-list') && appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧に移動します。';
     if (scope.closest('#groups-list') && !appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧から外れます。';
   };
   scope.addEventListener('change',() => {paintScope();markDirty();}); paintScope();
+  }
   const allGroups = [...state.products.flatMap(p => p.option_groups || []),...state.globalGroups];
   const candidates = [...new Map(allGroups.filter(g => !group || g.id !== item.id)
     .flatMap(g => (g.options || []).map(o => [o.id,{...o,groupName:g.name}]))).values()];
+  // 質問の表示条件には、ほかの質問の回答も使える（例：性別で「男の子」を選んだ時だけ果物を聞く・2026-10-02）
+  const choiceCandidates = group ? [] : drafts.overlay("common_questions", state.questions)
+    .filter(q => q.id !== item.id && ['select','radio','checkbox'].includes(q.input_type))
+    .flatMap(q => qChoices(q).map(c => ({ id: c.id, label: c.label || '回答', qLabel: q.label || '質問文未入力の質問' })));
   const condition = document.createElement('div'); condition.className = 'question-condition';
   condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">${sub ? `「${esc(parentName)}」を選んだらいつも表示` : 'いつも表示する'}</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
-    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option>${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</select></label>
+    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option><optgroup label="選択グループの選択肢">${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</optgroup>${group ? '' : choiceCandidates.length ? `<optgroup label="ほかの質問の回答">${choiceCandidates.map(c => `<option value="c:${c.id}">${esc(c.qLabel)} ／ ${esc(c.label)}</option>`).join('')}</optgroup>` : ''}</select></label>
     <p class="small">非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
   main.prepend(condition);
   const conditionMode = condition.querySelector('.condition-mode'), option = condition.querySelector('.condition-option');
-  conditionMode.value = item.condition_mode || 'always'; option.value = item.condition_option_id || '';
+  conditionMode.value = item.condition_mode || 'always';
+  option.value = item.condition_choice_id ? `c:${item.condition_choice_id}` : item.condition_option_id || '';
   regField(table,item.id,'condition_mode',conditionMode);
-  regField(table,item.id,'condition_option_id',option,{get:() => conditionMode.value === 'always' ? null : option.value || null});
+  const isChoice = () => option.value.startsWith('c:');
+  regField(table,item.id,'condition_option_id',option,{get:() => conditionMode.value === 'always' || isChoice() ? null : option.value || null});
+  if (!group) regField(table,item.id,'condition_choice_id',option,{get:() => conditionMode.value === 'always' || !isChoice() ? null : option.value.slice(2)});
   const previewNote = document.createElement('p'); previewNote.className = 'small preview-condition';
   const cap = main.parentElement?.querySelector(':scope > .cust .cap');
   if (cap) cap.after(previewNote); else condition.appendChild(previewNote);
@@ -2371,7 +2380,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     };
     const item = document.createElement("div");
     item.className = "sub o-question-item" + (q.is_active === false ? " stopped" : "");
-    item.innerHTML = `<p class="small sub-question-base">「${esc(optDisplayName(o))}」を選んだ人に出る質問です。下の「表示するケーキ」「表示条件」で、さらに絞り込めます。</p><div class="sub-question-settings"></div><div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
+    item.innerHTML = `<p class="small sub-question-base">「${esc(optDisplayName(o))}」を選んだ人に出る質問です。下の「表示条件」で、ほかの回答に合わせてさらに絞り込めます。</p><div class="sub-question-settings"></div><div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
       <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
       <button type="button" class="pill danger o-qdel">質問を削除</button></div>`;

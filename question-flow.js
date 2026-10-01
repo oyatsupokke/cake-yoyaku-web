@@ -4,8 +4,15 @@
     : !g.target_product_ids || g.target_product_ids.includes(productId);
   const questionApplies = (q, productId) => q.scope !== 'selected'
     || (q._product_ids || (q.common_question_products || []).map(x => x.product_id)).includes(productId);
-  const conditionMatches = (item, selected) => !item.condition_mode || item.condition_mode === 'always'
-    || (item.condition_mode === 'selected' ? selected.has(item.condition_option_id) : !selected.has(item.condition_option_id));
+  // 表示条件。選択グループの選択肢（condition_option_id）か、ほかの質問の回答（condition_choice_id・2026-10-02）
+  const choicePicked = (answers, choiceId) => !!answers && [...answers.values()]
+    .some(a => Array.isArray(a?.choiceIds) && a.choiceIds.includes(choiceId));
+  const conditionMatches = (item, selected, answers) => {
+    if (!item.condition_mode || item.condition_mode === 'always') return true;
+    const hit = item.condition_choice_id ? choicePicked(answers, item.condition_choice_id)
+      : selected.has(item.condition_option_id);
+    return item.condition_mode === 'selected' ? hit : !hit;
+  };
   function ordered(product, groups, questions) {
     const old = new Map((product.group_order || []).map((id, i) => [id, i]));
     const base = [...groups].filter(g => groupApplies(g, product.id)).sort((a, b) =>
@@ -27,8 +34,13 @@
       }
       if (!changed) break;
     }
-    for (const q of questions) if (q.is_active === false || !questionApplies(q, product.id) || !conditionMatches(q, options)
-      || (q.option_id && !options.has(q.option_id))) answers.delete(q.id);
+    // 回答を消すと、その回答を条件にしていた質問も消える。変わらなくなるまで繰り返す
+    for (let i = 0; i <= questions.length; i++) {
+      let changed = false;
+      for (const q of questions) if ((q.is_active === false || !questionApplies(q, product.id) || !conditionMatches(q, options, answers)
+        || (q.option_id && !options.has(q.option_id))) && answers.delete(q.id)) changed = true;
+      if (!changed) break;
+    }
   }
   root.QuestionFlow = {groupApplies, questionApplies, conditionMatches, ordered, prune};
   if (typeof module !== 'undefined') module.exports = root.QuestionFlow;

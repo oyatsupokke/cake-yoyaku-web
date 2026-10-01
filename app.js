@@ -1943,7 +1943,8 @@ function renderGroups() {
       });
       const capacityConflict = toppingCapacityConflict(o);
       const row = document.createElement("label");
-      row.className = "opt" + ((blockingIds.length || capacityConflict) && !state.sel.options.has(o.id) ? " opt-disabled" : "");
+      // 選んだ受取日に選べないものも灰色で残す（消すと、その飾りを選びたい人が日付を変えられない・2026-10-02 まりほ）
+      row.className = "opt" + ((blockingIds.length || capacityConflict || !optionAvailableOnPickup(o)) && !state.sel.options.has(o.id) ? " opt-disabled" : "");
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
@@ -2069,34 +2070,6 @@ function toggleOption(g, o, input) {
   $("sec-questions").classList.add("hidden");
   updatePriceBar();
   updatePreview(); // 選択に応じてイラストを組み直す
-  // 選択肢の「できない日」を反映してカレンダーを引き直す（表示中なら常に）
-  if (state.sel.variant) {
-    loadCalendar().then((loaded) => {
-      if (!loaded) return;
-      if (state.sel.date && !STAFF_MODE) {   // 代行登録は満枠・締切の日も選べるので外さない
-        const st = state.avail[state.sel.date];
-        if (st !== "open" && st !== "few" && state.sel.options.has(o.id)) {
-          // 受取日が先に決まっているので、外すのは今選んだ選択肢の方
-          state.sel.options.delete(o.id);
-          pruneHiddenQuestions();
-          ensureRequiredFallbacks();
-          renderGroups();
-          updatePriceBar();
-          updatePreview();
-          saveState();
-          loadCalendar();
-          toast(`「${optName(o)}」は${mdText(state.sel.date)}の受取ではご用意できません`, 6000);
-        } else if (st !== "open" && st !== "few") {
-          state.sel.date = null;
-          state.sel.slot = null;
-          $("slot-area").classList.add("hidden");
-          renderCalendar();
-          saveState();
-          toast("選んだ内容がご用意できない日のため、受取日を選び直してください");
-        }
-      }
-    });
-  }
 }
 
 /* ---------- 4. カレンダー・時間枠 ---------- */
@@ -2111,14 +2084,16 @@ async function loadCalendar() {
   $("cal-title").textContent = `${m.getFullYear()}年${m.getMonth() + 1}月`;
   $("cal-grid").innerHTML = '<div class="dow">読み込み中…</div>';
   try {
-    const optIds = [...state.sel.options.keys()];
     const rows = await rpc("fn_get_availability", {
       p_tenant: state.tenant.id,
       p_product: state.sel.product.id,
       p_variant: state.sel.variant.id,
       p_from: fmtDate(first),
       p_to: fmtDate(last),
-      p_options: optIds.length ? optIds : null, // 選択肢の「できない日」も反映
+      // 選んだ選択肢では日を絞らない（2026-10-02）。受取日が先なので、選択肢で日を絞ると
+      // 「その日にしか合わない飾り」が必須の欄に入ったまま日付も飾りも変えられなくなる。
+      // 日付を変えて合わなくなった選択肢は selectDate が名前を出して外す
+      p_options: null,
     });
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
@@ -2151,25 +2126,10 @@ function renderCalendar() {
   const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const MARK = { open: "●", few: "▲", full: "×", closed: "" };
   const todayKey = BookingWindow.bounds(state.tenant).today;
-  const choiceStops = STAFF_MODE ? new Set() : selectedChoiceStopDates();
-  const limits = STAFF_MODE ? [] : selectedPeriodLimits();
-  const stopItems = STAFF_MODE ? [] : selectedStopItems();
-  for (const it of stopItems) for (const d of it.dates) choiceStops.add(d);
-  const limitNote = $("cal-limit-note");
-  if (limitNote) {
-    // どの選択のせいで選べない日があるのかを名前で出す（2026-10-02 まりほ指摘）
-    const lines = [
-      ...limits.map((l) => `選択中の「${l.name}」は${periodText(l)}です（それ以外の日は選べません）。`),
-      ...stopItems.map((it) => `選択中の「${it.name}」は ${stopDatesText(it.dates)} は選べません。`),
-      ...[...state.sel.options.keys()].map((id) => findOption(id)?.o).filter((o) => o?.order_deadline_days != null)
-        .map((o) => `選択中の「${optName(o)}」は受取日の${o.order_deadline_days}日前が締切です。`),
-    ];
-    limitNote.textContent = lines.join("");
-    limitNote.classList.toggle("hidden", !lines.length);
-  }
+  // 受取日が先なので、選んだ選択肢・回答ではカレンダーを絞らない（loadCalendar と同じ理由）
   for (let day = 1; day <= days; day++) {
     const key = fmtDate(new Date(m.getFullYear(), m.getMonth(), day));
-    const st = choiceStops.has(key) || limits.some((l) => outsideLimit(l, key)) ? "closed" : (state.avail[key] || "closed");
+    const st = state.avail[key] || "closed";
     // 代行登録：本来受付できない日（締切・満枠・休業）も今日以降なら警告つきで選べる
     const staffPick = STAFF_MODE && (st === "full" || st === "closed") && key >= todayKey;
     const el = document.createElement("div");
@@ -2290,25 +2250,15 @@ function choiceAvailableOnPickup(c, date = state.sel.date) {
     ((!c.pickup_from || date >= c.pickup_from) && (!c.pickup_until || date <= c.pickup_until) && !choiceStopped(c, date)));
 }
 const choiceUnavailableNote = (c) => choiceAvailableOnPickup(c) ? "" : choiceStopped(c, state.sel.date) ? "・この日は選べません" : "・期間外";
-/* いま選んでいる回答が選べない日。受取日より先に回答を選んだ場合は、カレンダーのその日を受付なしにする */
-function selectedChoiceStopDates() {
-  const dates = new Set();
-  for (const q of askedQuestions()) {
-    const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
-    for (const c of qChoices(q)) if (ids.includes(c.id)) for (const s of c.choice_availability_overrides || []) dates.add(s.date);
-  }
-  return dates;
-}
-/* 「期間外はお客様に表示しない」にした選択肢・回答の選択肢（2026-09-30）。
- * 受取日を選んだ後は、その日が期間外なら出さない。受取日を選ぶ前（選択肢の方が先に並ぶ）は、
+/* 「期間外はお客様に表示しない」にした選択肢・回答の選択肢（2026-09-30・10-02 見直し）。
  * どの受取日でも選べないもの＝期間が終わった／予約できる範囲より先に始まるものだけ隠す。
  * お店の代行登録と管理画面の見本では全部出す */
 function hiddenOutsidePeriod(item, period = item) {
   if (!item?.hide_outside_period || STAFF_MODE || EDITOR_PREVIEW) return false;
   const from = period?.pickup_from || null, until = period?.pickup_until || null;
   if (!from && !until) return false;
-  const date = state.sel.date;
-  if (date) return !((!from || date >= from) && (!until || date <= until));
+  // 選んだ受取日では判断しない：受取日によって選べないものは灰色で見せ、日付を変えれば選べると分かるようにする。
+  // 隠すのは、予約できる範囲のどの日でも選べないもの（期間が終わった／予約できる範囲より先に始まる）だけ
   const day = (offset) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
   return (!!until && until < day(0)) || (!!from && from > day(state.tenant?.booking_window_days ?? 90));
 }
@@ -2322,43 +2272,6 @@ function periodText(p) {
   const from = p.pickup_from ? mdText(p.pickup_from) : "", until = p.pickup_until ? mdText(p.pickup_until) : "";
   return `受取日 ${from && until ? `${from}〜${until}` : from ? `${from}以降` : `${until}まで`} のみ`;
 }
-/* いま選んでいる選択肢・回答のうち、受取期間があるもの。
- * 受取日より先に選んだら、カレンダーで期間外の日を選べなくして理由を出す
- * （日付を選んだ瞬間に「解除しました」と外すより、先に分かる方がいい・2026-10-02 まりほ） */
-function selectedPeriodLimits() {
-  const out = [];
-  for (const id of state.sel.options.keys()) {
-    const f = findOption(id);
-    const p = f && optionPickupPeriod(f.o);
-    if (p && (p.pickup_from || p.pickup_until)) out.push({ name: optName(f.o), ...p });
-  }
-  for (const q of askedQuestions()) {
-    const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
-    for (const c of qChoices(q)) if (ids.includes(c.id) && (c.pickup_from || c.pickup_until))
-      out.push({ name: c.label, pickup_from: c.pickup_from, pickup_until: c.pickup_until });
-  }
-  return out;
-}
-/* いま選んでいる選択肢・回答のうち「選べない日」があるもの（名前と日付） */
-function selectedStopItems() {
-  const out = [];
-  for (const id of state.sel.options.keys()) {
-    const f = findOption(id);
-    const dates = f && state.optionStops?.get(id);
-    if (dates?.size) out.push({ name: optName(f.o), dates: [...dates].sort() });
-  }
-  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  for (const q of askedQuestions()) {
-    const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
-    for (const c of qChoices(q)) if (ids.includes(c.id)) {
-      const dates = (c.choice_availability_overrides || []).map((x) => x.date).filter((d) => d >= today).sort();
-      if (dates.length) out.push({ name: c.label, dates });
-    }
-  }
-  return out;
-}
-const stopDatesText = (dates) => dates.map(mdText).join("・");  // 省略しない（まりほ指示）
-const outsideLimit = (l, key) => (!!l.pickup_from && key < l.pickup_from) || (!!l.pickup_until && key > l.pickup_until);
 // 受取日に合わない回答を外し、外したものを「質問「回答」」の形で返す（何が外れたかお客様に伝えるため）
 function pruneUnavailableChoiceAnswers() {
   const cleared = [];
@@ -2544,10 +2457,6 @@ function buildQuestionField(q) {
     if ((multi || q.input_type === "select") && qChoices(q).some((c) => state.questions.some((x) => x.condition_choice_id === c.id))) {
       renderGroups();
       renderQuestions();
-    }
-    // 「選べない日」のある回答を選んだら、カレンダーのその日を受付なしにして描き直す
-    if (multi || q.input_type === "select") {
-      if (Object.keys(state.avail || {}).length && qChoices(q).some((c) => (c.choice_availability_overrides || []).length || c.pickup_from || c.pickup_until)) renderCalendar();
     }
   };
   inputs.forEach((i) => { i.oninput = onChange; i.onchange = onChange; });

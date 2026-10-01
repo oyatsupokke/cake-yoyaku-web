@@ -2244,7 +2244,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         <p class="small">ケーキの受取日がこの期間内なら選べます。開始日・終了日も含みます。空欄は制限なしです。</p>
         <div class="answer-choice-period"><label>開始日<input type="date" class="o-from" value="${esc(o.pickup_from || "")}"></label><label>終了日<input type="date" class="o-until" value="${esc(o.pickup_until || "")}"></label></div>
         <label class="period-hide"><input type="checkbox" class="o-hide-outside" ${o.hide_outside_period ? "checked" : ""}> 期間外はお客様に表示しない</label>
-        <p class="small">チェックなし：期間外の受取日では「期間外」と表示して選べないようにします。チェックあり：期間外は予約ページに出しません。</p>
+        <p class="small">受取日によって選べない時は、灰色で提供期間を表示します（お客様が日付を変えて選べるように）。チェックあり：期間が終わったもの・予約できる範囲より先に始まるものは予約ページに出しません。</p>
       </div>
 
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>

@@ -406,6 +406,9 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
   color: var(--accent-deep); font-size: .92rem; font-weight: bold; cursor: pointer;
 }
 .img-pick.disabled { opacity: .45; pointer-events: none; }
+/* .field input の display:block が hidden属性に勝ち、ブラウザ標準の「ファイルを選択」が出て
+   押しても開かなかった（2026-10-02）。ファイル欄は必ず隠し、「写真を選ぶ」から開く */
+.field .img-pick input[type="file"] { display: none !important; }
 .img-note { display: block; color: var(--mute); margin: 6px 0 0; font-weight: normal; }
 .confirm-thumbs { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }
 .confirm-thumb { display: flex; flex-direction: column; gap: 3px; width: 84px; text-align: right; }

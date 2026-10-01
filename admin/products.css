@@ -753,3 +753,6 @@
 /* 質問の補足（複数行・2026-10-02） */
 textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 6px; }
 .cust .help { white-space: pre-line; }
+/* 選べない日を期間で入れる欄（2026-10-02） */
+.products-page .stop-range{align-items:flex-end}
+.products-page .stop-range label{display:flex;flex-direction:column;gap:3px}

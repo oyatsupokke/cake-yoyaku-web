@@ -560,42 +560,79 @@ function buildComboLayerFields({ groups, rules, sizes, comboKey, onComboChange }
   return details;
 }
 
-/* 回答の選択肢を選べない日（2026-10-02）。選択肢の「ご用意できない日」と同じ使い方。その場で保存 */
-function buildChoiceStopDates(c) {
+/* 「選べない日」の入力と一覧（選択肢・回答の選択肢で共通・2026-10-02）。
+ * 開始日〜終了日で入れると間の日を1日ずつ登録する（DBは1日1行のまま＝予約ページ・サーバーは無改修）。
+ * 一覧は続いた日を「12/20〜12/31（12日）」の1行にまとめ、まとめて解除できる。その場で保存 */
+function stopDatesEditor({ table, keyCol, keyId, name }) {
   const box = document.createElement("div");
-  box.className = "choice-stops";
-  box.innerHTML = `<strong>選べない日（任意）</strong>
-    <p class="small">果物の入荷がない日など、その受取日だけこの回答を選べなくします。1日ずつ登録します。</p>
-    <div class="override-add"><input type="date" class="cs-date"><button type="button" class="pill cs-add">追加</button></div>
-    <div class="st-list cs-list"><span class="mini">読み込み中…</span></div>`;
-  const list = box.querySelector(".cs-list");
+  box.innerHTML = `<div class="override-add stop-range">
+      <label class="mini">開始日<input type="date" class="sd-from"></label>
+      <label class="mini">終了日（1日だけなら空欄）<input type="date" class="sd-to"></label>
+      <button type="button" class="pill sd-add">追加</button>
+    </div>
+    <div class="st-list"><span class="mini">読み込み中…</span></div>`;
+  const list = box.querySelector(".st-list");
+  const ymd = (d) => d.toISOString().slice(0, 10);
+  const nextDay = (iso) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return ymd(d); };
+  const label = (iso) => { const [y, m, d] = iso.split("-").map(Number); return `${y}/${m}/${d}`; };
+  let current = [];
   const render = async () => {
     try {
-      const stops = await api("GET", `/rest/v1/choice_availability_overrides?choice_id=eq.${c.id}&order=date`);
-      list.innerHTML = stops.length ? "" : `<span class="mini">登録なし</span>`;
-      for (const st of stops) {
+      current = await api("GET", `/rest/v1/${table}?${keyCol}=eq.${keyId}&order=date`);
+      list.innerHTML = current.length ? "" : `<span class="mini">登録なし</span>`;
+      // 続いた日を1つの期間にまとめる
+      const runs = [];
+      for (const st of current) {
+        const last = runs.at(-1);
+        if (last && nextDay(last.to) === st.date) { last.to = st.date; last.ids.push(st.id); }
+        else runs.push({ from: st.date, to: st.date, ids: [st.id] });
+      }
+      for (const r of runs) {
         const row = document.createElement("div");
         row.className = "sl-item";
-        row.innerHTML = `<span style="flex:1">${esc(st.date)}</span><button type="button" class="pill danger">解除</button>`;
+        const text = r.from === r.to ? label(r.from)
+          : `${label(r.from)}〜${label(r.to).replace(/^\d+\//, r.from.slice(0, 4) === r.to.slice(0, 4) ? "" : "$&")}（${r.ids.length}日）`;
+        row.innerHTML = `<span style="flex:1">${esc(text)}</span><button type="button" class="pill danger">解除</button>`;
         row.querySelector("button").onclick = async () => {
-          await api("DELETE", `/rest/v1/choice_availability_overrides?id=eq.${st.id}`);
+          await api("DELETE", `/rest/v1/${table}?id=in.(${r.ids.join(",")})`);
           render();
         };
         list.appendChild(row);
       }
     } catch (e) { list.innerHTML = `<span class="mini">読み込めませんでした：${esc(e.message)}</span>`; }
   };
-  box.querySelector(".cs-add").onclick = async () => {
-    const input = box.querySelector(".cs-date");
-    if (!input.value) { toast("日付を選んでください"); return; }
+  box.querySelector(".sd-add").onclick = async () => {
+    const from = box.querySelector(".sd-from").value;
+    const to = box.querySelector(".sd-to").value || from;
+    if (!from) { toast("開始日を選んでください"); return; }
+    if (to < from) { toast("終了日は開始日より後の日にしてください"); return; }
+    const dates = [];
+    for (let d = from; d <= to && dates.length <= 366; d = nextDay(d)) dates.push(d);
+    if (dates.length > 366) { toast("一度に登録できるのは1年分までです"); return; }
+    const have = new Set(current.map((st) => st.date));
+    const rows = dates.filter((d) => !have.has(d)).map((date) => ({ tenant_id: state.tenantId, [keyCol]: keyId, date }));
+    if (!rows.length) { toast("その日はもう登録されています"); return; }
     try {
-      await api("POST", "/rest/v1/choice_availability_overrides", [{ tenant_id: state.tenantId, choice_id: c.id, date: input.value }]);
-      toast(`${input.value} は「${c.label || "この回答"}」を選べません`);
-      input.value = "";
+      await api("POST", `/rest/v1/${table}`, rows);
+      toast(from === to ? `${label(from)} は「${name}」を選べません` : `${label(from)}〜${label(to)} は「${name}」を選べません`);
+      box.querySelector(".sd-from").value = "";
+      box.querySelector(".sd-to").value = "";
       render();
     } catch (e) { toast(/duplicate|unique/i.test(e.message) ? "その日はもう登録されています" : e.message); }
   };
   box.load = render;
+  return box;
+}
+
+/* 回答の選択肢を選べない日（2026-10-02）。選択肢の「ご用意できない日」と同じ使い方。その場で保存 */
+function buildChoiceStopDates(c) {
+  const box = document.createElement("div");
+  box.className = "choice-stops";
+  box.innerHTML = `<strong>選べない日（任意）</strong>
+    <p class="small">果物の入荷がない日など、その受取日だけこの回答を選べなくします。期間でも登録できます。</p>`;
+  const editor = stopDatesEditor({ table: "choice_availability_overrides", keyCol: "choice_id", keyId: c.id, name: c.label || "この回答" });
+  box.appendChild(editor);
+  box.load = editor.load;
   return box;
 }
 
@@ -2466,40 +2503,12 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     if (existing) { existing.remove(); return; }
     const panel = document.createElement("div");
     panel.className = "excl-panel stops-panel";
-    panel.innerHTML = `<span class="mini">「${esc(optDisplayName(o))}」をご用意できない日（受取日で選べなくなります）:</span>
-      <div class="override-add" style="margin-top:6px">
-        <input type="date" class="st-date">
-        <button type="button" class="pill st-add">追加</button>
-      </div>
-      <div class="st-list"></div>`;
-    const renderStops = async () => {
-      const stops = await api("GET",
-        `/rest/v1/option_availability_overrides?option_id=eq.${o.id}&order=date`);
-      const lw = panel.querySelector(".st-list");
-      lw.innerHTML = stops.length ? "" : `<span class="mini">登録なし</span>`;
-      for (const s of stops) {
-        const r2 = document.createElement("div");
-        r2.className = "sl-item";
-        r2.innerHTML = `<span style="flex:1">${esc(s.date)}</span><button type="button" class="pill danger">解除</button>`;
-        r2.querySelector("button").onclick = async () => {
-          await api("DELETE", `/rest/v1/option_availability_overrides?id=eq.${s.id}`);
-          renderStops();
-        };
-        lw.appendChild(r2);
-      }
-    };
-    panel.querySelector(".st-add").onclick = async () => {
-      const date = panel.querySelector(".st-date").value;
-      if (!date) { toast("日付を選んでください"); return; }
-      await api("POST", "/rest/v1/option_availability_overrides", [{
-        tenant_id: state.tenantId, option_id: o.id, date,
-      }]);
-      panel.querySelector(".st-date").value = "";
-      toast(`${date} は「${optDisplayName(o)}」を受け付けません`);
-      renderStops();
-    };
+    panel.innerHTML = `<span class="mini">「${esc(optDisplayName(o))}」をご用意できない日（受取日で選べなくなります）。期間でも登録できます:</span>`;
+    const editor = stopDatesEditor({ table: "option_availability_overrides", keyCol: "option_id", keyId: o.id, name: optDisplayName(o) });
+    editor.style.marginTop = "6px";
+    panel.appendChild(editor);
     row.querySelector(".option-detail-rule-actions").appendChild(panel);
-    renderStops();
+    editor.load();
   };
 
   row.querySelector(".o-excl").onclick = () => {

@@ -539,8 +539,10 @@ function optionPickupPeriod(o) {
   };
 }
 const optionStopped = (o, date) => !!date && !!state.optionStops?.get(o.id)?.has(date);
+// 選んだ受取日に選べない選択肢（ご用意できない日・選択肢ごとの締切）。サーバーが数えた結果
+const optionBlockedOnDate = (o, date) => !!date && date === state.dateBlockedFor && !!state.dateBlocked?.has(o.id);
 function optionAvailableOnPickup(o, date = state.sel.date) {
-  return !optionStopped(o, date) && o.is_available !== false && (!o.shared_list_item_id || !!o.shared_list_items)
+  return !optionStopped(o, date) && !optionBlockedOnDate(o, date) && o.is_available !== false && (!o.shared_list_item_id || !!o.shared_list_items)
     && o.shared_list_items?.is_available !== false && choiceAvailableOnPickup(optionPickupPeriod(o), date);
 }
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
@@ -1758,7 +1760,8 @@ function selectVariant(v) {
   ensureRequiredFallbacks();
   renderSizes();
   renderGroups();
-  $("sec-groups").classList.toggle("hidden", !state.sel.product.option_groups.length);
+  // 受取日 → ケーキの内容の順（2026-10-02 まりほ決定）。内容は受取日を選んでから出す
+  $("sec-groups").classList.add("hidden");
   // 受取日はサイズ確定後に（サイズ別上限があるため）
   state.sel.date = null;
   state.sel.slot = null;
@@ -1957,8 +1960,11 @@ function renderGroups() {
         : "";
       const period = optionPickupPeriod(o);
       const hasPeriod = !!(period.pickup_from || period.pickup_until);
-      const conflictNote = optionStopped(o, state.sel.date)
-        ? `${mdText(state.sel.date)}は選べません。受取日または選択肢を変更してください`
+      const blockedReason = optionBlockedOnDate(o, state.sel.date) ? state.dateBlocked.get(o.id) : null;
+      const conflictNote = blockedReason === "deadline"
+        ? `受取日の${o.order_deadline_days}日前が締切のため、${mdText(state.sel.date)}の受取には間に合いません`
+        : optionStopped(o, state.sel.date) || blockedReason === "stop"
+        ? `${mdText(state.sel.date)}の受取ではご用意できません`
         : !optionAvailableOnPickup(o)
         ? hasPeriod && optionAvailableOnPickup(o, null)   // 停止中ではなく、期間だけが合わない
           ? `${periodText(period)}です。選んだ受取日（${mdText(state.sel.date)}）では選べません`
@@ -1970,7 +1976,7 @@ function renderGroups() {
           : "";
       row.innerHTML = `
         <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""} ${conflictNote ? "disabled" : ""}>
-        <span class="opt-name">${esc(optName(o))}${hasPeriod && !conflictNote ? `<span class="opt-desc">${esc(periodText(period))}</span>` : ""}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
+        <span class="opt-name">${esc(optName(o))}${hasPeriod && !conflictNote ? `<span class="opt-desc">${esc(periodText(period))}</span>` : ""}${o.order_deadline_days != null && blockedReason !== "deadline" ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
         ${safeImageUrl(o.photo_url) ? '<button type="button" class="opt-sample-button">見本を見る</button>' : ""}
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
@@ -2069,7 +2075,18 @@ function toggleOption(g, o, input) {
       if (!loaded) return;
       if (state.sel.date && !STAFF_MODE) {   // 代行登録は満枠・締切の日も選べるので外さない
         const st = state.avail[state.sel.date];
-        if (st !== "open" && st !== "few") {
+        if (st !== "open" && st !== "few" && state.sel.options.has(o.id)) {
+          // 受取日が先に決まっているので、外すのは今選んだ選択肢の方
+          state.sel.options.delete(o.id);
+          pruneHiddenQuestions();
+          ensureRequiredFallbacks();
+          renderGroups();
+          updatePriceBar();
+          updatePreview();
+          saveState();
+          loadCalendar();
+          toast(`「${optName(o)}」は${mdText(state.sel.date)}の受取ではご用意できません`, 6000);
+        } else if (st !== "open" && st !== "few") {
           state.sel.date = null;
           state.sel.slot = null;
           $("slot-area").classList.add("hidden");
@@ -2144,6 +2161,8 @@ function renderCalendar() {
     const lines = [
       ...limits.map((l) => `選択中の「${l.name}」は${periodText(l)}です（それ以外の日は選べません）。`),
       ...stopItems.map((it) => `選択中の「${it.name}」は ${stopDatesText(it.dates)} は選べません。`),
+      ...[...state.sel.options.keys()].map((id) => findOption(id)?.o).filter((o) => o?.order_deadline_days != null)
+        .map((o) => `選択中の「${optName(o)}」は受取日の${o.order_deadline_days}日前が締切です。`),
     ];
     limitNote.textContent = lines.join("");
     limitNote.classList.toggle("hidden", !lines.length);
@@ -2176,8 +2195,21 @@ function renderCalendar() {
     $("booking-window-note").textContent += ` この商品の受取期間はまだ先です。最初の受取日の予約は${opens.toISOString().slice(0,10).replaceAll('-','/')}から可能です（商品の受付開始日時も適用されます）。`;
   }
 }
+async function loadDateBlockedOptions(key) {
+  state.dateBlocked = new Map();
+  state.dateBlockedFor = key;
+  if (STAFF_MODE || !state.sel.product) return;   // 代行登録は店の判断で選べる（サーバーも同じ）
+  try {
+    const rows = await rpc("fn_options_unavailable_on", { p_tenant: state.tenant.id, p_product: state.sel.product.id, p_date: key });
+    if (state.dateBlockedFor !== key) return;
+    for (const r of rows || []) state.dateBlocked.set(r.option_id, r.reason);
+  } catch { /* 取れなくても注文の確定時にサーバーが確認する */ }
+}
 async function selectDate(key) {
+  const firstDate = !state.sel.date;
   state.sel.date = key;
+  await loadDateBlockedOptions(key);
+  if (state.sel.date !== key) return;   // 待っている間に別の日が押された
   const cleared = [];
   for (const id of [...state.sel.options.keys()]) {
     const f = findOption(id);
@@ -2216,7 +2248,7 @@ async function selectDate(key) {
   renderSlots();
   saveState();
   $("slot-area").classList.remove("hidden");
-  if (!THEME_PREVIEW) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (!THEME_PREVIEW && !RESTORING && firstDate) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function renderSlots() {
   const wrap = $("slot-pills");
@@ -2231,7 +2263,11 @@ function renderSlots() {
     if (full && !STAFF_MODE) el.disabled = true;
     else el.onclick = () => {
       if (full) toast("この時間帯は満員です。代行登録なので選べます（登録前に確認が出ます）");
+      const first = !state.sel.slot;
       state.sel.slot = s; renderSlots(); saveState();
+      // 時間まで決まったら、次の「ケーキの内容」へ
+      if (first && !THEME_PREVIEW && !$("sec-groups").classList.contains("hidden"))
+        $("sec-groups").scrollIntoView({ behavior: "smooth", block: "start" });
     };
     wrap.appendChild(el);
   }
@@ -2517,6 +2553,8 @@ function buildQuestionField(q) {
   inputs.forEach((i) => { i.oninput = onChange; i.onchange = onChange; });
   return field;
 }
+// ケーキの内容（選択肢・質問）を出してよいか。受取日を選んでから（見本表示では常に出す）
+const contentReady = () => !!state.sel.date || THEME_PREVIEW || EDITOR_PREVIEW;
 function renderQuestions() {
   pruneHiddenQuestions();
   const wrap = $("group-list");
@@ -2530,7 +2568,7 @@ function renderQuestions() {
   for (const entry of QuestionFlow.ordered(state.sel.product, state.sel.product.option_groups, state.questions)) {
     if (rows.has(entry.key)) wrap.appendChild(rows.get(entry.key));
   }
-  $("sec-groups").classList.toggle("hidden", !wrap.querySelector('[data-question-key]'));
+  $("sec-groups").classList.toggle("hidden", !contentReady() || !wrap.querySelector('[data-question-key]'));
   for (const q of askedQuestions()) if (q.input_type === "image") paintImageAnswer(q);
 }
 
@@ -2746,6 +2784,8 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
+  if (!s.date) return "受取日を選んでください";
+  if (!s.slot) return "受取時間を選んでください";
   pruneHiddenQuestions();
   const capacityError=toppingCapacityError();
   if(capacityError)return capacityError;
@@ -2775,8 +2815,6 @@ function validate() {
       if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」をカレンダーからお選びください`;
     }
   }
-  if (!s.date) return "受取日を選んでください";
-  if (!s.slot) return "受取時間を選んでください";
   for (const q of askedQuestions()) {
     const a = normAnswer(s.answers.get(q.id));
     if (q.input_type === "image") {

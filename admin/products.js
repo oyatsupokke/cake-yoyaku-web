@@ -560,6 +560,45 @@ function buildComboLayerFields({ groups, rules, sizes, comboKey, onComboChange }
   return details;
 }
 
+/* 回答の選択肢を選べない日（2026-10-02）。選択肢の「ご用意できない日」と同じ使い方。その場で保存 */
+function buildChoiceStopDates(c) {
+  const box = document.createElement("div");
+  box.className = "choice-stops";
+  box.innerHTML = `<strong>選べない日（任意）</strong>
+    <p class="small">果物の入荷がない日など、その受取日だけこの回答を選べなくします。1日ずつ登録します。</p>
+    <div class="override-add"><input type="date" class="cs-date"><button type="button" class="pill cs-add">追加</button></div>
+    <div class="st-list cs-list"><span class="mini">読み込み中…</span></div>`;
+  const list = box.querySelector(".cs-list");
+  const render = async () => {
+    try {
+      const stops = await api("GET", `/rest/v1/choice_availability_overrides?choice_id=eq.${c.id}&order=date`);
+      list.innerHTML = stops.length ? "" : `<span class="mini">登録なし</span>`;
+      for (const st of stops) {
+        const row = document.createElement("div");
+        row.className = "sl-item";
+        row.innerHTML = `<span style="flex:1">${esc(st.date)}</span><button type="button" class="pill danger">解除</button>`;
+        row.querySelector("button").onclick = async () => {
+          await api("DELETE", `/rest/v1/choice_availability_overrides?id=eq.${st.id}`);
+          render();
+        };
+        list.appendChild(row);
+      }
+    } catch (e) { list.innerHTML = `<span class="mini">読み込めませんでした：${esc(e.message)}</span>`; }
+  };
+  box.querySelector(".cs-add").onclick = async () => {
+    const input = box.querySelector(".cs-date");
+    if (!input.value) { toast("日付を選んでください"); return; }
+    try {
+      await api("POST", "/rest/v1/choice_availability_overrides", [{ tenant_id: state.tenantId, choice_id: c.id, date: input.value }]);
+      toast(`${input.value} は「${c.label || "この回答"}」を選べません`);
+      input.value = "";
+      render();
+    } catch (e) { toast(/duplicate|unique/i.test(e.message) ? "その日はもう登録されています" : e.message); }
+  };
+  box.load = render;
+  return box;
+}
+
 // 商品のサイズ名（表示順）。質問の回答のように店全体で使う欄は、全商品のサイズ名をまとめる
 const productSizeLabels = (p) => [...(p?.product_variants || [])]
   .sort((a, b) => a.display_order - b.display_order).map((v) => v.size_label).filter(Boolean);
@@ -1303,7 +1342,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     <div class="sub q-choices ${needsChoices(q.input_type) ? "" : "hidden"}">
       <span class="q-choices-title">この質問の回答選択肢</span>
     </div>
-    ${opts.hideHelp ? "" : `<input type="text" class="q-help" value="${esc(q.help_text)}" placeholder="補足（任意・質問の下に出ます）"><label class="chk"><input type="checkbox" class="q-help-accent" ${q.help_accent ? "checked" : ""}>目立たせる（赤・太字）</label>`}`;
+    ${opts.hideHelp ? "" : `<textarea class="q-help" rows="3" placeholder="補足（任意・質問の下に出ます。改行もそのまま出ます）">${esc(q.help_text)}</textarea><label class="chk"><input type="checkbox" class="q-help-accent" ${q.help_accent ? "checked" : ""}>目立たせる（赤・太字）</label>`}`;
 
   const labelEl = box.querySelector(".q-label");
   regField("common_questions", q.id, "label", labelEl);
@@ -1406,6 +1445,12 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
       <div class="answer-choice-period"><label>開始日<input type="date" class="c-from" value="${esc(c.pickup_from || "")}"></label><label>終了日<input type="date" class="c-until" value="${esc(c.pickup_until || "")}"></label></div>
       <label class="period-hide"><input type="checkbox" class="c-hide-outside" ${c.hide_outside_period ? "checked" : ""}> 期間外はお客様に表示しない</label>`;
     regField("common_question_choices", c.id, "hide_outside_period", details.querySelector(".c-hide-outside"));
+    const stopBox = buildChoiceStopDates(c);
+    details.appendChild(stopBox);
+    // 一覧は「詳しい設定」を開いたときに読む（回答の数だけ通信しない）
+    const loadStops = () => { if (details.open && !stopBox.dataset.loaded) { stopBox.dataset.loaded = "1"; stopBox.load(); } };
+    details.addEventListener("toggle", loadStops);
+    queueMicrotask(loadStops);
     for (const [column, selector] of [["pickup_from", ".c-from"], ["pickup_until", ".c-until"]]) {
       const input = details.querySelector(selector);
       regField("common_question_choices", c.id, column, input, { get: () => input.value || null });
@@ -1847,8 +1892,9 @@ function renderLiteQuestions(p) {
 }
 
 // Both storage formats use the same product scope and condition editor.
-function buildQuestionSettings(item, kind, header, main) {
-  const group = kind === "group", table = group ? "option_groups" : "common_questions";
+function buildQuestionSettings(item, kind, header, main, parentName = "") {
+  // kind: "group"（中質問＝選択グループ）／"question"（共通の質問）／"sub"（小質問＝選択肢を選んだ人への質問・2026-10-02）
+  const group = kind === "group", sub = kind === "sub", table = group ? "option_groups" : "common_questions";
   const currentProductId = state.current.id;
   const selectedIds = group ? (item.product_id ? [item.product_id] : item.target_product_ids)
     : (item.scope === "selected" ? item._product_ids || (item.common_question_products || []).map(x => x.product_id) : null);
@@ -1876,6 +1922,7 @@ function buildQuestionSettings(item, kind, header, main) {
     scope.querySelector('.scope-note').textContent = scope.dataset.shared === 'true'
       ? '内容の変更は対象のケーキすべてに反映されます。並び順はケーキごとです。' : '';
     const appliesNow = !ids() || ids().includes(currentProductId);
+    if (sub) { if (!appliesNow) scope.querySelector('.scope-note').textContent += ' このケーキでは、この質問は出ません。'; return; }
     if (scope.closest('#questions-list') && appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧に移動します。';
     if (scope.closest('#groups-list') && !appliesNow) scope.querySelector('.scope-note').textContent += ' 保存すると、このケーキの質問一覧から外れます。';
   };
@@ -1884,7 +1931,7 @@ function buildQuestionSettings(item, kind, header, main) {
   const candidates = [...new Map(allGroups.filter(g => !group || g.id !== item.id)
     .flatMap(g => (g.options || []).map(o => [o.id,{...o,groupName:g.name}]))).values()];
   const condition = document.createElement('div'); condition.className = 'question-condition';
-  condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">いつも表示する</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
+  condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">${sub ? `「${esc(parentName)}」を選んだらいつも表示` : 'いつも表示する'}</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
     <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option>${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</select></label>
     <p class="small">非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
   main.prepend(condition);
@@ -1893,7 +1940,8 @@ function buildQuestionSettings(item, kind, header, main) {
   regField(table,item.id,'condition_mode',conditionMode);
   regField(table,item.id,'condition_option_id',option,{get:() => conditionMode.value === 'always' ? null : option.value || null});
   const previewNote = document.createElement('p'); previewNote.className = 'small preview-condition';
-  main.parentElement.querySelector('.cust .cap').after(previewNote);
+  const cap = main.parentElement?.querySelector(':scope > .cust .cap');
+  if (cap) cap.after(previewNote); else condition.appendChild(previewNote);
   const paint = () => {
     condition.querySelector('.condition-target-label').classList.toggle('hidden',conditionMode.value === 'always');
     previewNote.textContent = conditionMode.value === 'always' ? '' : `表示条件：「${option.selectedOptions[0]?.textContent || '未選択'}」を選んだ${conditionMode.value === 'selected' ? 'ときに表示' : 'ら非表示'}`;
@@ -2177,12 +2225,6 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
         <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
         <label class="chk"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
       <div class="o-photo fb"></div>
-      <div class="fb o-questions">
-        <span class="k">この選択肢を選んだ人への質問</span>
-        <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
-        <p class="small">質問・回答の追加、削除、停止はその場で反映されます。</p><div class="o-qbox"></div>
-        <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
-      </div>
       </section>
       <section class="option-detail-section option-detail-pricing">
       <div class="fb o-size-prices"><span class="k">サイズ別の追加料金（税込）</span>
@@ -2211,6 +2253,14 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="acts">
         <button type="button" class="pill o-toggle">${o.is_available ? "停止する" : "提供を再開する"}</button>
         <button type="button" class="pill danger o-del">選択肢を削除</button>
+      </div>
+      </section>
+      <section class="option-detail-section option-detail-questions">
+      <h4>この選択肢を選んだ人への質問</h4>
+      <div class="fb o-questions">
+        <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
+        <p class="small">質問・回答の追加、削除、停止はその場で反映されます。</p><div class="o-qbox"></div>
+        <button type="button" class="pill ghost o-qadd">＋ 質問を追加</button>
       </div>
       </section>
     </div>`;
@@ -2321,7 +2371,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     };
     const item = document.createElement("div");
     item.className = "sub o-question-item" + (q.is_active === false ? " stopped" : "");
-    item.innerHTML = `<p class="small">表示するケーキ：親の質問と同じ ／ 表示条件：「${esc(optDisplayName(o))}」を選んだとき</p><div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
+    item.innerHTML = `<p class="small sub-question-base">「${esc(optDisplayName(o))}」を選んだ人に出る質問です。下の「表示するケーキ」「表示条件」で、さらに絞り込めます。</p><div class="sub-question-settings"></div><div class="o-question-bar"><span class="o-question-number">質問 ${questionRows.length + 1}</span><strong>${esc(q.label || "（質問文を入力してください）")}</strong>
       <span class="state-badge ${q.is_active === false ? "" : "on"}">${q.is_active === false ? "停止中" : "使用中"}</span>
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
       <button type="button" class="pill danger o-qdel">質問を削除</button></div>`;
@@ -2329,6 +2379,8 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     linkLightWithin(item, qLight);
     const questionFields = buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight });
     item.appendChild(questionFields);
+    // 小質問にも中質問と同じ「表示するケーキ」「表示条件」（2026-10-02 まりほ依頼）
+    buildQuestionSettings(q, "sub", item.querySelector(".sub-question-settings"), questionFields, optDisplayName(o));
     questionFields.querySelector(".q-label").addEventListener("input", (event) => {
       item.querySelector(".o-question-bar strong").textContent = event.currentTarget.value || "（質問文を入力してください）";
     });

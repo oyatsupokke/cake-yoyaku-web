@@ -745,3 +745,11 @@
 /* 見出し（← 商品の設定・予約画面を確認・お客様画面を見る・再読み込み）を上に固定（2026-10-02 まりほ依頼）。
    ほかの追従する部品とジャンプ先は、見出しの高さ（--admin-head-h・products.jsで計測）だけ下げる */
 .products-page .admin-header { position: sticky; top: 0; z-index: 40; background: var(--bg, #f7f8f6); margin-top: 0; }
+
+/* 回答の選択肢の選べない日（2026-10-02） */
+.choice-stops { margin-top: 10px; }
+.choice-stops .override-add { margin-top: 6px; }
+
+/* 質問の補足（複数行・2026-10-02） */
+textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 6px; }
+.cust .help { white-space: pre-line; }

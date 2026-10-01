@@ -229,6 +229,8 @@ body {
 }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--primary); }
 .field .help { font-weight: normal; font-size: .76rem; color: var(--mute); margin: 2px 0 0; }
+/* 質問の補足は改行をそのまま出す（管理画面で複数行を書けるようにした・2026-10-02） */
+.field .help, .cfield .help { white-space: pre-line; }
 /* 選択式の質問（ラジオ・チェックボックス） */
 .pick-list { display: block; margin-top: 6px; }
 label.pick {

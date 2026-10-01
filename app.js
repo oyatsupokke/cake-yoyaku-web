@@ -1512,7 +1512,8 @@ function currentLayers() {
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
   // フルーツミックスの原画は果物のみ。15cmの1周絞りは元の白いレイヤーを残す。
   if (ownPreview && p.name === "デコレーションケーキ" && state.sel.variant?.size_label === "15cm"
-      && selectedNames.has("フルーツミックス") && selectedNames.has("フルーツ1周")
+      && selectedNames.has("フルーツミックス")
+      && (selectedNames.has("フルーツ1周") || selectedNames.has("フルーツ盛り"))
       && !selectedNames.has("丸絞り1周"))
     layers.push({ url: cakeLayerAsset("round-piping.png"), z: 38 });
   const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");

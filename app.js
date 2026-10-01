@@ -1491,10 +1491,13 @@ function currentLayers() {
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
-    // タルト・バスクに常に付く果物。ナガノパープルを選んだら巨峰の絵に替える（2026-09-30）
-    const kyoho = [...state.sel.options.keys()].some((id) => optName(findOption(id)?.o || {}) === "ナガノパープル");
+    // タルト・バスクに常に付く果物を、選んだ果物の絵に替える。
+    const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      layers.push({ url: cakeLayerAsset(kyoho ? x.file.replace("-muscat.png", "-kyoho.png") : x.file), z: x.z });
+      const file = p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
+        ? "basque-fruit-fig.png"
+        : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
+      layers.push({ url: cakeLayerAsset(file), z: x.z });
     }
   }
   const detachedNames=detachedToppingNames();
@@ -1510,6 +1513,9 @@ function currentLayers() {
         const name=optName(o);
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
+        // 専用の盛り絵ができるまでは、いちじくの上にマスカットを重ねない。
+        if(ownPreview && p.name==="バスクチーズケーキ" && selectedNames.has("いちじく")
+          && name==="フルーツ盛り" && !comboLayer(o))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
         const rawLayerUrl=CONFIG.shop==="pokke" && p.name==="デコレーションケーキ"
           && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]

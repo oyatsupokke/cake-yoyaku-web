@@ -1510,12 +1510,17 @@ function currentLayers() {
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set((ownPreview ? [...state.sel.options.keys()] : []).map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
-  // フルーツミックスの原画は果物のみ。15cmの1周絞りは元の白いレイヤーを残す。
-  if (ownPreview && p.name === "デコレーションケーキ" && state.sel.variant?.size_label === "15cm"
+  // フルーツミックスの原画は果物のみ。1周と盛りは元の白い絞りをサイズ別に残す。
+  const mixSize = state.sel.variant?.size_label;
+  if (ownPreview && p.name === "デコレーションケーキ" && ["12cm", "15cm", "18cm"].includes(mixSize)
       && selectedNames.has("フルーツミックス")
       && (selectedNames.has("フルーツ1周") || selectedNames.has("フルーツ盛り"))
       && !selectedNames.has("丸絞り1周"))
-    layers.push({ url: cakeLayerAsset("round-piping.png"), z: 38 });
+    layers.push({ url: cakeLayerAsset(mixSize === "15cm" ? "round-piping.png" : `${mixSize}/round-piping.png`), z: 38 });
+  // 片側寄せは既存の絞り付きレイヤーを下に残し、原画のミックスを重ねる。
+  if (ownPreview && p.name === "デコレーションケーキ" && ["12cm", "15cm", "18cm"].includes(mixSize)
+      && selectedNames.has("フルーツミックス") && selectedNames.has("フルーツサイド寄せ"))
+    layers.push({ url: cakeLayerAsset(mixSize === "15cm" ? "fruit-side-muscat.png" : `${mixSize}/fruit-side-muscat.png`), z: 38 });
   const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");
   const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && largeNumberVisible;
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));

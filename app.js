@@ -1442,8 +1442,8 @@ function drawCalendarLayer(ctx, cal) {
 }
 
 function calendarLayerTransform(size) {
-  // 12cmは上面が小さいため、15cm基準の文字組みを少し縮めて下へ寄せる。
-  if (size === "12cm") return { scale: .93, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET + 20 };
+  // 12cmは文字組みを縮め、土台イラストの上面中央に合わせて右下へ寄せる。
+  if (size === "12cm") return { scale: .93, offsetX: LEGACY_LAYER_OFFSET + 16, offsetY: LEGACY_LAYER_OFFSET + 44 };
   return { scale: 1, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET };
 }
 

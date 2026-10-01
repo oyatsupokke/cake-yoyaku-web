@@ -2758,10 +2758,23 @@ window.addEventListener("beforeunload", (e) => {
     state.closedDates = new Set(closedOverrides.map((row) => row.date));
     $("preview-link").href = `../?shop=${t[0].subdomain}${t[0].billing_status === "setup_trial" ? "&trial=1" : ""}`;
     await loadAll(false);
-  } catch {
-    showLogin();
+  } catch (e) {
+    // ログイン切れ（401）だけをログイン案内にする。それ以外の失敗まで「ログインが必要です」と出すと、
+    // ログインし直しても直らず原因も見えない（2026-10-02 まりほ指摘）
+    console.error("商品の設定を読み込めませんでした", e);
+    if (/再ログイン/.test(e?.message || "")) { showLogin(); return; }
+    showLoadError(e);
   }
 })();
+function showLoadError(e) {
+  $("view-login").classList.remove("hidden");
+  $("view-app").classList.add("hidden");
+  const box = document.querySelector("#view-login .login-box") || $("view-login");
+  box.innerHTML = `<h1>🎂 管理画面</h1><p>商品の設定を読み込めませんでした。</p>
+    <p class="small">エラーの内容：${esc(e?.message || String(e))}</p>
+    <p class="small"><button type="button" class="pill" onclick="location.reload()">もう一度読み込む</button>
+    <a href="./index.html">管理画面のトップへ</a></p>`;
+}
 
 
 // Use the real customer renderer with a snapshot of unsaved fields.

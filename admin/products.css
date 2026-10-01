@@ -384,7 +384,7 @@
   margin-top: 10px; display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   align-items: start; gap: 14px;
 }
-.layer-composite-wrap { position: sticky; top: 12px; min-width: 0; }
+.layer-composite-wrap { position: sticky; top: calc(var(--admin-head-h, 0px) + 12px); min-width: 0; }
 .layer-composite {
   display: block; width: 100%; height: auto; aspect-ratio: 1; overflow: hidden; border: 1.5px solid var(--line);
   border-radius: 12px; background: #fff;
@@ -470,7 +470,10 @@
   .grp, .q { overflow: visible; }
   .grp-bar, .q-bar { border-radius: 13px 13px 0 0; }
   .grp-body, .q-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
-  .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: 14px; }
+  .grp-body > .cust, .q-body > .cust { margin-top: 0; position: sticky; top: calc(var(--admin-head-h, 0px) + 14px); }
+  /* プレビューが画面より長いと、下の方（質問2以降など）が一度も見えない。
+     画面の高さに収めて中だけスクロールさせ、入力中の箇所へは自動で寄せる（2026-10-02 まりほ指摘） */
+  .grp-body > .cust, .q-body > .cust { max-height: calc(100vh - var(--admin-head-h, 0px) - 28px); overflow-y: auto; overscroll-behavior: contain; }
   .qrow .k { flex: 0 0 118px; }
 }
 @media (min-width: 1360px) {
@@ -738,3 +741,7 @@
 .combo-row:last-child { border-bottom: 0; }
 .combo-row .size-layers { margin: 4px 0 0 1em; }
 .size-layer-label.combo-label { min-width: 6.5em; max-width: 9em; overflow-wrap: anywhere; }
+
+/* 見出し（← 商品の設定・予約画面を確認・お客様画面を見る・再読み込み）を上に固定（2026-10-02 まりほ依頼）。
+   ほかの追従する部品とジャンプ先は、見出しの高さ（--admin-head-h・products.jsで計測）だけ下げる */
+.products-page .admin-header { position: sticky; top: 0; z-index: 40; background: var(--bg, #f7f8f6); margin-top: 0; }

@@ -87,7 +87,7 @@
   #app.products-page .product-navigation{display:block}
   body #app.products-page:has(#view-app:not(.hidden)){--outline-space:0px;width:calc(100% - var(--admin-nav-width) - var(--outline-space));margin-left:calc(var(--admin-nav-width) + var(--outline-space));max-width:none}
   body .question-outline{display:none!important}
-  body #question-outline-open,body.outline-collapsed #question-outline-open{display:block;position:sticky;top:12px;left:auto;bottom:auto;width:max-content;margin:0 0 18px;border-radius:6px;z-index:21}
+  body #question-outline-open,body.outline-collapsed #question-outline-open{display:block;position:sticky;top:calc(var(--admin-head-h,0px) + 12px);left:auto;bottom:auto;width:max-content;margin:0 0 18px;border-radius:6px;z-index:21}
 }
 @media screen and (min-width:1600px){
   body:not(.outline-collapsed) #app.products-page:has(#view-app:not(.hidden)){--outline-space:230px}

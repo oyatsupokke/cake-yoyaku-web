@@ -1160,16 +1160,58 @@ const questionsOf = (optionId) => drafts.overlay("common_questions", state.quest
  * 「お客様に見えます」というバッジや説明文の代わり（まりほ指摘：説明はUIでカバーできる）。
  * プレビューは入力のたびに描き直すので、描き直したあとに必ず光を戻す。
  */
+/* 固定した見出しの高さを測って、追従する部品とページ内ジャンプがその下に来るようにする（2026-10-02） */
+(() => {
+  const head = document.querySelector(".products-page .admin-header");
+  if (!head) return;
+  const set = () => {
+    const h = head.offsetHeight || 0;
+    document.documentElement.style.setProperty("--admin-head-h", `${h}px`);
+    document.documentElement.style.scrollPaddingTop = `${h + 8}px`;
+  };
+  set();
+  if (window.ResizeObserver) new ResizeObserver(set).observe(head);
+  window.addEventListener("resize", set);
+})();
 let activeLight = null;
-function applyLight() {
+function applyLight(follow = false) {
   document.querySelectorAll(".lit").forEach((x) => x.classList.remove("lit"));
   if (!activeLight) return;
   const t = typeof activeLight === "function" ? activeLight() : activeLight;
-  if (t) t.classList.add("lit");
+  if (!t) return;
+  t.classList.add("lit");
+  followPreview(t, follow);
+}
+/* 光らせた箇所が右のプレビュー（自分でスクロールする枠）の外にあれば、枠の中だけを動かして真ん中に寄せる。
+ * ページ全体は動かさない＝左の入力欄はそのまま（2026-10-02）。入力のたびの描き直しでは、見えていれば動かさない */
+function followPreview(t, force) {
+  const pane = t.closest(".cust");
+  if (!pane || pane.scrollHeight <= pane.clientHeight + 1) return;
+  const pr = pane.getBoundingClientRect(), tr = t.getBoundingClientRect();
+  const visible = tr.top >= pr.top + 8 && tr.bottom <= pr.bottom - 8;
+  if (visible && !force) return;
+  if (visible && force && tr.height < pane.clientHeight) return;
+  const top = pane.scrollTop + (tr.top - pr.top) - Math.max(12, (pane.clientHeight - tr.height) / 2);
+  pane.scrollTo({ top: Math.max(0, top), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+/* ブロックのどこにフォーカスしても（説明・回答の選択肢・料金など）、そのブロックのプレビュー箇所を光らせて寄せる。
+ * 入れ子（選択肢の中の質問）は内側を優先する（2026-10-02） */
+function linkLightWithin(box, target, innerSelector) {
+  if (!box) return box;
+  box.addEventListener("focusin", (e) => {
+    if (innerSelector && e.target.closest(innerSelector) && e.target.closest(innerSelector) !== box) return;
+    if (activeLight === target) return;
+    activeLight = target; applyLight(true);
+  });
+  box.addEventListener("focusout", (e) => {
+    if (box.contains(e.relatedTarget)) return;
+    if (activeLight === target) { activeLight = null; applyLight(); }
+  });
+  return box;
 }
 function linkLight(el, target) {
   if (!el) return el;
-  el.addEventListener("focus", () => { activeLight = target; applyLight(); });
+  el.addEventListener("focus", () => { activeLight = target; applyLight(true); });
   el.addEventListener("blur", () => { activeLight = null; applyLight(); });
   return el;
 }
@@ -2206,6 +2248,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   regField("options", o.id, "size_prices", sizeBox, { get: () => Object.fromEntries(
     priceInputs.filter(x => x.input.value !== "").map(x => [x.name, Number(x.input.value)])) });
   const rowLight = () => row.closest(".grp").querySelector(`.pv-opts .crow[data-option-id="${o.id}"]`);
+  linkLightWithin(row, rowLight, ".o-question-item");
 
   const nameEl = row.querySelector(".oname");
   regField("options", o.id, "name", nameEl);
@@ -2283,6 +2326,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <button type="button" class="pill o-qtoggle">${q.is_active === false ? "再開する" : "停止する"}</button>
       <button type="button" class="pill danger o-qdel">質問を削除</button></div>`;
     const qLight = () => row.closest(".grp")?.querySelector(`.pv-opts .cfield[data-question-id="${q.id}"]`);
+    linkLightWithin(item, qLight);
     const questionFields = buildQuestionFields(q, qView, paintGroup, { hideHelp: false, lightLabel: qLight });
     item.appendChild(questionFields);
     questionFields.querySelector(".q-label").addEventListener("input", (event) => {

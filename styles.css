@@ -431,3 +431,6 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .legacy-order-note p { margin: 0 0 4px; }
 .legacy-order-note ul { margin: 4px 0 6px; padding-left: 1.3em; }
 .legacy-order-note .legacy-help { font-size: .82rem; color: #6f6560; }
+
+/* 予約ページを読み込めなかった時の案内（2026-10-02） */
+.load-error { text-align: center; padding: 32px 16px; line-height: 1.8; }

@@ -22,7 +22,7 @@ const rpc=(name,body)=>api('POST','/rest/v1/rpc/'+name,body);
 const catalog=()=>rpc('fn_menu_catalog',{p_tenant:state.tenantId});
 async function loadLibrary(){
  const rows=[];let offset=0;
- for(;;){const part=await api('GET',`/rest/v1/menu_sheets?tenant_id=eq.${state.tenantId}&select=*,menu_sheet_items(*)&order=updated_at.desc,id&limit=200&offset=${offset}`);rows.push(...part);if(part.length<200)break;offset+=200;}
+ for(;;){const part=await api('GET',`/rest/v1/menu_sheets?tenant_id=eq.${state.tenantId}&select=*,menu_sheet_items!menu_sheet_items_tenant_id_menu_sheet_id_fkey(*)&order=updated_at.desc,id&limit=200&offset=${offset}`);rows.push(...part);if(part.length<200)break;offset+=200;}
  state.sheets=rows;
  $('saved-menu').innerHTML='<option value="">新しいメニュー</option>'+rows.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
  $('saved-menu').value=state.sheet?.id||'';

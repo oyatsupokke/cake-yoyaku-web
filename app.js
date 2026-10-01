@@ -351,11 +351,11 @@ async function load() {
   const T = state.tenant.id;
   const [products, globalGroups, questions, slots] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
-        `&select=*,product_variants(*),option_groups(*,options!options_group_id_fkey(*,shared_list_items(*))),option_exclusions(*)`),
+        `&select=*,product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
     api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
-        `&select=*,options!options_group_id_fkey(*,shared_list_items(*))`),
+        `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
-        `&select=*,common_question_choices(*,choice_availability_overrides(date)),common_question_products(*)`),
+        `&select=*,common_question_choices!common_question_choices_question_id_fkey(*,choice_availability_overrides!choice_availability_overrides_choice_id_fkey(date)),common_question_products!common_question_products_question_id_fkey(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
   ]);
   // 共通グループも商品別グループと同じ集合で扱う。復元・価格・必須確認もここを見る。
@@ -2966,8 +2966,15 @@ $("btn-submit").onclick = async () => {
 };
 
 load().catch((e) => {
-  $("shop-name").textContent = "読み込みエラー";
   console.error(e);
+  // お客様には「何が起きたか」と「どうすればいいか」だけを出す（2026-10-02）
+  $("shop-name").textContent = "ただいま予約ページを表示できません";
+  const box = document.createElement("div");
+  box.className = "load-error";
+  box.innerHTML = `<p>少し時間をおいてから、もう一度開いてください。</p>
+    <p><button type="button" class="btn-primary" onclick="location.reload()">もう一度読み込む</button></p>`;
+  const form = $("view-form");
+  if (form) { form.replaceChildren(box); form.classList.remove("hidden"); }
 });
 
 /* ---------- 見た目（tenants.theme） ----------

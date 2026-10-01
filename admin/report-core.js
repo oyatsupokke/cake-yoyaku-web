@@ -49,7 +49,7 @@ globalThis.BookingReport = (() => {
     for (;;) {
       const page = await get(`/rest/v1/orders?tenant_id=eq.${encodeURIComponent(tenant)}` +
         `&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,id.asc` +
-        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items(*,order_item_options(*)),order_answers(*)&limit=500&offset=${orders.length}`);
+        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500&offset=${orders.length}`);
       if (!Array.isArray(page)) throw new Error("予約データを取得できませんでした");
       if (!page.length) return orders;
       orders.push(...page);

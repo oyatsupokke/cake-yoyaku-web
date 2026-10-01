@@ -666,11 +666,11 @@ async function loadAll(keepCurrent = true) {
   // 「すべてのケーキに出す」グループ（product_id が null）は商品にぶら下がっていないので別で取る
   const [products, questions, globalGroups, categories] = await Promise.all([
     api("GET", `/rest/v1/products?tenant_id=eq.${state.tenantId}&deleted_at=is.null&order=display_order` +
-      `&select=*,product_variants(*),option_groups(*,options!options_group_id_fkey(*,shared_list_items(*))),option_exclusions(*)`),
+      `&select=*,product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
     api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&order=display_order` +
-      `&select=*,common_question_choices(*),common_question_products(product_id)`),
+      `&select=*,common_question_choices!common_question_choices_question_id_fkey(*),common_question_products!common_question_products_question_id_fkey(product_id)`),
     api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&product_id=is.null&order=display_order` +
-      `&select=*,options!options_group_id_fkey(*,shared_list_items(*))`),
+      `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api("GET", `/rest/v1/categories?tenant_id=eq.${state.tenantId}&order=display_order`),
   ]);
   state.products = products;
@@ -2770,10 +2770,14 @@ function showLoadError(e) {
   $("view-login").classList.remove("hidden");
   $("view-app").classList.add("hidden");
   const box = document.querySelector("#view-login .login-box") || $("view-login");
-  box.innerHTML = `<h1>🎂 管理画面</h1><p>商品の設定を読み込めませんでした。</p>
-    <p class="small">エラーの内容：${esc(e?.message || String(e))}</p>
-    <p class="small"><button type="button" class="pill" onclick="location.reload()">もう一度読み込む</button>
-    <a href="./index.html">管理画面のトップへ</a></p>`;
+  // 店主さん向けに「何をすればいいか」を先に書き、技術的な内容はサポート用に小さく添える
+  box.innerHTML = `<h1>🎂 管理画面</h1>
+    <p>商品の設定を一時的に読み込めませんでした。</p>
+    <p class="small">少し時間をおいて「もう一度読み込む」を押してください。何度やっても開けない場合は、サポートへご連絡ください。</p>
+    <p><button type="button" class="pill" onclick="location.reload()">もう一度読み込む</button>
+    <a class="pill" href="./index.html?tab=support">サポートへ連絡する</a>
+    <a href="./index.html">管理画面のトップへ</a></p>
+    <p class="mini" style="color:#8a8a8a">サポート用の情報：${esc(e?.message || String(e))}</p>`;
 }
 
 

@@ -1494,7 +1494,9 @@ function currentLayers() {
     // タルト・バスクに常に付く果物を、選んだ果物の絵に替える。
     const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      let file = p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
+      let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
+        ? "basque-fruit-mix.png"
+        : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
         ? "basque-fruit-fig.png"
         : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
       if (p.name === "フルーツタルト") {

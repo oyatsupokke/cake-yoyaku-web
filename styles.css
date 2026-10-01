@@ -437,3 +437,13 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 
 /* 予約ページを読み込めなかった時の案内（2026-10-02） */
 .load-error { text-align: center; padding: 32px 16px; line-height: 1.8; }
+/* 色見本から選ぶ（2026-10-02）：店が決めた色の丸を並べ、名前を下に添える */
+.palette-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+label.pick.palette-pick { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 84px; margin: 0; padding: 8px 4px; text-align: center; font-weight: normal; cursor: pointer; border: 1px solid transparent; border-radius: var(--r); }
+label.pick.palette-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.palette-chip { display: block; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(0,0,0,.16); box-shadow: inset 0 0 0 3px #fff; }
+.palette-name { font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+label.pick.palette-pick:has(input:checked) { border-color: var(--primary-deep); background: var(--bg); }
+label.pick.palette-pick:has(input:checked) .palette-chip { box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px var(--primary-deep); }
+label.pick.palette-pick:has(input:focus-visible) { outline: 2px solid var(--primary-deep); outline-offset: 2px; }
+label.pick.palette-pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }

@@ -756,3 +756,9 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
 /* 選べない日を期間で入れる欄（2026-10-02） */
 .products-page .stop-range{align-items:flex-end}
 .products-page .stop-range label{display:flex;flex-direction:column;gap:3px}
+/* 色見本から選ぶ（2026-10-02）：色の入力は回答方法が「色見本」の時だけ */
+.q-fields:not(.is-palette) .palette-only{display:none}
+.q-fields.is-palette .choice .c-color,.q-fields.is-palette .answer-choice-new-color{width:44px;height:36px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;flex:0 0 auto}
+.pv-palette{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.pv-palette-pick{display:flex;flex-direction:column;align-items:center;gap:4px;width:76px;font-size:.78rem;text-align:center;overflow-wrap:anywhere}
+.pv-palette-pick i{display:block;width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.16)}

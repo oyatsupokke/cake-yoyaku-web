@@ -1221,9 +1221,11 @@ const Q_TYPES = [
   { v: "image", label: "画像を貼ってもらう" },
   { v: "pastel_color", label: "パステルカラー＋補足" },
   { v: "color", label: "通常カラー＋補足" },
+  { v: "palette", label: "色見本から選ぶ（お店が決めた色）" },
 ];
 const isColorQuestion = (type) => type === "pastel_color" || type === "color";
-const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox";
+const needsChoices = (t) => t === "select" || t === "radio" || t === "checkbox" || t === "palette";
+const validHex = (v) => /^#[0-9A-Fa-f]{6}$/.test(v || "");
 const imgMaxOf = (q) => Math.min(Math.max(parseInt(q?.image_max, 10) || 3, 1), 3);
 const qChoices = (q) => [...(q?.common_question_choices || [])].sort((a, b) => a.display_order - b.display_order || a.id.localeCompare(b.id));
 const typeOptions = (sel) => Q_TYPES.map((t) =>
@@ -1316,6 +1318,10 @@ function answerFieldHtml(view) {
   if (view.type === "date") return `<input type="date" disabled>`;
   if (view.type === "select") {
     return `<select disabled>${cs.map((c) => `<option>${caption(c)}</option>`).join("")}</select>${photos}`;
+  }
+  if (view.type === "palette") {
+    return (cs.length ? `<span class="pv-palette">${cs.map((c) => `<span class="pv-palette-pick"><i style="background:${validHex(c.color_hex) ? c.color_hex : "#FFFFFF"}"></i>${caption(c)}</span>`).join("")}</span>`
+      : `<span class="mini">色がまだありません</span>`) + photos;
   }
   if (view.type === "radio" || view.type === "checkbox") {
     const t = view.type === "radio" ? "radio" : "checkbox";
@@ -1437,22 +1443,35 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   typeEl.addEventListener("change", () => {
     view.type = typeEl.value;
     box.querySelector(".q-choices").classList.toggle("hidden", !needsChoices(view.type));
+    box.classList.toggle("is-palette", view.type === "palette");
+    box.paletteTexts?.();
     box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
     box.querySelector(".q-pastel-link").classList.toggle("hidden", !isColorQuestion(view.type));
     onPaint();
   });
 
   const chWrap = box.querySelector(".q-choices");
+  box.classList.toggle("is-palette", q.input_type === "palette");
   const choiceRows = [];
   for (const c of qChoices(q)) {
     const row = document.createElement("div");
     row.className = "choice";
     row.innerHTML = `
+      <input type="color" class="c-color palette-only" value="${esc(validHex(c.color_hex) ? c.color_hex.toLowerCase() : "#f2c4ce")}" title="色">
       <input type="text" class="c-label" value="${esc(c.label)}" placeholder="回答の選択肢">
       <span class="lbl">+¥</span><input type="number" class="c-price" min="0" value="${esc(c.price_delta)}">
       <button type="button" class="pill danger c-del">回答を削除</button>`;
     const cl = row.querySelector(".c-label");
     regField("common_question_choices", c.id, "label", cl);
+    // 色見本から選ぶ質問の色。ほかの回答方法では使わないので、空のままにしておく
+    const colorEl = row.querySelector(".c-color");
+    regField("common_question_choices", c.id, "color_hex", colorEl,
+      { get: () => box.classList.contains("is-palette") ? colorEl.value.toUpperCase() : (c.color_hex || null) });
+    colorEl.addEventListener("input", () => {
+      const target = view.choices.find((x) => x.id === c.id);
+      if (target) target.color_hex = colorEl.value.toUpperCase();
+      onPaint();
+    });
     cl.addEventListener("input", () => {
       const target = view.choices.find((x) => x.id === c.id);
       if (target) target.label = cl.value;
@@ -1533,6 +1552,12 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     chWrap.insertBefore(note, title?.nextSibling || chWrap.firstChild);
   }
   {
+    const color = document.createElement("input");
+    color.type = "color";
+    color.className = "answer-choice-new-color palette-only";
+    color.value = "#f2c4ce";
+    color.title = "色を作る";
+    chWrap.appendChild(color);
     const name = document.createElement("input");
     name.type = "text";
     name.className = "answer-choice-new-name";
@@ -1541,12 +1566,21 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     const add = document.createElement("button");
     add.type = "button";
     add.className = "pill ghost";
-    add.textContent = "＋ 回答の選択肢を追加";
+    add.className += " answer-choice-add";
+    const setTexts = () => {
+      const palette = box.classList.contains("is-palette");
+      name.placeholder = palette ? "色の名前（例：さくらピンク）" : "回答の名前を入力";
+      add.textContent = palette ? "＋ この色を追加" : "＋ 回答の選択肢を追加";
+    };
+    box.paletteTexts = setTexts;
+    setTexts();
     add.onclick = async () => {
+      const palette = box.classList.contains("is-palette");
       const label = name.value.trim();
-      if (!label) { name.focus(); toast("回答の名前を入力してください"); return; }
+      if (!label) { name.focus(); toast(palette ? "色の名前を入力してください（例：さくらピンク）" : "回答の名前を入力してください"); return; }
       await api("POST", "/rest/v1/common_question_choices", [{
         tenant_id: state.tenantId, question_id: q.id, label,
+        ...(palette ? { color_hex: color.value.toUpperCase() } : {}),
         display_order: Math.max(-1, ...qChoices(q).map(c => Number(c.display_order) || 0)) + 1,
       }]);
       reloadAll();
@@ -1971,7 +2005,7 @@ function buildQuestionSettings(item, kind, header, main, parentName = "") {
     .flatMap(g => (g.options || []).map(o => [o.id,{...o,groupName:g.name}]))).values()];
   // 質問の表示条件には、ほかの質問の回答も使える（例：性別で「男の子」を選んだ時だけ果物を聞く・2026-10-02）
   const choiceCandidates = group ? [] : drafts.overlay("common_questions", state.questions)
-    .filter(q => q.id !== item.id && ['select','radio','checkbox'].includes(q.input_type))
+    .filter(q => q.id !== item.id && ['select','radio','checkbox','palette'].includes(q.input_type))
     .flatMap(q => qChoices(q).map(c => ({ id: c.id, label: c.label || '回答', qLabel: q.label || '質問文未入力の質問' })));
   const condition = document.createElement('div'); condition.className = 'question-condition';
   condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">${sub ? `「${esc(parentName)}」を選んだらいつも表示` : 'いつも表示する'}</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>

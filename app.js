@@ -1585,8 +1585,12 @@ function currentLayers() {
           const linkedQ=state.questions.find(q=>qLive(q)&&isColorQuestionType(q.input_type)
             &&questionColorLinksTo(q,o)&&state.sel.options.has(qOptionId(q))
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
+          // 色見本から選ぶ質問は、選んだ色でこの選択肢のイラストを染める（カラーチャートと同じ）
+          const paletteQ=!q&&!linkedQ?state.questions.find(x=>qLive(x)&&qOptionId(x)===o.id&&x.input_type==="palette"):null;
+          const paletteHex=paletteQ?qChoices(paletteQ).find(c=>normAnswer(state.sel.answers.get(paletteQ.id)).choiceIds.includes(c.id))?.color_hex:null;
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
-            :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
+            :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex
+            :/^#[0-9A-Fa-f]{6}$/.test(paletteHex||"") ? paletteHex.toUpperCase() : null;
           const animalName=ownPreview&&ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=ownPreview&&name==="クッキープレート"
             ? largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
@@ -2355,6 +2359,15 @@ function answerInputsHtml(q) {
     return `<select><option value="">選択してください</option>` +
       cs.map((c) => `<option value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</option>`).join("") + `</select>`;
   }
+  // 色見本から選ぶ（2026-10-02）：店が決めた色の丸から1つ選ぶ。中身はラジオボタン
+  if (q.input_type === "palette") {
+    return `<span class="palette-list">` + cs.map((c) => {
+      const hex = /^#[0-9A-Fa-f]{6}$/.test(c.color_hex || "") ? c.color_hex : "#FFFFFF";
+      return `<label class="pick palette-pick"><input type="radio" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>` +
+        `<i class="palette-chip" style="background:${hex}" aria-hidden="true"></i>` +
+        `<span class="palette-name">${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</span></label>`;
+    }).join("") + `</span>`;
+  }
   if (q.input_type === "radio" || q.input_type === "checkbox") {
     const t = q.input_type === "radio" ? "radio" : "checkbox";
     return `<span class="pick-list">` + cs.map((c) =>
@@ -2438,7 +2451,7 @@ function buildQuestionField(q) {
     groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：11 15';
     inputs[0].insertAdjacentElement('afterend',groupHelp);
   }
-  const multi = q.input_type === "radio" || q.input_type === "checkbox";
+  const multi = q.input_type === "radio" || q.input_type === "checkbox" || q.input_type === "palette";
   if (multi) inputs.forEach((i) => { i.checked = saved.choiceIds.includes(i.value); });
   else if (q.input_type === "select") inputs[0].value = saved.choiceIds[0] || "";
   else inputs[0].value = saved.text || "";
@@ -2812,6 +2825,10 @@ function renderConfirm() {
       const date = parseIsoDate(v);
       if (date) v = `${date.year}年${date.month}月${date.day}日`;
       row(q.label, v);
+    } else if (v && q.input_type === "palette") {
+      const c = q.common_question_choices.find((x) => x.id === a.choiceIds[0]);
+      const hex = /^#[0-9A-Fa-f]{6}$/.test(c?.color_hex || "") ? c.color_hex : null;
+      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
     } else if (v && isColorQuestionType(q.input_type)) {
       rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);

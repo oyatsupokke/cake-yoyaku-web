@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<meta charset="UTF-8">
 <base href="/">
 <script>
 // Keep old shared booking links working while showing each shop's public URL.
@@ -14,13 +15,12 @@ if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key
   }
 }
 </script>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オーダーケーキのご予約</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1790896173">
-<link rel="stylesheet" href="form-layout.css?v=1790896173">
+<link rel="stylesheet" href="styles.css?v=1790896827">
+<link rel="stylesheet" href="form-layout.css?v=1790896827">
 </head>
 <body>
 <div id="app">
@@ -55,15 +55,9 @@ if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key
       <div class="pill-row" id="size-pills"></div>
     </section>
 
-    <!-- 3. 質問（選択式・記入欄を商品ごとの順序で表示） -->
-    <section class="step hidden" id="sec-groups">
-      <h2><span class="step-no">3</span>ケーキの内容を選ぶ</h2>
-      <div id="group-list"></div>
-    </section>
-
-    <!-- 4. 受取日時 -->
+    <!-- 3. 受取日時（ケーキの内容より先：選べる飾りが日によって違うため） -->
     <section class="step hidden" id="sec-date">
-      <h2><span class="step-no">4</span>受取日を選ぶ</h2>
+      <h2><span class="step-no">3</span>受取日を選ぶ</h2>
       <div class="cal-header">
         <button type="button" id="cal-prev" class="cal-nav">‹</button>
         <span id="cal-title"></span>
@@ -75,11 +69,18 @@ if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key
         <span><i class="dot full"></i>締め切り</span>
       </div>
       <p class="small" id="booking-window-note"></p>
+      <p class="small note-accent hidden" id="cal-limit-note"></p>
       <div class="cal-grid" id="cal-grid"></div>
       <div id="slot-area" class="hidden">
         <h3>受取時間</h3>
         <div class="pill-row" id="slot-pills"></div>
       </div>
+    </section>
+
+    <!-- 4. ケーキの内容（受取日を選んでから出す・2026-10-02 受取日を先にした） -->
+    <section class="step hidden" id="sec-groups">
+      <h2><span class="step-no">4</span>ケーキの内容を選ぶ</h2>
+      <div id="group-list"></div>
     </section>
 
     <!-- 5. ご記入欄（共通質問） -->
@@ -166,12 +167,12 @@ if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="safe-display.js?v=1790896173"></script>
-<script src="booking-retry.js?v=1790896173"></script>
-<script src="booking-window.js?v=1790896173"></script>
-<script src="question-flow.js?v=1790896173"></script>
-<script src="crop.js?v=1790896173"></script>
-  <script src="app.js?v=1790896173"></script>
-<script src="form-layout.js?v=1790896173"></script>
+<script src="safe-display.js?v=1790896827"></script>
+<script src="booking-retry.js?v=1790896827"></script>
+<script src="booking-window.js?v=1790896827"></script>
+<script src="question-flow.js?v=1790896827"></script>
+<script src="crop.js?v=1790896827"></script>
+  <script src="app.js?v=1790896827"></script>
+<script src="form-layout.js?v=1790896827"></script>
 </body>
 </html>

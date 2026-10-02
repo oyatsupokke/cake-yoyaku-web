@@ -465,3 +465,4 @@ label.pick.palette-pick:has(input:disabled) { opacity: .45; cursor: not-allowed;
 /* 回答の選択肢の「見本を見る」（飾りの選択肢と同じボタン・押すと写真が大きく開く・2026-10-02） */
 label.pick .pick-text { flex: 1 1 auto; min-width: 0; }
 label.pick .pick-sample { flex: 0 0 auto; margin: -4px 0; }
+.pickup-note { margin-top: 8px; }

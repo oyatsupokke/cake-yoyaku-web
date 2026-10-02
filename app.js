@@ -321,6 +321,20 @@ async function restoreSaved() {
   }
 }
 
+/** 予約完了の画面からSquareの支払い画面へ自動で移ってよいか（予約1件につき、このタブで1回だけ）。
+ *  ページが復元されたり読み込み直されたりしても、2回目は移らない。保存できない環境ではページ内の印だけで判断する。 */
+const prepayAutoDone = new Set();
+function prepayAutoOnce(token) {
+  const key = `prepay_auto_done_${token}`;
+  if (prepayAutoDone.has(key)) return false;
+  prepayAutoDone.add(key);
+  try {
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch { /* 保存できなくても1回目は移る */ }
+  return true;
+}
+
 /* ---------- お支払い方法（Squareでの事前払い・2026-10-02） ----------
  * 事前払いをONにした店だけ「店頭／事前にカード」を選べる。カードを選んだ人は、
  * 予約が成立したあと予約確認ページ（?pay=1）経由でそのままSquareの支払い画面へ進む。
@@ -379,6 +393,10 @@ async function load() {
   const pnote = (state.tenant.preview_note || "").trim();
   $("preview-note").textContent = pnote;
   $("preview-note").classList.toggle("hidden", !pnote);
+  // 受取時間の注意書き（店ごとの設定・空欄なら出さない。2026-10-03）
+  const knote = (state.tenant.pickup_note || "").trim();
+  $("pickup-note").textContent = knote;
+  $("pickup-note").classList.toggle("hidden", !knote);
   document.title = `${state.tenant.name}｜オーダーケーキのご予約`;
   $("shop-name").textContent = state.tenant.name;
   applyTheme(state.tenant.theme);
@@ -3008,6 +3026,7 @@ function renderConfirm() {
   }
   const [y, m, d] = s.date.split("-");
   row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);
+  if ((state.tenant.pickup_note || "").trim()) row("受取時間について", state.tenant.pickup_note.trim());
   row("お名前", `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`);
   const kana = `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`.trim();
   if (kana || !STAFF_MODE) row("フリガナ", kana);
@@ -3176,11 +3195,20 @@ $("btn-submit").onclick = async () => {
     $("view-form").classList.add("hidden");
     if (RETRY_ENABLED) retryStore().clear();
     window.scrollTo({ top: 0 });
-    // 事前にカードを選んだ人は、そのまま支払い画面へ（予約はもう成立している）
+    // 事前にカードを選んだ人は、そのまま支払い画面へ（予約はもう成立している）。
+    // 自動で移るのは1回だけ。Squareからブラウザの「戻る」でこの画面に戻ってきたときに、
+    // また自動で飛ぶとSquareの認証コード（SMS）が送り直されるため（2026-10-03 まりほ指摘・iPhone）。
+    // 戻ってきた人には「事前にカードでお支払いする」のボタンだけを出す。
     if (payChoice() === "card" && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
       const link = $("done-prepay")?.querySelector("a");
-      if (link) link.textContent = "お支払い画面に移動しています…";
-      setTimeout(() => { location.href = `manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1`; }, 800);
+      const label = link?.textContent;
+      if (prepayAutoOnce(r.manage_token)) {
+        if (link) link.textContent = "お支払い画面に移動しています…";
+        setTimeout(() => {
+          if (link) link.textContent = label;   // 戻ってきたとき（ページの復元）は元のボタンに戻っている
+          location.href = `manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1`;
+        }, 800);
+      }
     }
   } catch (e) {
     let uncertain = false;

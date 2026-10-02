@@ -537,3 +537,6 @@ async function load() {
   }
 }
 load();
+// Squareの画面からブラウザの「戻る」で戻ってきたとき、前の表示のまま復元されることがある（iPhoneのSafari等）。
+// 「お支払い画面を準備しています…」のまま止まらないよう、また支払いの状態を最新にするため読み直す。
+window.addEventListener("pageshow", (e) => { if (e.persisted) load(); });

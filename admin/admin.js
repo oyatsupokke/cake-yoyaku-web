@@ -1059,6 +1059,7 @@ async function loadTenantForm() {
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
   $("t-preview-note").value = t.preview_note || "";
+  $("t-pickup-note").value = t.pickup_note || "";
   $("t-cancel").value = t.cancel_policy || "";
   const cf = t.customer_form?.address ?? { enabled: false, required: false };
   $("t-addr-enabled").checked = !!cf.enabled;
@@ -1123,6 +1124,8 @@ async function loadTenantForm() {
   regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
   regField("tenants", T, "preview_note", $("t-preview-note"),
     { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
+  regField("tenants", T, "pickup_note", $("t-pickup-note"),
+    { get: () => $("t-pickup-note").value.trim() || null });   // 空欄=何も出さない
   regField("tenants", T, "cancel_policy", $("t-cancel"));
   regField("tenants", T, "customer_form", $("t-addr-enabled"), {
     get: () => ({ address: { enabled: $("t-addr-enabled").checked,

@@ -1649,16 +1649,18 @@ function previewLayerEntries(p) {
       record: g, column: "default_layer_z",
     });
     for (const o of [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)) {
-      if (!o.layer_url) continue;
+      const previewUrl = o.layer_url || Object.values(o.size_layer_urls || {}).find((url) => typeof url === "string" && url);
+      if (!previewUrl) continue;
       const optionName = optDisplayName(o);
       const animalName = state.tenantSubdomain === "pokke" && ADMIN_ANIMAL_NAMES.has(optionName) ? optionName : null;
       entries.push({
         key: `options:${o.id}`, label: `${groupName}：${optionName}`,
-        url: o.layer_url, z: animalName && Number(o.layer_z) === 75
+        url: previewUrl, z: animalName && Number(o.layer_z) === 75
           ? (adminAnimalIsBack(animalName, p.name) ? 64 : 90)
           : Number(o.layer_z ?? 20), stable: stable++,
         record: o, column: "layer_z",
         animalName,
+        singleGroupId: g.selection_type === "single" ? g.id : null,
       });
     }
   }
@@ -1753,6 +1755,17 @@ function renderLayerOrder(p) {
   if (state.layerPreviewProductId !== p.id) {
     state.layerPreviewProductId = p.id;
     state.hiddenPreviewLayers = new Set();
+    const firstSingleKeys = new Map();
+    for (const g of groupsForProduct(p)) {
+      if (g.selection_type !== "single") continue;
+      const first = [...(g.options || [])].sort((a, b) => a.display_order - b.display_order)
+        .find((o) => entries.some((entry) => entry.key === `options:${o.id}`));
+      if (first) firstSingleKeys.set(g.id, `options:${first.id}`);
+    }
+    for (const entry of entries) {
+      if (entry.singleGroupId && entry.key !== firstSingleKeys.get(entry.singleGroupId))
+        state.hiddenPreviewLayers.add(entry.key);
+    }
   }
   const hidden = state.hiddenPreviewLayers || (state.hiddenPreviewLayers = new Set());
   const visibleEntries = entries.filter((entry) => !hidden.has(entry.key));
@@ -1801,7 +1814,11 @@ function renderLayerOrder(p) {
           <button type="button" class="pill layer-front" ${index === entries.length - 1 ? "disabled" : ""}>1つ前へ</button>`}
       </div>`;
     row.querySelector(".layer-visible input").addEventListener("change", (event) => {
-      if (event.currentTarget.checked) hidden.delete(entry.key);
+      if (event.currentTarget.checked) {
+        if (entry.singleGroupId) entries.filter((other) => other.singleGroupId === entry.singleGroupId)
+          .forEach((other) => hidden.add(other.key));
+        hidden.delete(entry.key);
+      }
       else hidden.add(entry.key);
       renderLayerOrder(p);
     });

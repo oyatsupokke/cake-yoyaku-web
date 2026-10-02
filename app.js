@@ -876,10 +876,8 @@ function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
         : cakeLayerAsset(file))
     : url;
 }
-// oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
-// 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
+// バスクの既存イラストは専用の合成を使う。タルトの果物は通常の選択肢レイヤーで登録する。
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
-  "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
 };
 const OYATSU_FIG_DECORATION_LAYERS = {
@@ -1523,26 +1521,13 @@ function currentLayers() {
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
-    // タルトは果物を選んだ後に重ね、バスクは従来の既定表示を保つ。
     const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
-    const fruitSelected = [...state.sel.options.keys()].some((id) =>
-      ["フルーツをお選びください", "フルーツの種類"].includes(findOption(id)?.g?.name));
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      if (p.name === "フルーツタルト" && !fruitSelected) continue;
       let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
         ? "basque-fruit-mix.png"
         : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
         ? "basque-fruit-fig.png"
         : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
-      if (p.name === "フルーツタルト") {
-        const size = state.sel.variant?.size_label;
-        const fruit = chosenFruit.has("いちじく") ? "fig"
-          : chosenFruit.has("ナガノパープル") ? "kyoho" : "muscat";
-        if (["12cm", "18cm"].includes(size) || (size === "15cm" && fruit === "fig"))
-          file = `${size}/tart-fruit-${fruit}.png`;
-        if (["12cm", "15cm", "18cm"].includes(size) && chosenFruit.has("フルーツミックス"))
-          file = `${size}/tart-fruit-mix.png`;
-      }
       layers.push({ url: cakeLayerAsset(file), z: x.z });
     }
   }

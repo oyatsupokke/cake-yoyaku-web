@@ -1523,9 +1523,12 @@ function currentLayers() {
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
-    // タルト・バスクに常に付く果物を、選んだ果物の絵に替える。
+    // タルトは果物を選んだ後に重ね、バスクは従来の既定表示を保つ。
     const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
+    const fruitSelected = [...state.sel.options.keys()].some((id) =>
+      ["フルーツをお選びください", "フルーツの種類"].includes(findOption(id)?.g?.name));
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
+      if (p.name === "フルーツタルト" && !fruitSelected) continue;
       let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
         ? "basque-fruit-mix.png"
         : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")

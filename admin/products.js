@@ -2068,16 +2068,33 @@ function buildQuestionSettings(item, kind, header, main, parentName = "") {
   };
   scope.addEventListener('change',() => {paintScope();markDirty();}); paintScope();
   }
-  const allGroups = [...state.products.flatMap(p => p.option_groups || []),...state.globalGroups];
-  const candidates = [...new Map(allGroups.filter(g => !group || g.id !== item.id)
+  // 条件にできるのは、このケーキで出る選択肢・質問の回答だけ（全ケーキ分が混ざって、どのケーキのものか分からなかった・2026-10-02 まりほ指摘）
+  const cake = state.current;
+  const cakeGroups = [...(cake.option_groups || []), ...state.globalGroups.filter(g => QuestionFlow.groupApplies(g, cake.id))];
+  const cakeOptionIds = new Set(cakeGroups.flatMap(g => (g.options || []).map(o => o.id)));
+  const candidates = [...new Map(cakeGroups.filter(g => !group || g.id !== item.id)
     .flatMap(g => (g.options || []).map(o => [o.id,{...o,groupName:g.name}]))).values()];
+  const askedOnCake = (q) => q.option_id ? cakeOptionIds.has(q.option_id)
+    : q.scope !== 'selected' || (q._product_ids || (q.common_question_products || []).map(x => x.product_id)).includes(cake.id);
   // 質問の表示条件には、ほかの質問の回答も使える（例：性別で「男の子」を選んだ時だけ果物を聞く・2026-10-02）
   const choiceCandidates = group ? [] : drafts.overlay("common_questions", state.questions)
-    .filter(q => q.id !== item.id && ['select','radio','checkbox','palette'].includes(q.input_type))
+    .filter(q => q.id !== item.id && ['select','radio','checkbox','palette'].includes(q.input_type) && askedOnCake(q))
     .flatMap(q => qChoices(q).map(c => ({ id: c.id, label: c.label || '回答', qLabel: q.label || '質問文未入力の質問' })));
+  // いま設定されている条件がこのケーキの外のもの（共通の質問などで別のケーキの選択肢を指している）なら、消さずに出所を付けて残す
+  const allGroupsEverywhere = [...state.products.flatMap(p => (p.option_groups || []).map(g => ({ g, p }))), ...state.globalGroups.map(g => ({ g, p: null }))];
+  const outside = [];
+  if (item.condition_option_id && !candidates.some(o => o.id === item.condition_option_id)) {
+    const hit = allGroupsEverywhere.flatMap(({ g, p }) => (g.options || []).map(o => ({ o, g, p }))).find(x => x.o.id === item.condition_option_id);
+    if (hit) outside.push(`<option value="${hit.o.id}">${esc(hit.g.name)} ／ ${esc(optDisplayName(hit.o))}（${esc(hit.p?.name || '共通')}）</option>`);
+  }
+  if (item.condition_choice_id && !choiceCandidates.some(c => c.id === item.condition_choice_id)) {
+    const q = state.questions.find(x => qChoices(x).some(c => c.id === item.condition_choice_id));
+    const c = q && qChoices(q).find(x => x.id === item.condition_choice_id);
+    if (c) outside.push(`<option value="c:${c.id}">${esc(q.label || '質問')} ／ ${esc(c.label)}（ほかのケーキの質問）</option>`);
+  }
   const condition = document.createElement('div'); condition.className = 'question-condition';
   condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">${sub ? `「${esc(parentName)}」を選んだらいつも表示` : 'いつも表示する'}</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
-    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option><optgroup label="選択グループの選択肢">${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</optgroup>${group ? '' : choiceCandidates.length ? `<optgroup label="ほかの質問の回答">${choiceCandidates.map(c => `<option value="c:${c.id}">${esc(c.qLabel)} ／ ${esc(c.label)}</option>`).join('')}</optgroup>` : ''}</select></label>
+    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option><optgroup label="「${esc(cake.name)}」の選択肢">${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</optgroup>${group ? '' : choiceCandidates.length ? `<optgroup label="「${esc(cake.name)}」のほかの質問の回答">${choiceCandidates.map(c => `<option value="c:${c.id}">${esc(c.qLabel)} ／ ${esc(c.label)}</option>`).join('')}</optgroup>` : ''}${outside.length ? `<optgroup label="いまの設定（このケーキの外）">${outside.join('')}</optgroup>` : ''}</select></label>
     <p class="small">非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
   main.prepend(condition);
   const conditionMode = condition.querySelector('.condition-mode'), option = condition.querySelector('.condition-option');

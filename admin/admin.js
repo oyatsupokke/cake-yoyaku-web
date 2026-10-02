@@ -282,13 +282,13 @@ function renderPickup() {
         <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>
+        ${(o.order_previews || []).length ? `<button type="button" class="order-thumb" aria-label="デザインイメージを大きく見る"></button>` : ""}
         <span class="order-total">${yen(o.quote?.amount ?? o.total_amount)}${reviewPending(o) ? "（未確定）" : ""}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${REVIEW[o.review_state] ? `<span class="status-badge st-image">${REVIEW[o.review_state]}${o.review_state==='quoted' && new Date(o.quote?.expires_at)<=new Date() ? '・回答期限切れ' : ''}</span>` : ""}
         ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${prepayBadge(o)}
-        ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
-        ${(o.order_previews || []).length ? `<span class="status-badge st-preview" title="予約時の完成イメージあり">🎨 完成イメージ</span>` : ""}
+        ${(o.order_images || []).length ? `<button type="button" class="status-badge st-image photo-badge" aria-label="お客様の添付画像を見る（${o.order_images.length}枚）">📷${o.order_images.length}</button>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
       </div>
       ${o.status === "new" && !reviewPending(o) ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
@@ -300,28 +300,77 @@ function renderPickup() {
       catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); button.disabled = false; }
     });
     const body = card.querySelector(".order-body");
+    card.querySelector(".order-thumb")?.addEventListener("click", async (e) => {
+      e.stopPropagation();   // 小さな絵を押したときは詳細を開閉せず、その場で大きく見せる
+      openOrderGallery(await orderGallery(o));
+    });
+    card.querySelector(".photo-badge")?.addEventListener("click", async (e) => {
+      e.stopPropagation();   // 📷を押したら、添付画像の1枚目から大きく見せる
+      const list = await orderGallery(o);
+      openOrderGallery(list, o._preview_url && list.length > 1 ? 1 : 0);
+    });
     card.querySelector(".order-head").onclick = () => {
       if (body.classList.contains("hidden")) { fillOrderBody(body, o); body.classList.remove("hidden"); }
       else body.classList.add("hidden");
     };
     wrap.appendChild(card);
   }
+  paintPickupThumbs(active);
+}
+/* 予約カードの左に、予約時のデザインイメージを小さく出す（開かなくても一目で分かるように）。
+ * 署名はその日の分をまとめて1回で取る。 */
+async function paintPickupThumbs(orders) {
+  const need = orders.filter((o) => (o.order_previews || [])[0]?.path && !o._preview_url);
+  const urls = await signOrderPaths(need.map((o) => o.order_previews[0].path));
+  for (const o of need) o._preview_url ||= urls.get(o.order_previews[0].path) || null;
+  const cards = $("pickup-list").querySelectorAll(".order-card");
+  orders.forEach((o, i) => {
+    const thumb = cards[i]?.querySelector(".order-thumb");
+    if (!thumb) return;
+    if (o._preview_url) thumb.innerHTML = `<img src="${esc(o._preview_url)}" alt="">`;
+    else thumb.remove();
+  });
+}
+/* 非公開バケットの画像の署名付きURLを、まとめて1回で取る（path → URL）。
+ * まとめての署名が通らないときは1枚ずつ取り直す。 */
+async function signOrderPaths(paths) {
+  const out = new Map();
+  const list = [...new Set(paths.filter(Boolean))];
+  if (!list.length) return out;
+  try {
+    const r = await api("POST", "/storage/v1/object/sign/order-images", { expiresIn: 3600, paths: list });
+    for (const x of r || []) if (x?.signedURL && x.path) out.set(x.path, CONFIG.url + "/storage/v1" + x.signedURL);
+  } catch { /* 下で1枚ずつ */ }
+  for (const path of list.filter((x) => !out.has(x))) {
+    try {
+      const r = await api("POST", `/storage/v1/object/sign/order-images/${path}`, { expiresIn: 3600 });
+      if (r?.signedURL) out.set(path, CONFIG.url + "/storage/v1" + r.signedURL);
+    } catch { /* 1枚読めなくても残りは見せる */ }
+  }
+  return out;
+}
+/* その予約の画像を、大きく見る順（デザインイメージ → 添付画像）に並べる */
+async function orderGallery(o) {
+  const [preview, images] = await Promise.all([ensureOrderPreviewUrl(o), ensureOrderImageUrls(o)]);
+  const label = new Map((o.order_answers || []).map((a) => [a.question_id, a.label_snapshot]));
+  return [
+    ...(preview ? [{ url: preview, caption: "デザインイメージ（予約時にお客様が見ていたもの）" }] : []),
+    ...images.map((x) => ({ url: x.url, caption: [label.get(x.question_id), x.note].filter(Boolean).join("：") || "お客様の添付画像" })),
+  ];
+}
+async function ensureOrderImageUrls(o) {
+  if (!o._images_signed) o._images_signed = await signOrderImages(o.order_images);
+  return o._images_signed;
 }
 /* お客様が添付した画像（非公開バケット）を見るための署名付きURL。
  * 店のログインで Storage に直接署名を頼む（ポリシー order_images_staff_object_read）。
  * 有効期限は1時間。画面を開き直せばまた新しいURLが出る。 */
 async function signOrderImages(images) {
-  const out = [];
-  for (const im of [...(images || [])].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""))) {
-    try {
-      const r = await api("POST", `/storage/v1/object/sign/order-images/${im.path}`, { expiresIn: 3600 });
-      if (r?.signedURL) out.push({
-        id: im.id, question_id: im.question_id, note: im.note,
-        url: CONFIG.url + "/storage/v1" + r.signedURL,
-      });
-    } catch { /* 1枚読めなくても残りは見せる */ }
-  }
-  return out;
+  const sorted = [...(images || [])].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const urls = await signOrderPaths(sorted.map((im) => im.path));
+  return sorted.filter((im) => urls.has(im.path)).map((im) => ({
+    id: im.id, question_id: im.question_id, note: im.note, url: urls.get(im.path),
+  }));
 }
 
 async function ensureOrderPreviewUrl(o) {
@@ -338,16 +387,16 @@ async function ensureOrderPreviewUrl(o) {
 async function paintOrderPreview(box, o) {
   const url = await ensureOrderPreviewUrl(o);
   if (!url) { box.remove(); return; }
-  box.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="予約時の完成イメージ"></a>` +
-    `<span>予約時にお客様が確認したイメージです</span>`;
+  box.innerHTML = `<button type="button" class="zoom-img" data-url="${esc(url)}" aria-label="デザインイメージを大きく見る"><img src="${esc(url)}" alt="予約時のデザインイメージ"></button>` +
+    `<span>予約時にお客様が見ていたデザインイメージです。押すと大きく見られます</span>`;
 }
-/* 予約詳細に画像を並べる（タップで原寸を別タブ） */
+/* 予約詳細に画像を並べる（押すとその場で大きく表示） */
 async function paintOrderImages(box, o) {
-  const signed = await signOrderImages(o.order_images);
+  const signed = await ensureOrderImageUrls(o);
   if (!signed.length) { box.remove(); return; }
   const cell = (list) => list.map((x) =>
-    `<span class="order-image"><a href="${x.url}" target="_blank" rel="noopener">` +
-    `<img src="${x.url}" alt="お客様の添付画像"></a>` +
+    `<span class="order-image"><button type="button" class="zoom-img" data-url="${esc(x.url)}" aria-label="添付画像を大きく見る">` +
+    `<img src="${esc(x.url)}" alt="お客様の添付画像"></button>` +
     (x.note ? `<span class="cap">${esc(x.note)}</span>` : "") + `</span>`).join("");
   // 質問ごとにまとめて、その質問の行（「2枚」と出ている行）を画像そのものに置き換える
   const byQ = new Map();
@@ -411,6 +460,13 @@ function fillOrderBody(el, o) {
   if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
+  // 画像を押したら、その予約の画像（デザインイメージ＋添付画像）をその場で大きく見せる
+  el.onclick = async (e) => {
+    const btn = e.target.closest(".zoom-img");
+    if (!btn) return;
+    const list = await orderGallery(o);
+    openOrderGallery(list, Math.max(0, list.findIndex((x) => x.url === btn.dataset.url)));
+  };
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
@@ -623,7 +679,10 @@ function renderKitchen() {
       <div class="khead"><span>${rangeMode ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
         <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
-      ${o._preview_url ? `<div class="kpreview"><img src="${esc(o._preview_url)}" alt="予約時の完成イメージ"><span>完成イメージ</span></div>` : ""}
+      ${o._preview_url || (o._images_signed || []).length ? `<div class="kpreview">` +
+        (o._preview_url ? `<figure><img src="${esc(o._preview_url)}" alt="予約時のデザインイメージ"><figcaption>デザインイメージ</figcaption></figure>` : "") +
+        (o._images_signed || []).map((x) => `<figure class="kimage"><img src="${esc(x.url)}" alt="お客様の添付画像"><figcaption>${esc(x.note || "添付画像")}</figcaption></figure>`).join("") +
+        `</div>` : ""}
       <ul>${opts}${notes}</ul>
       ${o.review_state === 'accepted' && o.quote ? `<p style="white-space:pre-wrap"><strong>合意した追加希望：</strong>${esc(o.quote.description)}</p>` : ""}
       ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
@@ -631,7 +690,8 @@ function renderKitchen() {
   }
 }
 $("btn-print").onclick = async () => {
-  await Promise.all(kitchenOrders().filter((o) => o.status !== "canceled").map(ensureOrderPreviewUrl));
+  await Promise.all(kitchenOrders().filter((o) => o.status !== "canceled")
+    .flatMap((o) => [ensureOrderPreviewUrl(o), ensureOrderImageUrls(o)]));
   renderKitchen();
   await Promise.all([...document.querySelectorAll("#kitchen-detail img")].map((img) =>
     img.complete ? Promise.resolve() : new Promise((resolve) => { img.onload = img.onerror = resolve; })));

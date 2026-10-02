@@ -1,4 +1,4 @@
-import {config} from './assistant-config.js?v=398590f7e5c18dae';
+import {config} from './assistant-config.js?v=861fec63f71ac835';
 const embedded = new URLSearchParams(location.search).get('panel') === '1' && window.parent !== window;
 if (embedded) {
  document.body.classList.add('embedded');

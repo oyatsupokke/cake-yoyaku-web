@@ -1024,6 +1024,58 @@ function imageAlphaBounds(img, key) {
   alphaBoundsCache.set(key,b);return b;
 }
 
+const DOG_WHIP_NAMES = ["わんこホイップ絞り", "犬ケーキに変更"];
+/* わんこホイップ＋ナンバークッキーの配置（2026-10-02 まりほ）。数字も犬も実物大のまま描く。
+ * ・大1〜2枚だけ：犬を上面の左、数字を右に並べる（上の弧はメッセージ用に空ける）
+ * ・それ以上（3枚以上・2人分・大＋小）：実物大では上面に入らないので、犬はいつもの位置のまま、
+ *   数字はケーキ手前の側面に立てて付ける（直書きメッセージのときと同じ考え方）
+ * 数字の画像は大・小とも同じ縮尺で描かれている（小は大の約0.53倍）ので、1つの倍率で描く。
+ * 座標は960pxの合成キャンバス上。上面の範囲（実測）：12cm 上153〜下693・左165〜右821／
+ * 15cm 104〜680・103〜854／18cm 114〜706・33〜934 */
+const NUMBER_COOKIE_SCALE = 220 / 510;   // 大の数字（画像の高さ約510px）を、普段どおり高さ220pxで描く倍率
+const DOG_NUMBER_PLAN = {
+  "12cm": { dog: { cx: 342, cy: 470 }, top: { cx: 662, bottom: 580 }, side: { cx: 493, bottom: 830 } },
+  "15cm": { dog: { cx: 333, cy: 480 }, top: { cx: 690, bottom: 590 }, side: { cx: 478, bottom: 835 } },
+  "18cm": { dog: { cx: 280, cy: 495 }, top: { cx: 705, bottom: 605 }, side: { cx: 483, bottom: 865 } },
+};
+function dogNumberPlan() {
+  if (CONFIG.shop !== "pokke") return null;
+  const plan = DOG_NUMBER_PLAN[state.sel.variant?.size_label];
+  if (!plan) return null;
+  const names = [...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {}));
+  if (!DOG_WHIP_NAMES.some((n) => names.includes(n))) return null;
+  const hasL = names.includes("ナンバークッキー大") && numberCookieHasPreviewDigits("ナンバークッキー大");
+  const hasS = names.includes("ナンバークッキー小") && numberCookieHasPreviewDigits("ナンバークッキー小");
+  if (!hasL && !hasS) return null;
+  // 大1〜2枚（1人分）だけなら上面に並べる。それ以外は側面へ
+  const largeOpt = [...state.sel.options.keys()].map((id) => findOption(id)?.o).find((o) => o && optName(o) === "ナンバークッキー大");
+  const text = largeOpt ? normAnswer(state.sel.answers.get(previewQuestionForOption(largeOpt, "number")?.id)).text : "";
+  const groups = numberCookieDigitGroups(text);
+  const onTop = hasL && !hasS && groups.length === 1 && groups[0].length <= 2;
+  return { ...plan, onTop };
+}
+// 上面に並べるときだけ、犬を左へずらす（大きさはそのまま）
+function drawPlannedDog(ctx, img, key, plan) {
+  const b = imageAlphaBounds(img, key);
+  ctx.drawImage(img, b.x, b.y, b.w, b.h, plan.dog.cx - b.w / 2, plan.dog.cy - b.h / 2, b.w, b.h);
+}
+// 数字を実物大で1列に並べる（上面の右、または手前の側面）。2人分の間は少し広く空ける。縮めない
+function drawPlannedNumbers(ctx, entries, plan) {
+  const spot = plan.onTop ? plan.top : plan.side;
+  const ordered = [...entries.filter(({ layer }) => layer.numberCookie.size === "L"), ...entries.filter(({ layer }) => layer.numberCookie.size === "S")];
+  const items = ordered.map(({ img, layer }) => {
+    const b = imageAlphaBounds(img, layer.url);
+    return { img, b, w: b.w * NUMBER_COOKIE_SCALE, h: b.h * NUMBER_COOKIE_SCALE, key: `${layer.numberCookie.size}${layer.numberCookie.group ?? 0}` };
+  });
+  const gaps = items.slice(1).map((it, i) => it.key === items[i].key ? 10 : 40);
+  const raw = items.reduce((n, x) => n + x.w, 0) + gaps.reduce((n, g) => n + g, 0);
+  // 実物大のまま描く（縮めない。実物のクッキーは小さくならない＝普段の並べ方と同じ）
+  let x = spot.cx - raw / 2;
+  items.forEach((it, i) => {
+    ctx.drawImage(it.img, it.b.x, it.b.y, it.b.w, it.b.h, x, spot.bottom - it.h, it.w, it.h);
+    x += it.w + (gaps[i] || 0);
+  });
+}
 function numberCookieLayout(size, layouts, selectedNames) {
   if (size === 'L' && selectedNames.has('メッセージをケーキに直書き')) {
     // 直書きの上面を空け、実物どおりケーキ手前の側面へ付ける。
@@ -1137,6 +1189,8 @@ function numberCookieLayouts(product, animalCount) {
 // 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
+  const dogPlan=dogNumberPlan();
+  if(dogPlan){drawPlannedNumbers(ctx,entries,dogPlan);return;}
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
   const animalCount=selectedAnimalToppingCount();
@@ -1556,7 +1610,8 @@ function currentLayers() {
       && selectedNames.has("フルーツミックス") && selectedNames.has("フルーツサイド寄せ"))
     layers.push({ url: cakeLayerAsset(mixSize === "15cm" ? "fruit-side-muscat.png" : `${mixSize}/fruit-side-muscat.png`), z: 38 });
   const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");
-  const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && largeNumberVisible;
+  // わんこホイップ＋ナンバークッキーは、以前は専用イラスト（顔＋前足）に差し替えていたが、
+  // 実物どおりのプレビューが難しいため、いつもの犬のまま数字を犬の下へ並べる（numberCookieLayout・2026-10-02 まりほ）
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
@@ -1584,7 +1639,6 @@ function currentLayers() {
         // 店が登録した組み合わせの絵がいちばん優先（例：いちじく×フルーツ1周）
         const layerUrl=comboLayer(o)||(rawLayerUrl===o.layer_url&&ownSizedLayer(o))||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
-          if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
           if(calendarCake && name==="クッキープレート")continue;
           if(layerUrl.includes('{digit}')){
@@ -1625,6 +1679,7 @@ function currentLayers() {
                 : Number(o.layer_z ?? 75))
               : (o.layer_z ?? 50), tint,
             creamOnlyTint: !!linkedQ && ["フルーツ1周", "フルーツ盛り"].includes(name),
+            dogWhip: DOG_WHIP_NAMES.includes(name),
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,
@@ -1649,11 +1704,6 @@ function currentLayers() {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
       layers.push({ url: ownSizedLayer(g, "default_size_layer_urls") || sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
     }
-  }
-  if (dogNumberCombo) {
-    layers.push({ url: cakeLayerAsset("dog-number-face.png"), z: 76 });
-    layers.push({ url: cakeLayerAsset("dog-number-left-paw.png"), z: 85, dogPaw: true });
-    layers.push({ url: cakeLayerAsset("dog-number-right-paw.png"), z: 85, dogPaw: true });
   }
   const calendar = currentCalendarLayer();
   for (const q of askedQuestions()) {
@@ -1695,12 +1745,15 @@ async function updatePreview() {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
     const numberEntries=[],dogPawEntries=[],frontAnimalEntries=[];
+    const dogPlan=dogNumberPlan();
     const numberZ = layers.find(layer => layer.numberCookie)?.z;
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
       // カレンダーケーキの下のメッセージは、カレンダーと同じ縮小・位置合わせで描く（12cmで下にはみ出していた・2026-10-02）
       if(layers[i].directMessage){ctx.save();if(layers.some(l=>l.calendarCake))applyCalendarTransform(ctx);else ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
+      // わんこホイップ＋ナンバークッキー（大1〜2枚）：犬は上面の左へずらす（数字は drawNumberCookieLayers で右へ）
+      if(layers[i].dogWhip&&dogPlan?.onTop){drawPlannedDog(ctx,img,layers[i].url,dogPlan);continue;}
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
@@ -2481,7 +2534,7 @@ function buildQuestionField(q) {
     inputs[0].setAttribute('pattern','[0-9０-９\\s・･]*');
     const groupHelp=document.createElement('span');
     groupHelp.className='help number-cookie-group-help';
-    groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：11 15';
+    groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：1 12';
     inputs[0].insertAdjacentElement('afterend',groupHelp);
   }
   const multi = q.input_type === "radio" || q.input_type === "checkbox" || q.input_type === "palette";

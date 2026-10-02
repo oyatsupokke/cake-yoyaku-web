@@ -1393,7 +1393,8 @@ function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
 function directMessageLayout(selectedNames, calendarCake, calendarRows) {
   const fruitSide=selectedNames.has("フルーツサイド寄せ");
   const dogCake=selectedNames.has("わんこホイップ絞り")||selectedNames.has("犬ケーキに変更");
-  if(calendarCake)return { cx:400, cy:calendarRows>5?550:505, maxWidth:430, size:46, lineHeight:56 };
+  // 12cmの6段の月は、下の輪にかからないようメッセージを少しカレンダーへ寄せる（2026-10-02）
+  if(calendarCake)return { cx:400, cy:calendarRows>5?(state.sel.variant?.size_label==="12cm"?530:550):505, maxWidth:430, size:46, lineHeight:56 };
   if(fruitSide)return { cx:235, cy:295, maxWidth:320, size:64, lineHeight:88 };
   // 犬の顔に重ねず、見本で示された上側の弧の間へ置く。
   if(dogCake)return { cx:400, cy:210, maxWidth:430, size:48, lineHeight:60 };
@@ -1469,14 +1470,14 @@ function drawCalendarLayer(ctx, cal) {
 }
 
 function calendarLayerTransform(size) {
-  // 12cmは文字組みを縮め、土台イラストの上面中央に合わせて右下へ寄せる。
-  if (size === "12cm") return { scale: .93, offsetX: LEGACY_LAYER_OFFSET + 16, offsetY: LEGACY_LAYER_OFFSET + 44 };
+  // 12cmは文字組みを縮め、土台イラストの上面中央に合わせて右へ寄せる。
+  // 下にメッセージを入れても輪の内側に収まるよう .93 → .80 に縮めた（2026-10-02 まりほ指摘）
+  if (size === "12cm") return { scale: .80, offsetX: LEGACY_LAYER_OFFSET + 16, offsetY: LEGACY_LAYER_OFFSET + 10 };
   return { scale: 1, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET };
 }
 
-function drawSizedCalendarLayer(ctx, cal) {
+function applyCalendarTransform(ctx) {
   const t = calendarLayerTransform(state.sel.variant?.size_label);
-  ctx.save();
   ctx.translate(t.offsetX, t.offsetY);
   if (t.scale !== 1) {
     // 横中心は変えず、カレンダーが載る上面中央を基準に縮小する。
@@ -1484,6 +1485,10 @@ function drawSizedCalendarLayer(ctx, cal) {
     ctx.scale(t.scale, t.scale);
     ctx.translate(-400, -300);
   }
+}
+function drawSizedCalendarLayer(ctx, cal) {
+  ctx.save();
+  applyCalendarTransform(ctx);
   drawCalendarLayer(ctx, cal);
   ctx.restore();
 }
@@ -1690,7 +1695,8 @@ async function updatePreview() {
     const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[],frontAnimalEntries=[];
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
-      if(layers[i].directMessage){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
+      // カレンダーケーキの下のメッセージは、カレンダーと同じ縮小・位置合わせで描く（12cmで下にはみ出していた・2026-10-02）
+      if(layers[i].directMessage){ctx.save();if(layers.some(l=>l.calendarCake))applyCalendarTransform(ctx);else ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}

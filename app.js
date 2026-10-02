@@ -1034,9 +1034,10 @@ const DOG_WHIP_NAMES = ["わんこホイップ絞り", "犬ケーキに変更"];
  * 15cm 104〜680・103〜854／18cm 114〜706・33〜934 */
 const NUMBER_COOKIE_SCALE = 220 / 510;   // 大の数字（画像の高さ約510px）を、普段どおり高さ220pxで描く倍率
 const DOG_NUMBER_PLAN = {
-  "12cm": { dog: { cx: 342, cy: 470 }, top: { cx: 662, bottom: 580 }, side: { cx: 493, bottom: 830 } },
-  "15cm": { dog: { cx: 333, cy: 480 }, top: { cx: 690, bottom: 590 }, side: { cx: 478, bottom: 835 } },
-  "18cm": { dog: { cx: 280, cy: 495 }, top: { cx: 705, bottom: 605 }, side: { cx: 483, bottom: 865 } },
+  // plate：クッキープレートは上面の上側（楕円の幅にプレートが収まる高さから下へ）。そのとき犬は真ん中のまま少し下げる（dogUnderPlate）
+  "12cm": { dog: { cx: 342, cy: 470 }, top: { cx: 662, bottom: 580 }, side: { cx: 493, bottom: 840 }, plate: { cx: 493, top: 199 }, dogUnderPlate: { cx: 493, cy: 510 } },
+  "15cm": { dog: { cx: 333, cy: 480 }, top: { cx: 690, bottom: 590 }, side: { cx: 478, bottom: 835 }, plate: { cx: 478, top: 141 }, dogUnderPlate: { cx: 478, cy: 459 } },
+  "18cm": { dog: { cx: 280, cy: 495 }, top: { cx: 705, bottom: 605 }, side: { cx: 483, bottom: 865 }, plate: { cx: 483, top: 140 }, dogUnderPlate: { cx: 483, cy: 466 } },
 };
 function dogNumberPlan() {
   if (CONFIG.shop !== "pokke") return null;
@@ -1046,18 +1047,23 @@ function dogNumberPlan() {
   if (!DOG_WHIP_NAMES.some((n) => names.includes(n))) return null;
   const hasL = names.includes("ナンバークッキー大") && numberCookieHasPreviewDigits("ナンバークッキー大");
   const hasS = names.includes("ナンバークッキー小") && numberCookieHasPreviewDigits("ナンバークッキー小");
-  if (!hasL && !hasS) return null;
+  const plate = names.includes("クッキープレート");
+  if (!hasL && !hasS && !plate) return null;
   // 大1〜2枚（1人分）だけなら上面に並べる。それ以外は側面へ
   const largeOpt = [...state.sel.options.keys()].map((id) => findOption(id)?.o).find((o) => o && optName(o) === "ナンバークッキー大");
   const text = largeOpt ? normAnswer(state.sel.answers.get(previewQuestionForOption(largeOpt, "number")?.id)).text : "";
   const groups = numberCookieDigitGroups(text);
-  const onTop = hasL && !hasS && groups.length === 1 && groups[0].length <= 2;
-  return { ...plan, onTop };
+  // クッキープレートがあるときは、上面の上側をプレートが使うので、犬は真ん中のまま少し下げ・数字は側面へ
+  const onTop = !plate && hasL && !hasS && groups.length === 1 && groups[0].length <= 2;
+  return { ...plan, onTop, withPlate: plate };
 }
-// 上面に並べるときだけ、犬を左へずらす（大きさはそのまま）
+// 犬の位置：数字を上面に並べるときは左へ、プレートがあるときは真ん中のまま少し下へ（大きさはそのまま）
 function drawPlannedDog(ctx, img, key, plan) {
   const b = imageAlphaBounds(img, key);
-  ctx.drawImage(img, b.x, b.y, b.w, b.h, plan.dog.cx - b.w / 2, plan.dog.cy - b.h / 2, b.w, b.h);
+  const at = plan.onTop ? plan.dog : plan.dogUnderPlate;
+  // プレートと一緒のときは犬を少し小さく（0.85倍・2026-10-02 まりほ）。数字だけのときは元の大きさ
+  const k = plan.onTop ? 1 : 0.85, w = b.w * k, h = b.h * k;
+  ctx.drawImage(img, b.x, b.y, b.w, b.h, at.cx - w / 2, at.cy - h / 2, w, h);
 }
 // 数字を実物大で1列に並べる（上面の右、または手前の側面）。2人分の間は少し広く空ける。縮めない
 function drawPlannedNumbers(ctx, entries, plan) {
@@ -1317,6 +1323,13 @@ function messagePlateLayout(img, url, mode) {
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
   if(!mode){const o=layerDrawRect(img).x;return {b,cx:b.x+b.w/2+o,cy:b.y+b.h/2+o,w:b.w,h:b.h};}
+  // わんこホイップと一緒：上面の上側（犬の上・まりほ判断）。犬は少し下げる（drawPlannedDog）
+  if(mode==='dog'){
+    // プレートは形・大きさが決まっていないので、犬と一緒のときは少し小さく（0.75倍・2026-10-02 まりほ）。文字も合わせて縮む
+    const spot=(DOG_NUMBER_PLAN[state.sel.variant?.size_label]||DOG_NUMBER_PLAN["15cm"]).plate;
+    const w=b.w*.75,h=b.h*.75;
+    return {b,cx:spot.cx,cy:spot.top+h/2+10,w,h};
+  }
   const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
@@ -1665,7 +1678,9 @@ function currentLayers() {
             :/^#[0-9A-Fa-f]{6}$/.test(paletteHex||"") ? paletteHex.toUpperCase() : null;
           const animalName=ownPreview&&ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=ownPreview&&name==="クッキープレート"
-            ? largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
+            // わんこホイップがいるときは、上面の上側（犬の上）に置く（2026-10-02 まりほ判断）
+            ? DOG_WHIP_NAMES.some((n)=>selectedNames.has(n))?"dog"
+            : largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
               :largeNumberVisible?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
@@ -1753,7 +1768,7 @@ async function updatePreview() {
       if(layers[i].directMessage){ctx.save();if(layers.some(l=>l.calendarCake))applyCalendarTransform(ctx);else ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
       // わんこホイップ＋ナンバークッキー（大1〜2枚）：犬は上面の左へずらす（数字は drawNumberCookieLayers で右へ）
-      if(layers[i].dogWhip&&dogPlan?.onTop){drawPlannedDog(ctx,img,layers[i].url,dogPlan);continue;}
+      if(layers[i].dogWhip&&(dogPlan?.onTop||dogPlan?.withPlate)){drawPlannedDog(ctx,img,layers[i].url,dogPlan);continue;}
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}

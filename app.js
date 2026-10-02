@@ -844,6 +844,8 @@ function layerFileName(url) {
 }
 function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
   if (CONFIG.shop !== "pokke") return url;
+  // カレンダー専用の小さい丸絞りを通常サイズの画像で上書きしない。
+  if (url?.includes("/calendar/15cm/round-piping.png")) return url;
   const size=state.sel.variant?.size_label;
   if(!size)return url;
   if (["12cm", "15cm", "18cm"].includes(size) && MOCO_OPTION_NAMES.has(optionName))
@@ -984,6 +986,13 @@ function layerDrawRect(img) {
 }
 
 function drawLayerImage(ctx,img) {
+  // 小粒の絞りを、各サイズの既存の輪の位置・幅へ合わせて表示する。
+  if (CONFIG.shop === "pokke" && state.sel.product?.name === "デコレーションケーキ"
+      && ["12cm", "18cm"].includes(state.sel.variant?.size_label) && img.src.includes("/calendar/15cm/round-piping.png")) {
+    const target = state.sel.variant.size_label === "12cm" ? [170,158,642,515] : [54,92,852,600];
+    ctx.drawImage(img,110,107,734,569,...target);
+    return;
+  }
   const r=layerDrawRect(img);
   ctx.drawImage(img,r.x,r.y,r.w,r.h);
 }
@@ -1555,7 +1564,7 @@ function currentLayers() {
           && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]
           ? cakeLayerAsset(OYATSU_FIG_DECORATION_LAYERS[name])
           :CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
-          && state.sel.variant?.size_label==="15cm" && name==="丸絞り1周"
+          && ["12cm","15cm","18cm"].includes(state.sel.variant?.size_label) && name==="丸絞り1周"
           ? cakeLayerAsset("calendar/15cm/round-piping.png")
           :CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
             ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
@@ -1612,7 +1621,7 @@ function currentLayers() {
           // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
           if (ownPreview && MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
             layers.push({
-              url: calendarCake && p.name==="デコレーションケーキ" && state.sel.variant?.size_label==="15cm"
+              url: calendarCake && p.name==="デコレーションケーキ" && ["12cm","15cm","18cm"].includes(state.sel.variant?.size_label)
                 ? cakeLayerAsset("calendar/15cm/round-piping.png")
                 : sizeSpecificMocoEdgePipingAsset(state.sel.variant?.size_label),
               z: 38,

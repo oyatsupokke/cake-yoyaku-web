@@ -3,25 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <base href="/">
-<script>
-// Keep old shared booking links working while showing each shop's public URL.
-const bookingParams = new URLSearchParams(location.search);
-if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key => bookingParams.has(key))) {
-  const internalShop = bookingParams.get("shop") || "";
-  const slug = internalShop === "pokke" ? "oyatsupokke" : internalShop;
-  if (/^[a-z0-9][a-z0-9-]{0,48}$/.test(slug)) {
-    bookingParams.delete("shop");
-    location.replace("/" + slug + "/" + (bookingParams.size ? "?" + bookingParams : "") + location.hash);
-  }
-}
-</script>
+<script src="/reserve/legacy-redirect.js"></script>
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オーダーケーキのご予約</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1790979599">
-<link rel="stylesheet" href="form-layout.css?v=1790979599">
+<link rel="stylesheet" href="styles.css?v=1790985587">
+<link rel="stylesheet" href="form-layout.css?v=1790985587">
 </head>
 <body>
 <div id="app">
@@ -168,12 +157,12 @@ if (bookingParams.has("shop") && !["preview", "staff", "trial", "edit"].some(key
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="safe-display.js?v=1790979599"></script>
-<script src="booking-retry.js?v=1790979599"></script>
-<script src="booking-window.js?v=1790979599"></script>
-<script src="question-flow.js?v=1790979599"></script>
-<script src="crop.js?v=1790979599"></script>
-  <script src="app.js?v=1790979599"></script>
-<script src="form-layout.js?v=1790979599"></script>
+<script src="safe-display.js?v=1790985587"></script>
+<script src="booking-retry.js?v=1790985587"></script>
+<script src="booking-window.js?v=1790985587"></script>
+<script src="question-flow.js?v=1790985587"></script>
+<script src="crop.js?v=1790985587"></script>
+  <script src="app.js?v=1790985587"></script>
+<script src="form-layout.js?v=1790985587"></script>
 </body>
 </html>

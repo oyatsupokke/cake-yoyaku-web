@@ -233,22 +233,27 @@ function saveState() {
       savedAt: Date.now(),
       product_id: state.sel.product?.id ?? null,
       variant_id: state.sel.variant?.id ?? null,
-      options: [...state.sel.options],
-      // 写真は送り終わったものだけ（id・URL・ひとこと）を残す。送信中の枠や元ファイルまで保存すると、
-      // 更新後に「送信中…」のまま消せない枠が復元されていた（2026-10-02 まりほ指摘）
-      answers: [...state.sel.answers].map(([qid, a]) => [qid, a?.images
-        ? { ...a, images: a.images.filter((x) => x?.id && !x.busy).map((x) => ({ id: x.id, thumb: x.thumb || null, note: x.note || "" })) }
-        : a]),
+      // 下書きに残すのは「選んだもの」だけ（2026-10-03 監査対応）。
+      // お名前・連絡先・住所、写真の縮小画像、プレート文言などの自由記入、写真の「ひとこと」は保存しない。
+      // 店頭のiPadや家族で共用の端末だと、前の人の氏名・電話・顔写真が次の人の画面に復元されていたため。
+      options: [...state.sel.options].map(([id, v]) => [id, { qty: v?.qty ?? 1 }]),
+      answers: [...state.sel.answers].map(([qid, a]) => [qid, { choiceIds: a?.choiceIds ? [...a.choiceIds] : [] }]),
       date: state.sel.date,
       slot_id: state.sel.slot?.id ?? null,
-      customer: {
-        sei: $("cust-sei")?.value ?? "", mei: $("cust-mei")?.value ?? "",
-        seiKana: $("cust-sei-kana")?.value ?? "", meiKana: $("cust-mei-kana")?.value ?? "",
-        phone: $("cust-phone")?.value ?? "", email: $("cust-email")?.value ?? "",
-        postal: $("cust-postal")?.value ?? "", address: $("cust-address")?.value ?? "",
-      },
     }));
   } catch { /* ストレージが使えない環境では保存しないだけ */ }
+}
+
+/** 古い形の下書き（お客様情報・写真の縮小画像・自由記入入り）から、個人情報になりうるものを落とす。
+ *  公開した時点で、端末に残っている既存の下書きの個人情報も消えるように、読み込み時に書き戻す */
+function stripDraftPersonalData(saved) {
+  if (!saved || typeof saved !== "object") return saved;
+  return {
+    savedAt: saved.savedAt, product_id: saved.product_id ?? null, variant_id: saved.variant_id ?? null,
+    options: (saved.options || []).map(([id, v]) => [id, { qty: v?.qty ?? 1 }]),
+    answers: (saved.answers || []).map(([qid, a]) => [qid, { choiceIds: a?.choiceIds ? [...a.choiceIds] : (a?.choiceId ? [a.choiceId] : []) }]),
+    date: saved.date ?? null, slot_id: saved.slot_id ?? null,
+  };
 }
 let _saveTimer = null;
 document.addEventListener("input", () => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveState, 400); });
@@ -274,19 +279,17 @@ function sanitizeSavedOptions(product, entries) {
 
 async function restoreSaved() {
   if (THEME_PREVIEW || TRIAL_MODE) return;
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
-  if (!saved || Date.now() - (saved.savedAt || 0) > 24 * 3600 * 1000) return;
+  let saved = null, raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); saved = JSON.parse(raw); } catch {}
+  if (!saved) return;
+  if (Date.now() - (saved.savedAt || 0) > 24 * 3600 * 1000) { clearSavedState(); return; }  // 期限切れは端末に残さない
+  // 古い形の下書きに入っている個人情報（お名前・連絡先・写真・自由記入）は捨ててから使い、端末側も書き換える
+  saved = stripDraftPersonalData(saved);
+  try { const next = JSON.stringify(saved); if (next !== raw) localStorage.setItem(SAVE_KEY, next); } catch {}
 
   RESTORING = true;   // 復元中は計測イベントと再保存を止める
   try {
-    const c = saved.customer || {};
-    if ($("cust-sei")) {
-      $("cust-sei").value = c.sei || ""; $("cust-mei").value = c.mei || "";
-      $("cust-sei-kana").value = c.seiKana || ""; $("cust-mei-kana").value = c.meiKana || "";
-      $("cust-phone").value = c.phone || ""; $("cust-email").value = c.email || "";
-      if ($("cust-postal")) { $("cust-postal").value = c.postal || ""; $("cust-address").value = c.address || ""; }
-    }
+    // お名前・連絡先は下書きに入れていないので、復元しない（欄は空のまま）
     const p = state.products.find((x) => x.id === saved.product_id);
     if (!p || !onSale(p) || !p.product_variants.some(validVariant)) return;
     selectProduct(p);
@@ -299,9 +302,8 @@ async function restoreSaved() {
     ensureRequiredFallbacks();
     state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => {
       const n = normAnswer(a);
-      // 古い下書きに残った送信中の枠は捨てる（送り終わった写真だけ戻す）
-      n.images = (n.images || []).filter((x) => x?.id && !x.busy)
-        .map((x) => ({ id: x.id, url: x.thumb || null, thumb: x.thumb || null, note: x.note || "", busy: false }));
+      // 写真は下書きに残さない（縮小画像＝顔写真などが端末に残るため）。選び直してもらう
+      n.images = [];
       return [qid, n];
     }));
     renderGroups();
@@ -324,13 +326,15 @@ async function restoreSaved() {
 /** 予約完了の画面からSquareの支払い画面へ自動で移ってよいか（予約1件につき、このタブで1回だけ）。
  *  ページが復元されたり読み込み直されたりしても、2回目は移らない。保存できない環境ではページ内の印だけで判断する。 */
 const prepayAutoDone = new Set();
-function prepayAutoOnce(token) {
-  const key = `prepay_auto_done_${token}`;
-  if (prepayAutoDone.has(key)) return false;
-  prepayAutoDone.add(key);
+function prepayAutoOnce(orderNumber) {
+  // 印は固定のキー1つに「店＋予約番号」で持つ。予約の操作トークンはストレージのキー名に使わない（2026-10-03 監査対応）
+  const key = "prepay_auto_done";
+  const mark = `${CONFIG.shop}:${orderNumber}`;
+  if (prepayAutoDone.has(mark)) return false;
+  prepayAutoDone.add(mark);
   try {
-    if (sessionStorage.getItem(key)) return false;
-    sessionStorage.setItem(key, String(Date.now()));
+    if (sessionStorage.getItem(key) === mark) return false;
+    sessionStorage.setItem(key, mark);
   } catch { /* 保存できなくても1回目は移る */ }
   return true;
 }
@@ -3202,7 +3206,7 @@ $("btn-submit").onclick = async () => {
     if (payChoice() === "card" && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
       const link = $("done-prepay")?.querySelector("a");
       const label = link?.textContent;
-      if (prepayAutoOnce(r.manage_token)) {
+      if (prepayAutoOnce(r.order_number)) {
         if (link) link.textContent = "お支払い画面に移動しています…";
         setTimeout(() => {
           if (link) link.textContent = label;   // 戻ってきたとき（ページの復元）は元のボタンに戻っている
@@ -3233,7 +3237,8 @@ load().catch((e) => {
   const box = document.createElement("div");
   box.className = "load-error";
   box.innerHTML = `<p>少し時間をおいてから、もう一度開いてください。</p>
-    <p><button type="button" class="btn-primary" onclick="location.reload()">もう一度読み込む</button></p>`;
+    <p><button type="button" class="btn-primary">もう一度読み込む</button></p>`;
+  box.querySelector("button").addEventListener("click", () => location.reload());   // インラインの onclick は使わない（CSP対応）
   const form = $("view-form");
   if (form) { form.replaceChildren(box); form.classList.remove("hidden"); }
 });

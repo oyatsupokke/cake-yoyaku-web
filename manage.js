@@ -11,7 +11,43 @@ const CONFIG = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlcXFiY3N4aWtud3R0aWZ0emVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDU0ODEsImV4cCI6MjEwMDQ4MTQ4MX0.KpNEUy0s4k8XGJAImdDSVpEVFVfYBdyLWcaZQMYAxDw",
 };
 
+/* Squareの支払い画面からの戻り（?r=<戻り用の印>）を、元の ?t=<トークン>&paid=1 のURLに戻す（2026-10-03 監査対応）。
+ * 戻りURLに予約の操作トークンを載せると、Squareの管理画面やログに「キャンセル・変更ができるURL」が残る。
+ * そこで払う前に、使い捨ての印（nonce）→トークンの対応をこのタブの sessionStorage に置き、
+ * 戻り先は印だけにする。戻ってきたら印からトークンを引いて（1回で消す）、以降は従来どおり動かす。
+ * 別のブラウザで戻ってきた等で印が引けないときは、予約の中身は出さず「確認メールのリンクから」と案内する。 */
+const PREPAY_RETURN_KEY = (nonce) => `prepay_return_${nonce}`;
+let PREPAY_RETURN_LOST = false;   // 印はあったが、このタブに対応するトークンが無かった
+(function resolvePrepayReturn() {
+  const q = new URLSearchParams(location.search);
+  const nonce = q.get("r");
+  if (q.get("t") || !nonce) return;
+  let token = null;
+  try {
+    token = sessionStorage.getItem(PREPAY_RETURN_KEY(nonce));
+    if (token) sessionStorage.removeItem(PREPAY_RETURN_KEY(nonce));
+  } catch { /* ストレージが使えない環境＝下の案内へ */ }
+  q.delete("r");
+  if (!/^[0-9a-f-]{36}$/i.test(token || "")) {
+    PREPAY_RETURN_LOST = true;
+    q.delete("paid");
+    history.replaceState(null, "", location.pathname + (q.size ? `?${q}` : ""));
+    return;
+  }
+  q.set("t", token);
+  q.set("paid", "1");   // Edge側も付けるが、古い戻りURLでも支払いの確認（syncAfterPayment）が走るように
+  history.replaceState(null, "", `${location.pathname}?${q}`);
+})();
 const TOKEN = new URLSearchParams(location.search).get("t");
+
+/** 戻り用の使い捨ての印。crypto.randomUUID が無い環境（古いブラウザ）では乱数から作る */
+function makeNonce() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
@@ -151,9 +187,12 @@ async function squarePayments(body) {
 async function startPrepay(e) {
   const b = e?.currentTarget;
   if (b) { b.disabled = true; b.textContent = "お支払い画面を準備しています…"; }
-  const back = new URL(location.href);
-  back.searchParams.delete("paid");
-  const r = await squarePayments({ action: "create", manage_token: TOKEN, return_url: back.href });
+  // 戻り先にはトークンを載せない（印だけ）。印→トークンはこのタブにだけ置く
+  const nonce = makeNonce();
+  try { sessionStorage.setItem(PREPAY_RETURN_KEY(nonce), TOKEN); }
+  catch { /* 置けない環境では、戻ったあと「確認メールのリンクから」の案内になる */ }
+  const back = `${location.origin}${location.pathname}?r=${encodeURIComponent(nonce)}`;
+  const r = await squarePayments({ action: "create", manage_token: TOKEN, return_url: back });
   if (r.ok && r.url) { location.href = r.url; return; }
   toast(r.message || "お支払い画面を開けませんでした。時間をおいてもう一度お試しください");
   if (r.paid) await load();
@@ -509,6 +548,13 @@ $("btn-cancel-confirm").onclick = async () => {
 /* ---------- 初期ロード ---------- */
 
 async function load() {
+  if (!TOKEN && PREPAY_RETURN_LOST) {
+    // 支払いは済んでいる（はず）が、このタブでは予約を特定できない。エラーではなく案内として出す
+    $("shop-name").textContent = "お支払いありがとうございます";
+    $("error-message").textContent = "ご予約の内容は、確認メールのリンクからご確認ください。";
+    show("view-error");
+    return;
+  }
   if (!TOKEN) {
     $("shop-name").textContent = "ご予約の管理";
     $("error-message").textContent = "URLが正しくありません。ご予約時の確認メールに記載のリンクからお開きください。";

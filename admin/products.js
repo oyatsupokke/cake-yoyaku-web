@@ -2932,10 +2932,11 @@ function showLoadError(e) {
   box.innerHTML = `<h1>🎂 管理画面</h1>
     <p>商品の設定を一時的に読み込めませんでした。</p>
     <p class="small">少し時間をおいて「もう一度読み込む」を押してください。何度やっても開けない場合は、サポートへご連絡ください。</p>
-    <p><button type="button" class="pill" onclick="location.reload()">もう一度読み込む</button>
+    <p><button type="button" class="pill" data-reload>もう一度読み込む</button>
     <a class="pill" href="./index.html?tab=support">サポートへ連絡する</a>
     <a href="./index.html">管理画面のトップへ</a></p>
     <p class="mini" style="color:#8a8a8a">サポート用の情報：${esc(e?.message || String(e))}</p>`;
+  box.querySelector("[data-reload]").addEventListener("click", () => location.reload());   // インラインの onclick は使わない（CSP対応）
 }
 
 

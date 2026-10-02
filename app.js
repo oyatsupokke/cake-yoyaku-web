@@ -234,7 +234,11 @@ function saveState() {
       product_id: state.sel.product?.id ?? null,
       variant_id: state.sel.variant?.id ?? null,
       options: [...state.sel.options],
-      answers: [...state.sel.answers],
+      // 写真は送り終わったものだけ（id・URL・ひとこと）を残す。送信中の枠や元ファイルまで保存すると、
+      // 更新後に「送信中…」のまま消せない枠が復元されていた（2026-10-02 まりほ指摘）
+      answers: [...state.sel.answers].map(([qid, a]) => [qid, a?.images
+        ? { ...a, images: a.images.filter((x) => x?.id && !x.busy).map((x) => ({ id: x.id, thumb: x.thumb || null, note: x.note || "" })) }
+        : a]),
       date: state.sel.date,
       slot_id: state.sel.slot?.id ?? null,
       customer: {
@@ -293,7 +297,13 @@ async function restoreSaved() {
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
     state.sel.options = sanitizeSavedOptions(p, (saved.options || []).filter(([id]) => validIds.has(id)));
     ensureRequiredFallbacks();
-    state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => [qid, normAnswer(a)]));
+    state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => {
+      const n = normAnswer(a);
+      // 古い下書きに残った送信中の枠は捨てる（送り終わった写真だけ戻す）
+      n.images = (n.images || []).filter((x) => x?.id && !x.busy)
+        .map((x) => ({ id: x.id, url: x.thumb || null, thumb: x.thumb || null, note: x.note || "", busy: false }));
+      return [qid, n];
+    }));
     renderGroups();
     updatePreview();
     updatePriceBar();
@@ -2609,6 +2619,21 @@ async function uploadOrderPreview() {
   return j.id;
 }
 
+// 添付写真の表示元。表示中は仮の住所（blob:）、下書きから戻した後は保存しておいた縮小画像（JPEGのdata URL）
+const slotImageSrc = (slot) => safeImageUrl(slot?.url)
+  || (/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(slot?.thumb || "") ? slot.thumb : "");
+// 下書き用の小さな縮小画像（data URL）。表示中の写真は仮の住所（blob:）なので、更新すると表示できなくなる
+async function imageThumbDataUrl(blob, side = 240) {
+  try {
+    const bmp = await createImageBitmap(blob);
+    const r = Math.min(1, side / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * r)); c.height = Math.max(1, Math.round(bmp.height * r));
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.7);
+  } catch { return null; }
+}
+
 async function addImageFiles(q, files) {
   const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
   if (!list.length) { toast("画像ファイルをお選びください"); return; }
@@ -2623,14 +2648,17 @@ async function addImageFiles(q, files) {
     paintImageAnswer(q);
     try {
       const up = await uploadOneImage(file, q);
+      if (!images.includes(slot)) continue;   // 送信中に×で取り消された（送った画像は予約に紐づかず24時間で消える）
       slot.id = up.id;
       slot.url = up.url;
+      slot.thumb = await imageThumbDataUrl(file);
       slot.busy = false;
     } catch (e) {
-      images.splice(images.indexOf(slot), 1);
+      if (images.includes(slot)) images.splice(images.indexOf(slot), 1);
       toast(e.message);
     }
     paintImageAnswer(q);
+    saveState();
   }
 }
 
@@ -2639,19 +2667,21 @@ async function addImageFiles(q, files) {
 async function cropImageSlot(q, slot) {
   const cropped = await ImageCrop.open(slot.file, { allowOriginal: false, title: "写真の使う範囲を決める" });
   if (!cropped) return;
-  const before = { id: slot.id, url: slot.url };
+  const before = { id: slot.id, url: slot.url, thumb: slot.thumb };
   slot.busy = true;
   paintImageAnswer(q);
   try {
     const up = await uploadOneImage(cropped, q);
     slot.id = up.id;
     slot.url = up.url;
+    slot.thumb = await imageThumbDataUrl(cropped);
   } catch (e) {
     Object.assign(slot, before);
     toast(e.message);
   }
   slot.busy = false;
   paintImageAnswer(q);
+  saveState();
 }
 
 /* 質問1つぶんの添付欄を描き直す（サムネイル・×・「写真を選ぶ」の出し分け） */
@@ -2666,11 +2696,17 @@ function paintImageAnswer(q) {
     const cell = document.createElement("span");
     cell.className = "img-cell";
     if (slot.busy) {
-      cell.innerHTML = `<span class="img-thumb busy">送信中…</span>`;
+      // 送信中でも取り消せるように×を付ける
+      cell.innerHTML = `<span class="img-thumb busy">送信中…<button type="button" class="rm" title="取り消す">×</button></span>`;
+      cell.querySelector(".rm").onclick = () => {
+        images.splice(images.indexOf(slot), 1);
+        paintImageAnswer(q);
+        saveState();
+      };
     } else {
       // 写真ごとにひとこと（「1枚目はこの形、2枚目はこの色」が書けるように）
       cell.innerHTML =
-        `<span class="img-thumb"><img src="${esc(safeImageUrl(slot.url))}" alt="">` +
+        `<span class="img-thumb"><img src="${esc(slotImageSrc(slot))}" alt="">` +
         `<button type="button" class="rm" title="外す">×</button></span>` +
         (slot.file instanceof Blob && window.ImageCrop ? `<button type="button" class="img-crop-btn">切り取る</button>` : "") +
         // 説明は写真の右に広く取る（サムネイル幅に押し込むと読めない・2026-10-02 まりほ指摘）。サーバーの上限は200字
@@ -2678,6 +2714,7 @@ function paintImageAnswer(q) {
       cell.querySelector(".rm").onclick = () => {
         images.splice(images.indexOf(slot), 1);
         paintImageAnswer(q);
+        saveState();   // 外した写真が更新で戻ってこないように
       };
       // 切り取りは押したときだけ（2026-09-30）。お客様の手順は増やさない
       cell.querySelector(".img-crop-btn")?.addEventListener("click", () => cropImageSlot(q, slot));
@@ -2823,7 +2860,7 @@ function renderConfirm() {
       if (a.images.length) {
         rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span>` +
           `<span class="confirm-thumbs">` +
-          a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(safeImageUrl(x.url))}" alt="">` +
+          a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(slotImageSrc(x))}" alt="">` +
             ((x.note || "").trim() ? `<span class="cap">${esc((x.note || "").trim())}</span>` : "") +
             `</span>`).join("") + `</span></div>`);
       }

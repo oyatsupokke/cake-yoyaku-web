@@ -360,7 +360,7 @@ async function orderGallery(o) {
   const [preview, images] = await Promise.all([ensureOrderPreviewUrl(o), ensureOrderImageUrls(o)]);
   const label = new Map((o.order_answers || []).map((a) => [a.question_id, a.label_snapshot]));
   return [
-    ...(preview ? [{ url: preview, caption: "デザインイメージ（予約時にお客様が見ていたもの）" }] : []),
+    ...(preview ? [{ url: preview, caption: "デザインイメージ（予約時にお客様が見ていたもの）", design: true }] : []),
     ...images.map((x) => ({ url: x.url, caption: [label.get(x.question_id), x.note].filter(Boolean).join("：") || "お客様の添付画像" })),
   ];
 }
@@ -393,7 +393,7 @@ async function ensureOrderPreviewUrl(o) {
 async function paintOrderPreview(box, o) {
   const url = await ensureOrderPreviewUrl(o);
   if (!url) { box.remove(); return; }
-  box.innerHTML = `<button type="button" class="zoom-img" data-url="${esc(url)}" aria-label="デザインイメージを大きく見る"><img src="${esc(url)}" alt="予約時のデザインイメージ"></button>` +
+  box.innerHTML = `<button type="button" class="zoom-img design-img" data-url="${esc(url)}" aria-label="デザインイメージを大きく見る"><img src="${esc(url)}" alt="予約時のデザインイメージ"></button>` +
     `<span>予約時にお客様が見ていたデザインイメージです。押すと大きく見られます</span>`;
 }
 /* 予約詳細に画像を並べる（押すとその場で大きく表示） */
@@ -686,7 +686,7 @@ function renderKitchen() {
         <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       ${o._preview_url || (o._images_signed || []).length ? `<div class="kpreview">` +
-        (o._preview_url ? `<figure><img src="${esc(o._preview_url)}" alt="予約時のデザインイメージ"><figcaption>デザインイメージ</figcaption></figure>` : "") +
+        (o._preview_url ? `<figure><img class="design-img" src="${esc(o._preview_url)}" alt="予約時のデザインイメージ"><figcaption>デザインイメージ</figcaption></figure>` : "") +
         (o._images_signed || []).map((x) => `<figure class="kimage"><img src="${esc(x.url)}" alt="お客様の添付画像"><figcaption>${esc(x.note || "添付画像")}</figcaption></figure>`).join("") +
         `</div>` : ""}
       <ul>${opts}${notes}</ul>

@@ -1,6 +1,7 @@
 /* 予約の画像（デザインイメージ・お客様の添付画像）をその場で大きく見る（2026-10-02）
  * 別タブを開かず、画面の上に重ねて表示する。複数枚は ‹ › ・左右スワイプ・矢印キーで切り替え、
- * × ・背景・Esc で閉じる。openOrderGallery([{url, caption}], 何枚目から) で開く。 */
+ * × ・背景・Esc で閉じる。openOrderGallery([{url, caption, design}], 何枚目から) で開く。
+ * design: true はデザインイメージ（予約画面のプレビューと同じ台の色・影で見せる）。 */
 (() => {
   let box = null, items = [], index = 0, lastFocus = null;
 
@@ -13,7 +14,7 @@
     box.innerHTML = `
       <button type="button" class="lb-close" aria-label="閉じる">×</button>
       <button type="button" class="lb-prev" aria-label="前の画像">‹</button>
-      <figure class="lb-figure"><img alt=""><figcaption></figcaption></figure>
+      <figure class="lb-figure"><div class="lb-stage"><img alt=""></div><figcaption></figcaption></figure>
       <button type="button" class="lb-next" aria-label="次の画像">›</button>
       <div class="lb-foot"><span class="lb-count"></span><a class="lb-open" target="_blank" rel="noopener">別のタブで開く</a></div>`;
     document.body.appendChild(box);
@@ -44,6 +45,7 @@
     const it = items[index];
     const img = box.querySelector("img");
     img.src = it.url;
+    box.querySelector(".lb-stage").classList.toggle("design-img", !!it.design);
     img.alt = it.caption || "予約の画像";
     box.querySelector("figcaption").textContent = it.caption || "";
     box.querySelector(".lb-open").href = it.url;

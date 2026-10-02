@@ -240,6 +240,12 @@ $("date-tomorrow").onclick = () => { const d = new Date(); d.setDate(d.getDate()
 $("date-input").onchange = () => { if ($("date-input").value) setDate(new Date($("date-input").value)); };
 
 /* ---------- 注文ロード ---------- */
+// order_previews は注文1件に1枚（order_id が unique）なので、APIは配列でなく1件のまとまりか null で返す。
+// 画面側は「配列」として扱うので、読み込んだ直後にそろえる（2026-10-02 これで9/8から一度も表示されていなかった）。
+function normalizeOrder(o) {
+  o.order_previews = [].concat(o.order_previews || []);
+  return o;
+}
 let orderLoadGeneration = 0;
 async function loadOrders() {
   const filter = $("review-filter")?.value || "";
@@ -253,7 +259,7 @@ async function loadOrders() {
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
     if (generation !== orderLoadGeneration || tenant !== state.tenantId) return;
-    orders.push(...page);
+    orders.push(...page.map(normalizeOrder));
     if (page.length < 500) break;
   }
   state.orders = orders;
@@ -614,7 +620,7 @@ async function loadKitchenRange() {
     for (;;) {
       const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
-      orders.push(...page); if (page.length < 500) break;
+      orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }
     kitchenRange = {from, to, orders}; renderKitchen();
     $("btn-print").disabled = false;

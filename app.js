@@ -2443,7 +2443,8 @@ function buildQuestionField(q) {
       if (!picker.classList.contains("disabled")) file.click();
     };
     file.onchange = async (e) => {
-      const files = e.target.files;
+      // 先に配列へ写す。value を空にすると FileList も空になり「画像ファイルをお選びください」になっていた（2026-10-02）
+      const files = [...(e.target.files || [])];
       e.target.value = "";        // 同じ写真をもう一度選べるように
       await addImageFiles(q, files);
     };

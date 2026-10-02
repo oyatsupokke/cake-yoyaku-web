@@ -447,3 +447,5 @@ label.pick.palette-pick:has(input:checked) { border-color: var(--primary-deep); 
 label.pick.palette-pick:has(input:checked) .palette-chip { box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px var(--primary-deep); }
 label.pick.palette-pick:has(input:focus-visible) { outline: 2px solid var(--primary-deep); outline-offset: 2px; }
 label.pick.palette-pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+/* グループ・選択肢の説明と注意書きも、管理画面で入れた改行をそのまま出す（2026-10-02 まりほ指摘） */
+.group .group-desc, .group .group-note, .opt .opt-desc, .opt .opt-note { white-space: pre-line; }

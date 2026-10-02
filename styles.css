@@ -246,6 +246,9 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .pay-note {
   background: #fff5e8; border-radius: var(--r); padding: 10px 14px; font-size: .88rem; margin: 16px 0;
 }
+.pay-note.pay-choice { background: none; padding: 0; font-size: 1rem; }
+.pay-choice .pay-title { font-weight: bold; margin-bottom: 6px; }
+.pay-choice .pay-card-note { margin: 4px 0 0; }
 
 /* ボタン */
 .btn-primary {

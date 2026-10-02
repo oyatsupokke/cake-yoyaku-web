@@ -321,11 +321,36 @@ async function restoreSaved() {
   }
 }
 
+/* ---------- お支払い方法（Squareでの事前払い・2026-10-02） ----------
+ * 事前払いをONにした店だけ「店頭／事前にカード」を選べる。カードを選んだ人は、
+ * 予約が成立したあと予約確認ページ（?pay=1）経由でそのままSquareの支払い画面へ進む。
+ * 予約を先に成立させるので、払わずに閉じても店頭払いの予約として残る。 */
+function prepayOffered() {
+  return !!state.tenant?.square_prepay_enabled && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
+}
+function setupPayChoice() {
+  const box = $("pay-note");
+  if (!box || !prepayOffered()) return;
+  box.classList.add("pay-choice");
+  box.innerHTML =
+    `<div class="pay-title">お支払い方法</div>` +
+    `<label class="pick"><input type="radio" name="pay-method" value="store" checked> 店頭でお支払い（受取時）</label>` +
+    `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にカードでお支払い</label>` +
+    `<p class="small pay-card-note hidden">ご予約のあと、Squareのお支払い画面に進みます。</p>`;
+  box.addEventListener("change", () => {
+    box.querySelector(".pay-card-note").classList.toggle("hidden", payChoice() !== "card");
+  });
+}
+function payChoice() {
+  return prepayOffered() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
+}
+
 /* ---------- 初期ロード ---------- */
 async function load() {
   const tenants = await api(`/rest/v1/v_public_tenant?subdomain=eq.${CONFIG.shop}&select=*`);
   if (!tenants.length) { $("shop-name").textContent = "店舗が見つかりません"; return; }
   state.tenant = tenants[0];
+  setupPayChoice();
   if (EDITOR_PREVIEW) {
     const note = document.createElement("p");
     note.className = "confirm-box";
@@ -2972,7 +2997,9 @@ function renderConfirm() {
     (STAFF_MODE ? "（なし・確認メールは送られません）" : ""));
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
-  row("お支払い", "店頭でのお支払い");
+  row("お支払い", payChoice() !== "card" ? "店頭でのお支払い"
+    : review ? "事前にカード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
+    : "事前にカード（このあとSquareのお支払い画面に進みます）");
   rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
@@ -3128,6 +3155,12 @@ $("btn-submit").onclick = async () => {
     $("view-form").classList.add("hidden");
     if (RETRY_ENABLED) retryStore().clear();
     window.scrollTo({ top: 0 });
+    // 事前にカードを選んだ人は、そのまま支払い画面へ（予約はもう成立している）
+    if (payChoice() === "card" && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
+      const link = $("done-prepay")?.querySelector("a");
+      if (link) link.textContent = "お支払い画面に移動しています…";
+      setTimeout(() => { location.href = `manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1`; }, 800);
+    }
   } catch (e) {
     let uncertain = false;
     try { uncertain = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage error */ }

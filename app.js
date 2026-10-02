@@ -2397,7 +2397,7 @@ function answerInputsHtml(q) {
     return `<span class="pick-list">` + cs.map((c) =>
       `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}><span class="pick-text">${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</span>` +
       // 回答の見本写真は、その回答の右に小さく出す（押すと大きく開く）。一覧の下にまとめると、どれの写真か分からず欄からはみ出していた（2026-10-02）
-      (safeImageUrl(c.photo_url) ? `<button type="button" class="pick-sample" data-src="${esc(safeImageUrl(c.photo_url))}" data-name="${esc(c.label)}" aria-label="${esc(c.label)}の見本を見る"><img src="${esc(safeImageUrl(c.photo_url))}" alt="" loading="lazy"></button>` : "") +
+      (safeImageUrl(c.photo_url) ? `<button type="button" class="opt-sample-button pick-sample" data-src="${esc(safeImageUrl(c.photo_url))}" data-name="${esc(c.label)}" aria-label="${esc(c.label)}の見本を見る">見本を見る</button>` : "") +
       `</label>`).join("") + `</span>`;
   }
   return `<input type="text" placeholder="${esc((q.placeholder || "").trim())}">`;

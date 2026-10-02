@@ -459,7 +459,6 @@ label.pick.palette-pick:has(input:focus-visible) { outline: 2px solid var(--prim
 label.pick.palette-pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }
 /* グループ・選択肢の説明と注意書きも、管理画面で入れた改行をそのまま出す（2026-10-02 まりほ指摘） */
 .group .group-desc, .group .group-note, .opt .opt-desc, .opt .opt-note { white-space: pre-line; }
-/* 回答の選択肢の見本写真（選択肢の右に小さく・押すと大きく開く・2026-10-02） */
+/* 回答の選択肢の「見本を見る」（飾りの選択肢と同じボタン・押すと写真が大きく開く・2026-10-02） */
 label.pick .pick-text { flex: 1 1 auto; min-width: 0; }
-label.pick .pick-sample { flex: 0 0 auto; width: 56px; height: 56px; padding: 0; margin: -4px 0; border: 1px solid var(--box); border-radius: 8px; overflow: hidden; background: var(--boxbg); cursor: zoom-in; }
-label.pick .pick-sample img { display: block; width: 100%; height: 100%; object-fit: cover; }
+label.pick .pick-sample { flex: 0 0 auto; margin: -4px 0; }

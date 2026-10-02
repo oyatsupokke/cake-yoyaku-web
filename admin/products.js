@@ -1365,7 +1365,7 @@ function answerFieldHtml(view) {
   if (view.type === "radio" || view.type === "checkbox") {
     const t = view.type === "radio" ? "radio" : "checkbox";
     // 予約ページと同じく、見本写真はその回答の右に小さく出す
-    return cs.map((c) => `<label class="pick"><input type="${t}" disabled><span class="pick-text">${caption(c)}</span>${c.photo_url ? `<span class="pick-sample"><img src="${esc(c.photo_url)}" alt=""></span>` : ""}</label>`).join("")
+    return cs.map((c) => `<label class="pick"><input type="${t}" disabled><span class="pick-text">${caption(c)}</span>${c.photo_url ? `<span class="opt-sample-button pick-sample">見本を見る</span>` : ""}</label>`).join("")
       || `<span class="mini">回答の選択肢がまだありません</span>`;
   }
   if (view.type === "image") {

@@ -808,8 +808,47 @@ function renderTabs() {
   if (!shown.length) {
     wrap.insertAdjacentHTML("beforeend", `<p class="small">「${esc(raw)}」に合う商品はありません</p>`);
   }
+  renderNavProducts();
 }
 $("prod-filter").addEventListener("input", () => renderTabs());
+
+/* 左メニューの「商品」の下にも商品名を並べる（2026-10-02 まりほ要望）。
+ * 長い商品画面を下までスクロールしても、上に戻らずに別の商品へ移れる。カテゴリがあれば見出しを付ける */
+function renderNavProducts() {
+  const link = document.querySelector('#admin-tabs a[href="./products.html"]');
+  if (!link) return;
+  let box = document.getElementById("nav-products");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "nav-products";
+    box.className = "nav-products";
+    link.after(box);
+  }
+  box.innerHTML = "";
+  const groups = state.categories.length
+    ? [...state.categories, { id: null, name: "未分類" }].map((c) => ({ name: c.name, items: state.products.filter((p) => (p.category_id || null) === (c.id || null)) }))
+    : [{ name: null, items: state.products }];
+  for (const g of groups) {
+    if (!g.items.length) continue;
+    if (g.name) box.insertAdjacentHTML("beforeend", `<span class="nav-products-cat">${esc(g.name)}</span>`);
+    for (const p of g.items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "nav-product" + (state.current?.id === p.id ? " selected" : "") + (p.is_published ? "" : " unpublished");
+      b.textContent = p.name + (p.is_published ? "" : "（非公開）");
+      if (state.current?.id === p.id) b.setAttribute("aria-current", "true");
+      b.onclick = () => {
+        // スマホではメニューを閉じてから切り替える
+        if ($("menu-btn")?.getAttribute("aria-expanded") === "true") $("menu-btn").click();
+        drafts.capture(state.fields);
+        state.current = p;
+        reloadAll();
+        window.scrollTo({ top: 0 });
+      };
+      box.appendChild(b);
+    }
+  }
+}
 
 /* ---------- カテゴリ（商品タブのまとめ方・お客様の画面には出ない） ---------- */
 // URLに使う名前。お客様に出るものではないので店には聞かず、こちらで作る

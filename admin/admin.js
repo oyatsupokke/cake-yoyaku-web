@@ -248,7 +248,7 @@ async function loadOrders() {
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
     (filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
-    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at)`;
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
@@ -286,6 +286,7 @@ function renderPickup() {
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${REVIEW[o.review_state] ? `<span class="status-badge st-image">${REVIEW[o.review_state]}${o.review_state==='quoted' && new Date(o.quote?.expires_at)<=new Date() ? '・回答期限切れ' : ''}</span>` : ""}
         ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
+        ${prepayBadge(o)}
         ${(o.order_images || []).length ? `<span class="status-badge st-image" title="お客様の添付画像あり">📷${o.order_images.length}</span>` : ""}
         ${(o.order_previews || []).length ? `<span class="status-badge st-preview" title="予約時の完成イメージあり">🎨 完成イメージ</span>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
@@ -386,7 +387,13 @@ function fillOrderBody(el, o) {
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
   rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
   row("メール", o.customer_email);
-  row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);
+  if (o.paid_amount > 0 || (o.order_refunds || []).length) {
+    const p = prepayNumbers(o);
+    row("支払い", `事前払い ${yen(o.paid_amount)}（Square）`);
+    row("当日のお支払い", p.over > 0 ? `なし（${yen(p.over)} の返金が必要）` : p.due > 0 ? `${yen(p.due)}（差額）` : "なし");
+  } else {
+    row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);
+  }
   let actions = "";
   if (o.status !== "canceled") {
     actions += `<button type="button" class="pill danger cancel-btn">キャンセル</button>`;
@@ -401,12 +408,62 @@ function fillOrderBody(el, o) {
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
   if (o.review_state && o.review_state !== "none") renderQuoteEditor(el,o);
+  if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
       updateStatus(o, "canceled");
+  });
+}
+/* ---------- Squareでの事前払い・返金（2026-10-02） ----------
+ * 当日のお支払い＝合計 − 事前払い。安くなった・キャンセルした分は、店がここから返金する（自動では返さない） */
+function prepayNumbers(o) {
+  const total = o.status === "canceled" ? 0 : (o.total_amount || 0);
+  const paid = o.paid_amount || 0;
+  return { due: Math.max(total - paid, 0), over: Math.max(paid - total, 0) };
+}
+function prepayBadge(o) {
+  const refunding = (o.order_refunds || []).some((r) => r.status === "pending");
+  if (!(o.paid_amount > 0)) return refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "";
+  const p = prepayNumbers(o);
+  return `<span class="status-badge st-prepaid" title="Squareで事前にお支払い済み">💳 事前払い ${yen(o.paid_amount)}</span>` +
+    (p.over > 0 ? `<span class="status-badge st-refund">返金 ${yen(p.over)} 未対応</span>`
+      : p.due > 0 ? `<span class="status-badge st-prepaid">当日 ${yen(p.due)}</span>` : "") +
+    (refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "");
+}
+function renderRefundBox(el, o) {
+  const box = document.createElement("div");
+  box.className = "confirm-box refund-box";
+  const p = prepayNumbers(o);
+  const lines = (o.order_refunds || []).map((r) =>
+    `<li>${new Date(r.created_at).toLocaleString("ja-JP")}　${yen(r.amount)}　${
+      { pending: "返金処理中", completed: "返金済み", failed: "返金できませんでした" }[r.status] || esc(r.status)}${
+      r.status === "failed" && r.error ? `<br><small>${esc(r.error)}</small>` : ""}</li>`).join("");
+  box.innerHTML = (lines ? `<p>返金の記録</p><ul class="refund-list">${lines}</ul>` : "") +
+    (o.paid_amount > 0 ? `<label class="field">返金する金額（円）
+        <input class="refund-amount" type="number" min="1" max="${esc(o.paid_amount)}" step="1" value="${esc(p.over || o.paid_amount)}"></label>
+      <button type="button" class="pill danger refund-btn">Squareで返金する</button>
+      <p class="small">お客様のカードへ返金されます。取り消しはできません。</p>` : "");
+  el.appendChild(box);
+  box.querySelector(".refund-btn")?.addEventListener("click", async (e) => {
+    const button = e.currentTarget;
+    const amount = Number(box.querySelector(".refund-amount").value);
+    if (!Number.isInteger(amount) || amount < 1 || amount > o.paid_amount) { toast(`1〜${o.paid_amount}円で入れてください`); return; }
+    if (!confirm(`No.${o.order_number} ${o.customer_name}様に ${yen(amount)} を返金しますか？\n（Squareからお客様のカードへ返金されます。取り消しはできません）`)) return;
+    button.disabled = true;
+    try {
+      const res = await fetch(`${CONFIG.url}/functions/v1/square-payments`, {
+        method: "POST",
+        headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refund", order_id: o.id, amount }),
+      });
+      const r = await res.json().catch(() => ({}));
+      if (!r.ok) throw new Error(r.message || "返金できませんでした");
+      toast("返金を受け付けました");
+    } catch (err) { toast(err.message); }
+    await loadOrders();
   });
 }
 function renderQuoteEditor(el,o) {

@@ -2395,7 +2395,10 @@ function answerInputsHtml(q) {
   if (q.input_type === "radio" || q.input_type === "checkbox") {
     const t = q.input_type === "radio" ? "radio" : "checkbox";
     return `<span class="pick-list">` + cs.map((c) =>
-      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</label>`).join("") + `</span>`;
+      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}><span class="pick-text">${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</span>` +
+      // 回答の見本写真は、その回答の右に小さく出す（押すと大きく開く）。一覧の下にまとめると、どれの写真か分からず欄からはみ出していた（2026-10-02）
+      (safeImageUrl(c.photo_url) ? `<button type="button" class="pick-sample" data-src="${esc(safeImageUrl(c.photo_url))}" data-name="${esc(c.label)}" aria-label="${esc(c.label)}の見本を見る"><img src="${esc(safeImageUrl(c.photo_url))}" alt="" loading="lazy"></button>` : "") +
+      `</label>`).join("") + `</span>`;
   }
   return `<input type="text" placeholder="${esc((q.placeholder || "").trim())}">`;
 }
@@ -2421,10 +2424,13 @@ function buildQuestionField(q) {
   field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
     (q.help_text ? `<span class="help ${q.help_accent ? "note-accent" : ""}">${esc(q.help_text)}</span>` : "") +
     sampleImageHtml(q.sample_image_url) + answerInputsHtml(q) +
-    qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") +
+    (q.input_type === "select" ? qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") : "") +
     (!state.sel.date && qChoices(q).some(c => c.pickup_from || c.pickup_until)
       ? '<span class="help">受取日を選ぶと、提供期間に合う回答を確認できます。期間外の回答は解除されます。</span>' : "");
   wireSampleImage(field);
+  for (const b of field.querySelectorAll(".pick-sample")) {
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openOptionSamplePhoto(b.dataset.src, b.dataset.name); };
+  }
 
   if(q.input_type==='pastel_color'){
     field.classList.add('pastel-field');
@@ -3027,6 +3033,17 @@ $("btn-submit").onclick = async () => {
       p2.id = "done-manage-link";
       p2.innerHTML = `${r.review_state === 'requested' ? '依頼内容・お見積もりの確認は' : 'ご予約の変更・キャンセルは'}<a href="manage.html?t=${encodeURIComponent(r.manage_token)}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
+    }
+    // Squareでの事前払い（任意・2026-10-02）。払う処理は予約確認ページに寄せ、?pay=1 でそのまま支払い画面へ進む
+    if (!STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && r.manage_token && state.tenant.square_prepay_enabled &&
+        r.review_state !== "requested" && r.total_amount > 0 && !$("done-prepay")) {
+      const div = document.createElement("div");
+      div.id = "done-prepay";
+      div.className = "done-prepay";
+      div.innerHTML =
+        `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">事前にカードでお支払いする（任意）</a>` +
+        `<p class="small">ご希望の方だけ。お支払いがなければ、受取の際に店頭でお支払いください。あとでご予約の確認ページからもお支払いいただけます。</p>`;
+      $("view-done").querySelector(".done-box").appendChild(div);
     }
     // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）
     if (!STAFF_MODE && r.manage_token && state.tenant.line_notify_enabled && !$("done-line-link")) {

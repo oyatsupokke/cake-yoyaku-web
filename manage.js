@@ -126,6 +126,49 @@ async function loadOrderImages() {
   } catch { /* 画像が出せなくても、予約内容の確認・変更は使える */ }
 }
 
+/* ---------- Squareでの事前払い（任意・2026-10-02） ----------
+ * 予約は先に成立している。払いたい人だけ Square の支払い画面へ移り、終わるとここへ戻る。
+ * あとで金額が上がった分は当日払い、下がった分・キャンセル分はお店が返金する。 */
+function paymentRows(pay) {
+  if (!pay?.enabled || !(pay.paid_amount > 0)) return [];
+  const out = [`<div class="confirm-row"><span class="k">事前のお支払い</span><span>${yen(pay.paid_amount)}（お支払い済み）</span></div>`];
+  if (pay.due_amount > 0)
+    out.push(`<div class="confirm-row"><span class="k">当日のお支払い</span><span>${yen(pay.due_amount)}（差額）</span></div>`);
+  else if (pay.over_amount > 0)
+    out.push(`<div class="confirm-row"><span class="k">当日のお支払い</span><span>なし（${yen(pay.over_amount)} はお店から返金いたします）</span></div>`);
+  else
+    out.push(`<div class="confirm-row"><span class="k">当日のお支払い</span><span>なし</span></div>`);
+  return out;
+}
+async function squarePayments(body) {
+  const res = await fetch(`${CONFIG.url}/functions/v1/square-payments`, {
+    method: "POST",
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json().catch(() => ({ ok: false }));
+}
+async function startPrepay(e) {
+  const b = e?.currentTarget;
+  if (b) { b.disabled = true; b.textContent = "お支払い画面を準備しています…"; }
+  const back = new URL(location.href);
+  back.searchParams.delete("paid");
+  const r = await squarePayments({ action: "create", manage_token: TOKEN, return_url: back.href });
+  if (r.ok && r.url) { location.href = r.url; return; }
+  toast(r.message || "お支払い画面を開けませんでした。時間をおいてもう一度お試しください");
+  if (r.paid) await load();
+  else if (b) { b.disabled = false; b.textContent = "事前にカードでお支払いする"; }
+}
+/** Squareの画面から戻ってきた時（?paid=1）。通知より先に戻ることがあるので、こちらからも確かめる */
+async function syncAfterPayment() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("paid") !== "1") return false;
+  try { await squarePayments({ action: "sync", manage_token: TOKEN }); } catch { /* 通知で記録される */ }
+  q.delete("paid");
+  history.replaceState(null, "", `${location.pathname}?${q}`);
+  return true;
+}
+
 /* ---------- 予約内容の表示 ---------- */
 
 const STATUS_LABEL = {
@@ -159,6 +202,7 @@ function renderOrder() {
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);
   rows.push(`<div class="confirm-row total"><span class="k">${['requested','quoted'].includes(o.review_state) ? '選択分（税込・仮）' : '合計（税込）'}</span><span>${yen(o.total_amount)}</span></div>`);
+  rows.push(...paymentRows(o.payment));
   $("order-detail").innerHTML = rows.join("");
   loadOrderImages();
 
@@ -175,6 +219,9 @@ function renderOrder() {
       list.appendChild(p);
     }
   };
+  if (o.payment?.can_prepay)
+    btn(`事前にカードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
+      "ご希望の方だけ。Squareのお支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
   if (allowed.slot)
     btn("受取日時を変更する", "btn-secondary", `${deadlines.slot}受け付けています`, openSlotView);
   if (allowed.content)
@@ -425,6 +472,8 @@ function openCancelView() {
   row("ケーキ", `${o.product_name}（${o.variant_label}）`);
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(o.total_amount)}</span></div>`);
+  if (o.payment?.paid_amount > 0)
+    rows.push(`<p class="small">事前にお支払いいただいた ${yen(o.payment.paid_amount)} は、キャンセルポリシーに沿ってお店から返金いたします。</p>`);
   $("cancel-detail").innerHTML = rows.join("");
   $("cancel-error").classList.add("hidden");
   show("view-cancel");
@@ -464,10 +513,18 @@ async function load() {
     return;
   }
   try {
+    const returned = await syncAfterPayment();
     const r = await rpc("fn_manage_get_order", { p_token: TOKEN });
     if (!r.ok) throw new Error(r.message || "ご予約が見つかりません");
     state.data = r;
     renderOrder();
+    const q = new URLSearchParams(location.search);
+    if (q.get("pay") === "1") {
+      q.delete("pay");
+      history.replaceState(null, "", `${location.pathname}?${q}`);
+      if (r.order.payment?.can_prepay) { startPrepay(); return; }
+    }
+    if (returned) toast(r.order.payment?.paid_amount > 0 ? "お支払いを確認しました。ありがとうございます" : "お支払いの確認に少し時間がかかっています。しばらくしてから開き直してください");
   } catch (e) {
     $("shop-name").textContent = "ご予約の管理";
     $("error-message").textContent =

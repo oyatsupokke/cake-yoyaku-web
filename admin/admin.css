@@ -369,6 +369,12 @@
 /* ---- お客様の添付画像（2026-09-04） ---- */
 .st-image { background: #eef7ee; color: #3f7a45; }
 .st-preview { background: #f3edf8; color: #6f4b87; }
+/* ---- Squareでの事前払い・返金（2026-10-02） ---- */
+.st-prepaid { background: #eef4ff; color: #2f5d9e; }
+.st-refund { background: #fff1e6; color: #b45309; }
+.refund-box { margin-top: 10px; }
+.refund-box .refund-list { margin: 4px 0 10px; padding-left: 1.2em; font-size: .88rem; }
+.refund-box .field { max-width: 220px; }
 .order-preview {
   display: flex; align-items: center; gap: 14px; margin: 0 0 14px; padding: 12px;
   border: 1px solid #e4d9ea; border-radius: 10px; background: #fbf8fd;

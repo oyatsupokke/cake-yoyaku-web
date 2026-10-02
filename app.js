@@ -2673,7 +2673,8 @@ function paintImageAnswer(q) {
         `<span class="img-thumb"><img src="${esc(safeImageUrl(slot.url))}" alt="">` +
         `<button type="button" class="rm" title="外す">×</button></span>` +
         (slot.file instanceof Blob && window.ImageCrop ? `<button type="button" class="img-crop-btn">切り取る</button>` : "") +
-        `<input type="text" class="img-note-input" maxlength="100" placeholder="この写真について（任意）">`;
+        // 説明は写真の右に広く取る（サムネイル幅に押し込むと読めない・2026-10-02 まりほ指摘）。サーバーの上限は200字
+        `<textarea class="img-note-input" rows="4" maxlength="200" placeholder="この写真について（任意）&#10;例：このお花の配置で、色はピンクにしたいです"></textarea>`;
       cell.querySelector(".rm").onclick = () => {
         images.splice(images.indexOf(slot), 1);
         paintImageAnswer(q);

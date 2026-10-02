@@ -379,11 +379,16 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 
 /* ---- 画像の添付（2026-09-06：「画像を貼ってもらう」形式の質問の回答欄） ---- */
 .img-box { display: block; font-weight: normal; }
-.img-list { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 10px; }
+.img-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 10px; }
 .img-list:empty { margin: 0; }
-.img-cell { display: flex; flex-direction: column; gap: 5px; width: 116px; }
+/* 写真（と「切り取る」）を左、その写真の説明を右に広く（2026-10-02） */
+.img-cell { display: grid; grid-template-columns: 116px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 12px; row-gap: 6px; align-items: start; }
+.img-cell .img-thumb { grid-column: 1; grid-row: 1; }
+.img-cell .img-crop-btn { grid-column: 1; grid-row: 2; }
+.img-cell .img-note-input { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; }
+.field .img-cell textarea.img-note-input { margin-top: 0; min-height: 116px; resize: vertical; }
 .img-note-input {
-  width: 100%; padding: 6px 8px; font-size: 16px; font-family: inherit;
+  width: 100%; padding: 8px 10px; font-size: 16px; font-family: inherit; line-height: 1.5;
   border: 1px solid var(--box); border-radius: var(--r); background: var(--bg); color: var(--ink);
 }
 .img-note-input:focus { outline: none; border-color: var(--accent); }

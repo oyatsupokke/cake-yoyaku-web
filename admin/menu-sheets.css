@@ -16,3 +16,5 @@
 .menu-page.font-gothic,.menu-page.font-gothic .page-header h2{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}.menu-page.font-mincho,.menu-page.font-mincho .page-header h2{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
 
 @media print{.library-name{display:none!important}}
+
+.fit-box{width:100%}

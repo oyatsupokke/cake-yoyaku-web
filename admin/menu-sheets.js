@@ -27,12 +27,13 @@ async function loadLibrary(){
  $('saved-menu').innerHTML='<option value="">新しいメニュー</option>'+rows.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
  $('saved-menu').value=state.sheet?.id||'';
 }
-function newSheet(){return {id:null,revision:null,name:'ケーキのメニュー',title:'ケーキのご案内',intro:'',template_key:'photo_cards',accent_color:C.color(state.catalog.tenant.theme?.accent),items:[],footer_settings:{},font_key:'standard'};}
+function newSheet(){return {id:null,revision:null,name:'ケーキのメニュー',title:'ケーキのご案内',intro:'',template_key:'photo_cards',accent_color:C.color(state.catalog.tenant.theme?.accent),items:[],footer_settings:{},font_key:'standard',fit_one_page:false};}
 function setSheet(sheet){
  state.sheet=structuredClone(sheet);state.sheet.items ||= C.sort(state.sheet.menu_sheet_items);delete state.sheet.menu_sheet_items;
- state.sheet.font_key ||= 'standard';
+ state.sheet.font_key ||= 'standard';state.sheet.fit_one_page=!!state.sheet.fit_one_page;
  state.dirty=false;
  for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color'],['font','font_key']]) $(id).value=state.sheet[key];
+ $('fit-one-page').checked=state.sheet.fit_one_page;
  $('saved-menu').value=state.sheet.id||'';
  renderPicker();renderSelected();renderFooterEditor();updateSave();schedulePreview();
 }
@@ -91,6 +92,8 @@ async function assetsReady(container){
  return failed;
 }
 function fitPreview(){const wrap=$('preview-wrap'),pages=$('pages');const scale=Math.min(1,wrap.clientWidth/(210*96/25.4));pages.style.transform=`scale(${scale})`;wrap.style.height=`${pages.offsetHeight*scale}px`;}
+// 1枚に収めるときの縮小の下限と、読みにくさを知らせる目安。
+const MIN_FIT=0.55,SMALL_FIT=0.75;
 async function renderPreview(){
  clearTimeout(state.timer);const generation=++state.renderId;
  if(!state.catalog)return;
@@ -112,6 +115,18 @@ async function renderPreview(){
  for(let i=0;i<m.cards.length;i+=step){const row=document.createElement('div');row.className='card-row';row.innerHTML=m.cards.slice(i,i+step).map(card=>cardHTML(card,!m.sharedSchedule.length)).join('');rows.push(row);content.append(row);}
  state.failedImages=await assetsReady(pages);
  if(generation!==state.renderId)return;
+ let fit=1;
+ if(s.fit_one_page){
+  // 1枚に収める：行は1ページに置いたまま、商品欄だけを縮めて入る大きさを探す。
+  const box=document.createElement('div');box.className='fit-box';box.append(...rows);content.append(box);
+  const fits=z=>{box.style.zoom=z;return content.scrollHeight<=content.clientHeight+1;};
+  if(!fits(1)){
+   let lo=MIN_FIT,hi=1;
+   if(!fits(lo)){fit=lo;state.layoutErrors.push('1枚に収まりません。商品を減らすか、説明を短くするか、「写真カード（3列）」に切り替えてください');}
+   else{for(let i=0;i<8;i++){const mid=(lo+hi)/2;if(fits(mid))lo=mid;else hi=mid;}fit=Math.floor(lo*100)/100;}
+   fits(fit);
+  }
+ }else{
  // 読込後の実寸で行単位に割り付ける。文字や価格を途中で切らない。
  rows.forEach(row=>row.remove());
  for(const row of rows){
@@ -123,13 +138,15 @@ async function renderPreview(){
    if(content.scrollHeight>content.clientHeight+1)state.layoutErrors.push('1ページに収まらない商品があります。説明を短くするか「一覧」に切り替えてください');
   }
  }
+ }
  // 複数ページのロゴも読込確認する。
  const moreFailed=await assetsReady(pages);
  if(generation!==state.renderId)return;
  state.failedImages=[...new Set([...state.failedImages,...moreFailed])];
  const all=[...pages.querySelectorAll('.menu-page')];
- all.forEach((p,i)=>{const number=p.querySelector('.page-index');if(number)number.textContent=f.page_format.replaceAll('{page}',String(i+1)).replaceAll('{pages}',String(all.length));const foot=p.querySelector('.page-footer');if(foot&&!foot.textContent.trim()&&!foot.querySelector('svg'))foot.hidden=true;if(p.scrollHeight>p.clientHeight+1||p.querySelector('.page-content').scrollHeight>p.querySelector('.page-content').clientHeight+1)state.layoutErrors.push('見出しや案内文が長すぎます。短く整えてください');});
- $('page-count').textContent=`${m.cards.length}商品 ／ ${all.length}ページ`;
+ all.forEach((p,i)=>{const number=p.querySelector('.page-index');if(number)number.textContent=f.page_format.replaceAll('{page}',String(i+1)).replaceAll('{pages}',String(all.length));const foot=p.querySelector('.page-footer');if(foot&&!foot.textContent.trim()&&!foot.querySelector('svg'))foot.hidden=true;if(p.scrollHeight>p.clientHeight+1||(!s.fit_one_page&&p.querySelector('.page-content').scrollHeight>p.querySelector('.page-content').clientHeight+1))state.layoutErrors.push('見出しや案内文が長すぎます。短く整えてください');});
+ $('page-count').textContent=`${m.cards.length}商品 ／ ${all.length}ページ`+(fit<1?`（${Math.round(fit*100)}%に縮小）`:'');
+ if(fit<SMALL_FIT)m.warnings.push(`1枚に収めるため${Math.round(fit*100)}%まで小さくしています。印刷して文字が読めるか確かめてください`);
  const errors=[...new Set([...m.errors,...state.layoutErrors])];
  $('notices').innerHTML=errors.map(x=>`<p class="error">${esc(x)}</p>`).join('')+m.warnings.map(x=>`<p>${esc(x)}</p>`).join('')+(state.failedImages.length?`<p>写真を読み込めませんでした：${esc(state.failedImages.join('、'))}。出力時に写真なしで進めるか選べます。</p>`:'');
  fitPreview();return {...m,errors};
@@ -181,6 +198,7 @@ $('selected-items').addEventListener('change',e=>{
 });
 $('selected-items').addEventListener('input',e=>{const key=e.target.dataset.field,row=e.target.closest('[data-index]');if(!key||!row)return;state.sheet.items[Number(row.dataset.index)][key]=e.target.value;changed();});
 for(const [id,key] of [['name','name'],['title','title'],['intro','intro'],['template','template_key'],['accent','accent_color'],['font','font_key']])$(id).addEventListener('input',()=>{state.sheet[key]=$(id).value;changed();});
+$('fit-one-page').addEventListener('change',e=>{state.sheet.fit_one_page=e.target.checked;changed();});
 $('new-menu').onclick=()=>{if(confirmLeave())setSheet(newSheet());};
 $('saved-menu').onchange=()=>{const s=state.sheets.find(s=>s.id===$('saved-menu').value);if(confirmLeave())setSheet(s||newSheet());else $('saved-menu').value=state.sheet.id||'';};
 $('copy-menu').onclick=()=>{const s=structuredClone(state.sheet);s.id=null;s.revision=null;s.name=s.name.slice(0,74)+'（コピー）';setSheet(s);changed();say('コピーを作りました。「設定を保存」で別のメニューとして保存できます。');};
@@ -188,7 +206,7 @@ $('save-menu').onclick=()=>withBusy(async()=>{
  const s=state.sheet;
  if(!s.name.trim()||!s.title.trim())throw Error('管理用の名前と、印刷するタイトルを入れてください');
  if(s.items.some(i=>(i.description_override||'').length>160))throw Error('短い説明を160文字以内にしてください');
- const result=await rpc('fn_save_menu_sheet',{p_tenant:state.tenantId,p_id:s.id,p_revision:s.revision,p_sheet:{name:s.name,title:s.title,intro:s.intro,template_key:s.template_key,accent_color:s.accent_color,footer_settings:s.footer_settings||{},font_key:s.font_key||'standard'},p_items:s.items});
+ const result=await rpc('fn_save_menu_sheet',{p_tenant:state.tenantId,p_id:s.id,p_revision:s.revision,p_sheet:{name:s.name,title:s.title,intro:s.intro,template_key:s.template_key,accent_color:s.accent_color,footer_settings:s.footer_settings||{},font_key:s.font_key||'standard',fit_one_page:!!s.fit_one_page},p_items:s.items});
  state.sheet.id=result.id;state.sheet.revision=result.revision;state.dirty=false;updateSave();say('メニューの設定を保存しました。');
  try{await loadLibrary();}catch{say('設定は保存できました。一覧の更新に失敗したため、ページを読み直してください。');}
 });

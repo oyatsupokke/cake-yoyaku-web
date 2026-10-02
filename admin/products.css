@@ -666,6 +666,15 @@
 .question-condition label, .question-create-fields > label:not(.chk), .question-answer-type { display: flex; flex-direction: column; gap: 6px; font-size: .82rem; }
 .question-condition select, .question-create-fields input, .question-create-fields select { min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
 .question-condition .small { grid-column: 1 / -1; margin: 0; }
+.question-condition .condition-target-label { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; font-size: .82rem; min-width: 0; }
+.question-condition .condition-target-label.hidden { display: none; }
+/* 条件にする選択肢（複数選べる・2026-10-03）。長いので枠の中でスクロール */
+.condition-options { max-height: 280px; overflow: auto; background: white; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; }
+.condition-sec + .condition-sec { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.question-condition .condition-sec-title { margin: 4px 0 2px; font-weight: 700; font-size: .78rem; color: #4c5a50; }
+.question-condition label.condition-check { flex-direction: row; align-items: center; gap: 10px; min-height: 40px; padding: 2px 0; font-size: .88rem; cursor: pointer; }
+.condition-check input { width: 18px; height: 18px; flex: none; accent-color: #385c49; margin: 0; }
+.condition-check:has(input:checked) span { font-weight: 700; color: #2f4d3d; }
 .question-create-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto; align-items: end; gap: 12px; margin-top: 12px; }
 #other-questions { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
 #other-questions > summary { cursor: pointer; font-weight: 700; }

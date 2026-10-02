@@ -2629,7 +2629,7 @@ function buildQuestionField(q) {
     updatePriceBar();
     updatePreview();
     // この回答を表示条件にしている質問があれば、出し入れのために描き直す（2026-10-02）
-    if ((multi || q.input_type === "select") && qChoices(q).some((c) => state.questions.some((x) => x.condition_choice_id === c.id))) {
+    if ((multi || q.input_type === "select") && qChoices(q).some((c) => state.questions.some((x) => QuestionFlow.conditionChoiceIds(x).includes(c.id)))) {
       renderGroups();
       renderQuestions();
     }

@@ -131,21 +131,25 @@ function validateQuestionFlow(changes) {
   const groups = drafts.overlay('option_groups',[...state.products.flatMap(p => p.option_groups || []),...state.globalGroups]);
   const questions = drafts.overlay('common_questions',state.questions);
   for (const item of [...groups,...questions]) {
-    if (item.condition_mode && item.condition_mode !== 'always' && !item.condition_option_id && !item.condition_choice_id)
+    if (item.condition_mode && item.condition_mode !== 'always'
+        && !QuestionFlow.conditionOptionIds(item).length && !QuestionFlow.conditionChoiceIds(item).length)
       throw new Error('表示条件にする選択肢を選んでください');
     if (item.target_product_ids && !item.target_product_ids.length)
       throw new Error('表示するケーキを1つ以上選んでください');
     if (item.scope === 'selected' && changes.some(c => c.id === item.id && ('scope' in c.patch || '_product_ids' in c.patch)) && !(item._product_ids || item.common_question_products || []).length)
       throw new Error('表示するケーキを1つ以上選んでください');
   }
+  // グループの条件が循環していないか（条件の選択肢は複数あるので、たどれる先を全部見る）
   const optionGroups = new Map(groups.flatMap(g => (g.options || []).map(o => [o.id,g])));
+  const parents = (g) => g.condition_mode && g.condition_mode !== 'always'
+    ? QuestionFlow.conditionOptionIds(g).map(id => optionGroups.get(id)).filter(Boolean) : [];
   for (const g of groups) {
-    const seen = new Set([g.id]); let next = g;
-    while (next.condition_mode && next.condition_mode !== 'always' && next.condition_option_id) {
-      next = optionGroups.get(next.condition_option_id);
-      if (!next) break;
-      if (seen.has(next.id)) throw new Error('質問の表示条件が循環しています。条件にする選択肢を変更してください');
-      seen.add(next.id);
+    const seen = new Set(), stack = [...parents(g)];
+    while (stack.length) {
+      const next = stack.pop();
+      if (next.id === g.id) throw new Error('質問の表示条件が循環しています。条件にする選択肢を変更してください');
+      if (seen.has(next.id)) continue;
+      seen.add(next.id); stack.push(...parents(next));
     }
   }
 }
@@ -2082,43 +2086,69 @@ function buildQuestionSettings(item, kind, header, main, parentName = "") {
     .flatMap(q => qChoices(q).map(c => ({ id: c.id, label: c.label || '回答', qLabel: q.label || '質問文未入力の質問' })));
   // いま設定されている条件がこのケーキの外のもの（共通の質問などで別のケーキの選択肢を指している）なら、消さずに出所を付けて残す
   const allGroupsEverywhere = [...state.products.flatMap(p => (p.option_groups || []).map(g => ({ g, p }))), ...state.globalGroups.map(g => ({ g, p: null }))];
+  const nowOptionIds = QuestionFlow.conditionOptionIds(item), nowChoiceIds = group ? [] : QuestionFlow.conditionChoiceIds(item);
   const outside = [];
-  if (item.condition_option_id && !candidates.some(o => o.id === item.condition_option_id)) {
-    const hit = allGroupsEverywhere.flatMap(({ g, p }) => (g.options || []).map(o => ({ o, g, p }))).find(x => x.o.id === item.condition_option_id);
-    if (hit) outside.push(`<option value="${hit.o.id}">${esc(hit.g.name)} ／ ${esc(optDisplayName(hit.o))}（${esc(hit.p?.name || '共通')}）</option>`);
+  for (const id of nowOptionIds) if (!candidates.some(o => o.id === id)) {
+    const hit = allGroupsEverywhere.flatMap(({ g, p }) => (g.options || []).map(o => ({ o, g, p }))).find(x => x.o.id === id);
+    if (hit) outside.push({ value: id, label: `${hit.g.name} ／ ${optDisplayName(hit.o)}（${hit.p?.name || '共通'}）` });
   }
-  if (item.condition_choice_id && !choiceCandidates.some(c => c.id === item.condition_choice_id)) {
-    const q = state.questions.find(x => qChoices(x).some(c => c.id === item.condition_choice_id));
-    const c = q && qChoices(q).find(x => x.id === item.condition_choice_id);
-    if (c) outside.push(`<option value="c:${c.id}">${esc(q.label || '質問')} ／ ${esc(c.label)}（ほかのケーキの質問）</option>`);
+  for (const id of nowChoiceIds) if (!choiceCandidates.some(c => c.id === id)) {
+    const q = state.questions.find(x => qChoices(x).some(c => c.id === id));
+    const c = q && qChoices(q).find(x => x.id === id);
+    if (c) outside.push({ value: `c:${id}`, label: `${q.label || '質問'} ／ ${c.label}（ほかのケーキの質問）` });
   }
+  // 条件にする選択肢は複数選べる（どれか1つでも選ばれたら条件に当たる・2026-10-03 まりほ依頼）。
+  // 選択肢と質問の回答は1つの条件の中で混ぜられない（サーバーも同じ制約）
+  const checked = new Set([...nowOptionIds, ...nowChoiceIds.map(id => `c:${id}`)]);
+  const box = (value, label) => `<label class="condition-check"><input type="checkbox" value="${esc(value)}" ${checked.has(value) ? 'checked' : ''}><span>${esc(label)}</span></label>`;
+  const section = (title, rows) => rows.length ? `<div class="condition-sec"><p class="condition-sec-title">${esc(title)}</p>${rows.join('')}</div>` : '';
+  const byGroup = new Map();
+  for (const o of candidates) { if (!byGroup.has(o.groupName)) byGroup.set(o.groupName, []); byGroup.get(o.groupName).push(box(o.id, optDisplayName(o))); }
+  const byQuestion = new Map();
+  for (const c of choiceCandidates) { if (!byQuestion.has(c.qLabel)) byQuestion.set(c.qLabel, []); byQuestion.get(c.qLabel).push(box(`c:${c.id}`, c.label)); }
   const condition = document.createElement('div'); condition.className = 'question-condition';
   condition.innerHTML = `<label>表示条件<select class="condition-mode"><option value="always">${sub ? `「${esc(parentName)}」を選んだらいつも表示` : 'いつも表示する'}</option><option value="selected">次の選択肢を選んだときに表示</option><option value="not_selected">次の選択肢を選んだら非表示</option></select></label>
-    <label class="condition-target-label">条件にする選択肢<select class="condition-option"><option value="">選択肢を選んでください</option><optgroup label="「${esc(cake.name)}」の選択肢">${candidates.map(o => `<option value="${o.id}">${esc(o.groupName)} ／ ${esc(optDisplayName(o))}</option>`).join('')}</optgroup>${group ? '' : choiceCandidates.length ? `<optgroup label="「${esc(cake.name)}」のほかの質問の回答">${choiceCandidates.map(c => `<option value="c:${c.id}">${esc(c.qLabel)} ／ ${esc(c.label)}</option>`).join('')}</optgroup>` : ''}${outside.length ? `<optgroup label="いまの設定（このケーキの外）">${outside.join('')}</optgroup>` : ''}</select></label>
-    <p class="small">非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
+    <div class="condition-target-label"><span class="k">条件にする選択肢（複数選べます）</span>
+      <div class="condition-options">${[...byGroup].map(([name, rows]) => section(name, rows)).join('')}${group ? '' : [...byQuestion].map(([name, rows]) => section(`ほかの質問「${name}」の回答`, rows)).join('')}${outside.length ? section('いまの設定（このケーキの外）', outside.map(x => box(x.value, x.label))) : ''}${candidates.length || choiceCandidates.length || outside.length ? '' : '<p class="small">条件にできる選択肢がありません。</p>'}</div></div>
+    <p class="small">複数選ぶと、どれか1つでも選ばれたときに条件に当たります。非表示の質問とその回答は、料金・必須チェック・予約内容に含めません。</p>`;
   main.prepend(condition);
-  const conditionMode = condition.querySelector('.condition-mode'), option = condition.querySelector('.condition-option');
+  const conditionMode = condition.querySelector('.condition-mode'), optionsBox = condition.querySelector('.condition-options');
   conditionMode.value = item.condition_mode || 'always';
-  option.value = item.condition_choice_id ? `c:${item.condition_choice_id}` : item.condition_option_id || '';
+  const picked = () => [...optionsBox.querySelectorAll('input:checked')].map(el => el.value);
   regField(table,item.id,'condition_mode',conditionMode);
-  const isChoice = () => option.value.startsWith('c:');
-  regField(table,item.id,'condition_option_id',option,{get:() => conditionMode.value === 'always' || isChoice() ? null : option.value || null});
-  if (!group) regField(table,item.id,'condition_choice_id',option,{get:() => conditionMode.value === 'always' || !isChoice() ? null : option.value.slice(2)});
+  regField(table,item.id,'condition_option_ids',optionsBox,{get:() => conditionMode.value === 'always' ? [] : picked().filter(v => !v.startsWith('c:'))});
+  if (!group) regField(table,item.id,'condition_choice_ids',optionsBox,{get:() => conditionMode.value === 'always' ? [] : picked().filter(v => v.startsWith('c:')).map(v => v.slice(2))});
   const previewNote = document.createElement('p'); previewNote.className = 'small preview-condition';
   const cap = main.parentElement?.querySelector(':scope > .cust .cap');
   if (cap) cap.after(previewNote); else condition.appendChild(previewNote);
   const paint = () => {
     condition.querySelector('.condition-target-label').classList.toggle('hidden',conditionMode.value === 'always');
-    previewNote.textContent = conditionMode.value === 'always' ? '' : `表示条件：「${option.selectedOptions[0]?.textContent || '未選択'}」を選んだ${conditionMode.value === 'selected' ? 'ときに表示' : 'ら非表示'}`;
+    const names = [...optionsBox.querySelectorAll('input:checked')].map(el => {
+      const sec = el.closest('.condition-sec')?.querySelector('.condition-sec-title')?.textContent || '';
+      const own = el.nextElementSibling?.textContent || '';
+      return sec && !sec.startsWith('いまの設定') ? `${sec} ／ ${own}` : own;
+    });
+    const what = !names.length ? '「未選択」' : names.map(n => `「${n}」`).join(names.length > 1 ? 'か' : '');
+    previewNote.textContent = conditionMode.value === 'always' ? '' : `表示条件：${what}${names.length > 1 ? 'のどれか' : ''}を選んだ${conditionMode.value === 'selected' ? 'ときに表示' : 'ら非表示'}`;
     previewNote.hidden = conditionMode.value === 'always';
   };
-  conditionMode.addEventListener('change',paint); option.addEventListener('change',paint); paint();
+  optionsBox.addEventListener('change', (e) => {
+    const el = e.target;
+    // 選択肢と回答は混ぜられない。後から選んだほうに合わせて、もう一方の印を外す
+    if (el.checked) {
+      const isChoice = el.value.startsWith('c:');
+      const other = [...optionsBox.querySelectorAll('input:checked')].filter(x => x.value.startsWith('c:') !== isChoice);
+      if (other.length) { other.forEach(x => { x.checked = false; }); toast('選択肢と質問の回答は、同じ表示条件の中で混ぜられません。あとから選んだほうに合わせました'); }
+    }
+    paint(); markDirty();
+  });
+  conditionMode.addEventListener('change',paint); paint();
 }
 
 function conditionDependents(optionIds, excludedGroupId = null) {
   const ids = new Set(optionIds);
   return [...state.products.flatMap(p => p.option_groups || []),...state.globalGroups,...state.questions]
-    .filter(x => x.id !== excludedGroupId && !ids.has(x.option_id) && ids.has(x.condition_option_id))
+    .filter(x => x.id !== excludedGroupId && !ids.has(x.option_id) && QuestionFlow.conditionOptionIds(x).some(id => ids.has(id)))
     .map(x => x.name || x.label || '名前未入力の質問');
 }
 

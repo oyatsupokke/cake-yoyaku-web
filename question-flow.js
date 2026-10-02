@@ -4,13 +4,19 @@
     : !g.target_product_ids || g.target_product_ids.includes(productId);
   const questionApplies = (q, productId) => q.scope !== 'selected'
     || (q._product_ids || (q.common_question_products || []).map(x => x.product_id)).includes(productId);
-  // 表示条件。選択グループの選択肢（condition_option_id）か、ほかの質問の回答（condition_choice_id・2026-10-02）
+  // 表示条件。選択グループの選択肢（condition_option_ids）か、ほかの質問の回答（condition_choice_ids・2026-10-02）。
+  // 2026-10-03〜複数指定できる＝どれか1つでも選ばれたら「選んだ」。配列の列が無い（DB反映前・古いデータ）ときだけ1つの列を見る
+  // （DBが配列と1つの列を常に揃えるので、配列があれば配列が正。管理画面で全部外した下書きは空のまま扱う）
+  const idsOf = (many, one) => Array.isArray(many) ? many : one ? [one] : [];
+  const conditionOptionIds = (item) => idsOf(item.condition_option_ids, item.condition_option_id);
+  const conditionChoiceIds = (item) => idsOf(item.condition_choice_ids, item.condition_choice_id);
   const choicePicked = (answers, choiceId) => !!answers && [...answers.values()]
     .some(a => Array.isArray(a?.choiceIds) && a.choiceIds.includes(choiceId));
   const conditionMatches = (item, selected, answers) => {
     if (!item.condition_mode || item.condition_mode === 'always') return true;
-    const hit = item.condition_choice_id ? choicePicked(answers, item.condition_choice_id)
-      : selected.has(item.condition_option_id);
+    const choices = conditionChoiceIds(item);
+    const hit = choices.length ? choices.some(id => choicePicked(answers, id))
+      : conditionOptionIds(item).some(id => selected.has(id));
     return item.condition_mode === 'selected' ? hit : !hit;
   };
   function ordered(product, groups, questions) {
@@ -42,6 +48,6 @@
       if (!changed) break;
     }
   }
-  root.QuestionFlow = {groupApplies, questionApplies, conditionMatches, ordered, prune};
+  root.QuestionFlow = {groupApplies, questionApplies, conditionMatches, conditionOptionIds, conditionChoiceIds, ordered, prune};
   if (typeof module !== 'undefined') module.exports = root.QuestionFlow;
 })(globalThis);

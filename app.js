@@ -3038,6 +3038,8 @@ $("btn-submit").onclick = async () => {
           address: $("cust-address") ? $("cust-address").value.trim() || null : null,
         },
         payment_method: "store",
+        // 事前にカードを選んだ印（確認メールの「お支払い」の行を変える。支払いそのものは予約のあと）
+        ...(payChoice() === "card" ? { prepay: true } : {}),
         preview_id: previewId,
         options: [...s.options].map(([option_id, v]) => ({
           option_id, quantity: v.qty, text: (v.text || "").trim() || null,

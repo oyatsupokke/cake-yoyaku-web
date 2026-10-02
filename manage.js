@@ -449,6 +449,7 @@ $("btn-slot-save").onclick = async () => {
     if (!r.ok) throw new Error(r.message || "変更できませんでした");
     kickMailWorker();
     $("done-emoji").textContent = "✅";
+    $("done-emoji").classList.remove("hidden");
     $("done-title").textContent = "受取日時を変更しました";
     $("done-text").textContent =
       `新しい受取日時：${fmtPickup(state.sel.date, state.sel.slot.label)}\n確認メールをお送りしますのでご確認ください。`;
@@ -490,7 +491,7 @@ $("btn-cancel-confirm").onclick = async () => {
     const r = await rpc("fn_manage_cancel", { p_token: TOKEN });
     if (!r.ok) throw new Error(r.message || "キャンセルできませんでした");
     kickMailWorker();
-    $("done-emoji").textContent = "🥀";
+    $("done-emoji").classList.add("hidden"); // 絵文字（しおれたバラ）は出さない（2026-10-02 まりほ）
     $("done-title").textContent = "ご予約をキャンセルしました";
     $("done-text").textContent = "確認メールをお送りしますのでご確認ください。またのご利用をお待ちしております。";
     show("view-done");

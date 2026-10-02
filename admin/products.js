@@ -1314,7 +1314,7 @@ function answerFieldHtml(view) {
   const caption = c => esc(c.label || "（未入力）") + (c.price_delta ? `（+¥${Number(c.price_delta).toLocaleString("ja-JP")}）` : "")
     + (c.pickup_from || c.pickup_until ? `（受取日：${esc(c.pickup_from || "制限なし")}〜${esc(c.pickup_until || "制限なし")}）` : "");
   const photos = cs.filter(c => c.photo_url).map(c => `<span class="cfield-help">${esc(c.label)}の見本</span><span class="pv-sample"><img src="${esc(c.photo_url)}" alt="見本"></span>`).join("");
-  if (view.type === "textarea") return `<textarea rows="2" disabled></textarea>`;
+  if (view.type === "textarea") return `<textarea rows="2" disabled placeholder="${esc(view.placeholder || "")}"></textarea>`;
   if (view.type === "date") return `<input type="date" disabled>`;
   if (view.type === "select") {
     return `<select disabled>${cs.map((c) => `<option>${caption(c)}</option>`).join("")}</select>${photos}`;
@@ -1340,7 +1340,7 @@ function answerFieldHtml(view) {
     return `<span class="pastel-preview normal-color-preview"><i></i>通常のカラーチャートから選ぶ<span class="mini">＋補足を自由記入</span></span>`+
       (view.linkLabel?`<label class="pick"><input type="checkbox" disabled>${esc(view.linkLabel)}</label>`:'');
   }
-  return `<input type="text" disabled>`;
+  return `<input type="text" disabled placeholder="${esc(view.placeholder || "")}">`;
 }
 
 /* 選択肢に追加した質問も、実際のお客様画面と同じ情報量で見せる。 */
@@ -1369,6 +1369,9 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
     <label class="question-answer-type">回答方法<select class="q-type">${typeOptions(q.input_type)}</select></label>
     <label class="chk"><input type="checkbox" class="q-req" ${q.is_required ? "checked" : ""}>必須にする</label>
+    <label class="q-placeholder ${["text", "textarea"].includes(q.input_type) ? "" : "hidden"}">入力欄の例文（任意）
+      <textarea class="q-placeholder-input" rows="2" maxlength="200" placeholder="例：Happy Birthday（空欄なら既定の例文）">${esc(q.placeholder || "")}</textarea>
+    </label>
     <label class="chk q-imgmax ${q.input_type === "image" ? "" : "hidden"}">枚数
       <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
         `<option value="${n}" ${n === imgMaxOf(q) ? "selected" : ""}>${n}枚まで</option>`).join("")}</select>
@@ -1426,6 +1429,11 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   if (helpEl) box.insertBefore(helpEl, sample);
   if (helpAccentEl) box.insertBefore(helpAccentEl.closest("label"), sample);
 
+  // 入力欄の例文（お客様の入力欄に薄く出る文。空欄なら既定の例文）
+  const phEl = box.querySelector(".q-placeholder-input");
+  regField("common_questions", q.id, "placeholder", phEl, { get: () => phEl.value.trim() || null });
+  phEl.addEventListener("input", () => { view.placeholder = phEl.value; onPaint(); });
+
   const maxEl = box.querySelector(".q-imgmax-sel");
   regField("common_questions", q.id, "image_max", maxEl,
     { get: () => parseInt(maxEl.value, 10) || 3 });
@@ -1446,6 +1454,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     box.classList.toggle("is-palette", view.type === "palette");
     box.paletteTexts?.();
     box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
+    box.querySelector(".q-placeholder").classList.toggle("hidden", !["text", "textarea"].includes(view.type));
     box.querySelector(".q-pastel-link").classList.toggle("hidden", !isColorQuestion(view.type));
     onPaint();
   });
@@ -2125,7 +2134,7 @@ function buildGroupBox(p, g) {
         id: o.id, description:o.description || "", note:o.note || "", name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
-          help: q.help_text || "", helpAccent: !!q.help_accent, sample: q.sample_image_url || "",
+          help: q.help_text || "", helpAccent: !!q.help_accent, placeholder: q.placeholder || "", sample: q.sample_image_url || "",
           linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
           choices: qChoices(q).map((c) => ({ ...c })),
         })),
@@ -2464,7 +2473,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     const qView = ov.qs?.find((x) => x.id === q.id) || {
       id: q.id, label: q.label, type: q.input_type, required: q.is_required,
       active: q.is_active !== false, imageMax: imgMaxOf(q),
-      help: q.help_text || "", helpAccent: !!q.help_accent, sample: q.sample_image_url || "",
+      help: q.help_text || "", helpAccent: !!q.help_accent, placeholder: q.placeholder || "", sample: q.sample_image_url || "",
       linkLabel: q.pastel_link_option_name ? (q.pastel_link_label || `${q.pastel_link_option_name}も同じ色にする`) : "",
       choices: qChoices(q).map((c) => ({ ...c })),
     };
@@ -2704,7 +2713,7 @@ function buildQuestionBox(q) {
 
   const view = {
     label: q.label, required: !!q.is_required, type: q.input_type, imageMax: imgMaxOf(q),
-    help: q.help_text || "", helpAccent: !!q.help_accent,
+    help: q.help_text || "", helpAccent: !!q.help_accent, placeholder: q.placeholder || "",
     linkLabel:q.pastel_link_option_name?(q.pastel_link_label||`${q.pastel_link_option_name}も同じ色にする`):'',
     sample: q.sample_image_url,
     choices: qChoices(q).map((c) => ({ ...c })),

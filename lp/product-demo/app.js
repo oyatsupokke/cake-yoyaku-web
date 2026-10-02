@@ -2169,7 +2169,7 @@ function answerInputsHtml(q) {
   }
   if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q))) {
-    const placeholder = isMessageQuestion(q) ? "例：Happy Birthday\nまりちゃん"
+    const placeholder = isMessageQuestion(q) ? "例：Happy Birthday"
       : /伝達事項/.test(q.label || "") ? "例：予約者本人には知らせず、当日持参する封筒でお伝えします"
       : "こちらにご記入ください";
     return `<textarea rows="3" placeholder="${esc(placeholder)}"></textarea>`;

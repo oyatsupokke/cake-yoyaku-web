@@ -2373,9 +2373,10 @@ function answerInputsHtml(q) {
   }
   if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q))) {
-    const placeholder = isMessageQuestion(q) ? "例：Happy Birthday\nまりちゃん"
+    // 例文は店が質問ごとに書ける（2026-10-02）。空欄のときだけ既定の例文
+    const placeholder = (q.placeholder || "").trim() || (isMessageQuestion(q) ? "例：Happy Birthday"
       : /伝達事項/.test(q.label || "") ? "例：予約者本人には知らせず、当日持参する封筒でお伝えします"
-      : "こちらにご記入ください";
+      : "こちらにご記入ください");
     return `<textarea rows="3" placeholder="${esc(placeholder)}"></textarea>`;
   }
   if (q.input_type === "select") {
@@ -2396,7 +2397,7 @@ function answerInputsHtml(q) {
     return `<span class="pick-list">` + cs.map((c) =>
       `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</label>`).join("") + `</span>`;
   }
-  return `<input type="text">`;
+  return `<input type="text" placeholder="${esc((q.placeholder || "").trim())}">`;
 }
 /* 質問1つ分の入力欄を作る。共通の質問も選択肢の質問も同じ部品を使う */
 /* 店が用意した「見本の画像」（色見本・仕上がりの例など）。

@@ -50,6 +50,13 @@ const TRIAL_MODE = !EDITOR_PREVIEW && new URLSearchParams(location.search).get("
 const EDIT_TOKEN = new URLSearchParams(location.search).get("edit");
 const EDIT_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && !!EDIT_TOKEN;
 let EDIT_ORDER = null;   // fn_manage_get_order の order（変更前の内容）
+/* 本体価格。SELECTTYPEから移行した予約は、同じケーキ・同じサイズなら予約時の値段のまま
+ * （orders.price_lock・2026-09-30）。実際の請求はサーバー側 fn_apply_price_lock が決め、ここは表示を合わせるだけ */
+function basePrice(v) {
+  const lock = EDIT_MODE ? EDIT_ORDER?.price_lock : null;
+  const locked = lock && lock.variant_id === v?.id ? Number(lock.unit_price) : NaN;
+  return Number.isInteger(locked) && locked >= 0 && locked < v.price ? locked : v.price;
+}
 
 /* ---------- 代行登録モード（?staff=1・管理画面ログイン中のみ） ----------
  * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
@@ -222,7 +229,11 @@ function saveState() {
       product_id: state.sel.product?.id ?? null,
       variant_id: state.sel.variant?.id ?? null,
       options: [...state.sel.options],
-      answers: [...state.sel.answers],
+      // 写真は送り終わったものだけ（id・URL・ひとこと）を残す。送信中の枠や元ファイルまで保存すると、
+      // 更新後に「送信中…」のまま消せない枠が復元されていた（2026-10-02 まりほ指摘）
+      answers: [...state.sel.answers].map(([qid, a]) => [qid, a?.images
+        ? { ...a, images: a.images.filter((x) => x?.id && !x.busy).map((x) => ({ id: x.id, thumb: x.thumb || null, note: x.note || "" })) }
+        : a]),
       date: state.sel.date,
       slot_id: state.sel.slot?.id ?? null,
       customer: {
@@ -281,7 +292,13 @@ async function restoreSaved() {
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
     state.sel.options = sanitizeSavedOptions(p, (saved.options || []).filter(([id]) => validIds.has(id)));
     ensureRequiredFallbacks();
-    state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => [qid, normAnswer(a)]));
+    state.sel.answers = new Map((saved.answers || []).map(([qid, a]) => {
+      const n = normAnswer(a);
+      // 古い下書きに残った送信中の枠は捨てる（送り終わった写真だけ戻す）
+      n.images = (n.images || []).filter((x) => x?.id && !x.busy)
+        .map((x) => ({ id: x.id, url: x.thumb || null, thumb: x.thumb || null, note: x.note || "", busy: false }));
+      return [qid, n];
+    }));
     renderGroups();
     updatePreview();
     updatePriceBar();
@@ -299,11 +316,36 @@ async function restoreSaved() {
   }
 }
 
+/* ---------- お支払い方法（Squareでの事前払い・2026-10-02） ----------
+ * 事前払いをONにした店だけ「店頭／事前にカード」を選べる。カードを選んだ人は、
+ * 予約が成立したあと予約確認ページ（?pay=1）経由でそのままSquareの支払い画面へ進む。
+ * 予約を先に成立させるので、払わずに閉じても店頭払いの予約として残る。 */
+function prepayOffered() {
+  return !!state.tenant?.square_prepay_enabled && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
+}
+function setupPayChoice() {
+  const box = $("pay-note");
+  if (!box || !prepayOffered()) return;
+  box.classList.add("pay-choice");
+  box.innerHTML =
+    `<div class="pay-title">お支払い方法</div>` +
+    `<label class="pick"><input type="radio" name="pay-method" value="store" checked> 店頭でお支払い（受取時）</label>` +
+    `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にカードでお支払い</label>` +
+    `<p class="small pay-card-note hidden">ご予約のあと、Squareのお支払い画面に進みます。</p>`;
+  box.addEventListener("change", () => {
+    box.querySelector(".pay-card-note").classList.toggle("hidden", payChoice() !== "card");
+  });
+}
+function payChoice() {
+  return prepayOffered() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
+}
+
 /* ---------- 初期ロード ---------- */
 async function load() {
   const tenants = await api(`/rest/v1/v_public_tenant?subdomain=eq.${CONFIG.shop}&select=*`);
   if (!tenants.length) { $("shop-name").textContent = "店舗が見つかりません"; return; }
   state.tenant = tenants[0];
+  setupPayChoice();
   if (EDITOR_PREVIEW) {
     const note = document.createElement("p");
     note.className = "confirm-box";
@@ -337,15 +379,24 @@ async function load() {
   applyTheme(state.tenant.theme);
 
   const T = state.tenant.id;
-  const [products, globalGroups, questions, slots] = await Promise.all([
+  const jstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const [products, globalGroups, questions, slots, optionStops] = await Promise.all([
     api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
-        `&select=*,product_variants(*),option_groups(*,options!options_group_id_fkey(*,shared_list_items(*))),option_exclusions(*)`),
+        `&select=*,product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
     api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
-        `&select=*,options!options_group_id_fkey(*,shared_list_items(*))`),
+        `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
-        `&select=*,common_question_choices(*),common_question_products(*)`),
+        `&select=*,common_question_choices!common_question_choices_question_id_fkey(*,choice_availability_overrides!choice_availability_overrides_choice_id_fkey(date)),common_question_products!common_question_products_question_id_fkey(*)`),
     api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
+    // 選択肢の「選べない日」。どの選択肢のせいでその日が選べないかを出すためだけに使う
+    // （受付の可否はサーバーが決める）ので、読めなくても予約ページは止めない
+    api(`/rest/v1/option_availability_overrides?tenant_id=eq.${T}&date=gte.${jstToday}&select=option_id,date&order=date`).catch(() => []),
   ]);
+  state.optionStops = new Map();
+  for (const r of optionStops || []) {
+    if (!state.optionStops.has(r.option_id)) state.optionStops.set(r.option_id, new Set());
+    state.optionStops.get(r.option_id).add(r.date);
+  }
   // 共通グループも商品別グループと同じ集合で扱う。復元・価格・必須確認もここを見る。
   state.products = products.map((p) => ({
     ...p,
@@ -399,6 +450,36 @@ function enterStaffMode() {
     "内容を確認のうえ「この内容で登録する」を押すと、予約として登録されます。";
 }
 
+/* 旧フォーム（SELECTTYPE）から移ったご予約は、前の選択肢を今のフォームに引き継げない。
+ * 選び直してもらうために、前のご予約内容を変更画面の先頭に見せる（2026-09-30） */
+// 旧フォームの商品名はサイズ込み（例「生クリームデコレーション15cm」）なので、サイズを二重に書かない
+function legacyCakeName(name, size) {
+  const n = String(name || ""), sz = String(size || "");
+  return !sz || n.includes(sz) ? n : `${n} ${sz}`;
+}
+function legacyPrefill() {
+  const pre = EDIT_ORDER?.legacy_prefill;
+  const saved = (EDIT_ORDER?.options || []).some((o) => o.option_id) || (EDIT_ORDER?.answers || []).some((a) => a.question_id);
+  return pre && !saved ? pre : null;
+}
+function showLegacyOrderNote(validIds) {
+  const legacy = (EDIT_ORDER?.options || []).filter((o) => !o.option_id || !validIds.has(o.option_id));
+  const locked = !!EDIT_ORDER?.price_lock;
+  if (!legacy.length && !locked) return;
+  const box = document.createElement("div");
+  box.className = "legacy-order-note";
+  const items = legacy.map((o) => `<li>${esc(o.option_name || "")}${o.quantity > 1 ? ` ×${o.quantity}` : ""}${o.text ? `「${esc(o.text)}」` : ""}</li>`).join("");
+  box.innerHTML =
+    `<p class="legacy-title">前のご予約内容</p>` +
+    `<p>${esc(legacyCakeName(EDIT_ORDER.product_name, EDIT_ORDER.variant_label))}</p>` +
+    (items ? `<ul>${items}</ul><p class="legacy-help">${legacyPrefill()
+      ? "予約フォームが新しくなったため、上の内容を新しいフォームの選択肢に置き換えて選んであります。追加・変更したいところだけ直してください。新しいフォームに同じものが無い内容は選ばれていないので、ご確認ください。"
+      : "予約フォームが新しくなったため、上の内容は引き継がれていません。同じ内容をご希望の場合は、下から選び直してください。"}</p>` : "") +
+    (locked ? `<p class="legacy-help">同じケーキ・同じサイズなら、ケーキ本体はご予約時の価格のままです。前のご予約で選んでいたオプションも、ご予約時の価格のままです。新しく追加するオプションは、表示の価格が加わります。</p>` : "");
+  const first = document.querySelector("#view-form .step");
+  if (first) first.before(box); else $("view-form").prepend(box);
+}
+
 /* ---------- 変更モードの初期化：既存予約を読み込んでフォームに展開 ---------- */
 async function enterEditMode() {
   let r = null;
@@ -436,11 +517,14 @@ async function enterEditMode() {
     if (v) selectVariant(v);
 
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
-    state.sel.options = new Map((EDIT_ORDER.options || [])
+    // 旧フォームから移した予約は、前の内容を今の選択肢に置き換えた下書き（orders.legacy_prefill）で開く。
+    // お客様が一度変更して今の選択肢で保存された後は使わない（2026-10-02）
+    const prefill = legacyPrefill();
+    state.sel.options = new Map((prefill?.options || EDIT_ORDER.options || [])
       .filter((o) => o.option_id && validIds.has(o.option_id))
       .map((o) => [o.option_id, { qty: o.quantity || 1, text: o.text || "" }]));
     state.sel.answers = new Map();
-    for (const a of EDIT_ORDER.answers || []) {
+    for (const a of prefill?.answers || EDIT_ORDER.answers || []) {
       if (!a.question_id) continue;
       const cur = state.sel.answers.get(a.question_id) || { text: null, choiceIds: [] };
       if (a.choice_id) cur.choiceIds.push(a.choice_id);
@@ -450,6 +534,7 @@ async function enterEditMode() {
     renderGroups();
     updatePreview();
     updatePriceBar();
+    showLegacyOrderNote(validIds);
 
     // 受取日時：予約中の日時をそのまま展開（日を変えなければ締切に関係なく変更を確定できる）
     const [ey, em] = EDIT_ORDER.pickup_date.split("-").map(Number);
@@ -493,8 +578,11 @@ function optionPickupPeriod(o) {
     pickup_until: [o.pickup_until, item?.available_until].filter(Boolean).sort()[0] || null,
   };
 }
+const optionStopped = (o, date) => !!date && !!state.optionStops?.get(o.id)?.has(date);
+// 選んだ受取日に選べない選択肢（ご用意できない日・選択肢ごとの締切）。サーバーが数えた結果
+const optionBlockedOnDate = (o, date) => !!date && date === state.dateBlockedFor && !!state.dateBlocked?.has(o.id);
 function optionAvailableOnPickup(o, date = state.sel.date) {
-  return o.is_available !== false && (!o.shared_list_item_id || !!o.shared_list_items)
+  return !optionStopped(o, date) && !optionBlockedOnDate(o, date) && o.is_available !== false && (!o.shared_list_item_id || !!o.shared_list_items)
     && o.shared_list_items?.is_available !== false && choiceAvailableOnPickup(optionPickupPeriod(o), date);
 }
 const optNote = (o) => o.note || o.shared_list_items?.note || "";
@@ -595,19 +683,27 @@ function ensureRequiredFallbacks() {
     if (fallback) state.sel.options.set(fallback.id, { qty: 1, text: "" });
   }
 }
-function toast(msg) {
+function toast(msg, ms = 3200) {
   const t = $("toast");
   t.textContent = msg;
   t.classList.remove("hidden");
   t.style.opacity = 1;
   clearTimeout(t._h);
-  t._h = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add("hidden"), 400); }, 3200);
+  t._h = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add("hidden"), 400); }, ms);
 }
 
 /* ---------- 金額 ---------- */
 function optionPrice(o) {
   const price = o.size_prices?.[state.sel.variant?.size_label];
-  return Number.isInteger(price) ? price : o.price_delta;
+  const now = Number.isInteger(price) ? price : o.price_delta;
+  // 移行予約で前に選んでいたオプションは予約時の値段のまま（price_lock.options・2026-10-02）。
+  // 実際の請求はサーバー側 fn_apply_price_lock が決め、ここは表示を合わせるだけ
+  const locked = EDIT_MODE ? Number(EDIT_ORDER?.price_lock?.options?.[o.id]) : NaN;
+  return Number.isInteger(locked) && locked >= 0 && locked < now ? locked : now;
+}
+function optionPriceLocked(o) {
+  const price = o.size_prices?.[state.sel.variant?.size_label];
+  return optionPrice(o) < (Number.isInteger(price) ? price : o.price_delta);
 }
 function optionMaxQuantity(o) {
   // タルト・バスク上に無理なく載せられるナンバークッキー大は2枚まで。
@@ -620,7 +716,7 @@ function requiresReview() {
 }
 function currentTotal() {
   if (!state.sel.variant) return null;
-  let total = state.sel.variant.price;
+  let total = basePrice(state.sel.variant);
   for (const [id, v] of state.sel.options) {
     const f = findOption(id);
     if (f) total += optionPrice(f.o) * v.qty;
@@ -719,7 +815,10 @@ const MOCO_OPTION_NAMES = new Set([
 ]);
 const MOCO_FULL_OPTION_NAMES = new Set(["全面・白", "全面・カラー"]);
 const MOCO_EDGE_OPTION_NAMES = new Set(["フチのみ・白", "フチのみ・カラー"]);
-const cakeLayerAsset = (name) => new URL(`assets/cake-layers/${name}`, location.href).href;
+// 素材はサイトの直下（/assets/）にある。cakebook.jp の予約ページは /<店舗ID>/ で開くので、
+// ページの場所（location.href）基準だと /oyatsupokke/assets/… を探して404になる。
+// <base href="/"> を反映する document.baseURI 基準にする（旧URLのgithub.ioはどちらでも同じ）。2026-09-30
+const cakeLayerAsset = (name) => new URL(`/assets/cake-layers/${name}`, location.href).href;
 const corrected18cmLayerAsset = (name) => cakeLayerAsset(`${name}?v=20260921-corrected`);
 const sizeSpecificMocoLayerAsset = (size, name) => cakeLayerAsset(
   `${size}/${MOCO_FULL_OPTION_NAMES.has(name) ? "moco-full.png" : "moco-edge.png"}?v=20260921-size`
@@ -742,6 +841,12 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-muscat.png": "12cm/fruit-ring-muscat.png",
     "fruit-side-muscat.png": "12cm/fruit-side-muscat.png",
     "fruit-pile-muscat.png": "12cm/fruit-pile-muscat.png",
+    "fruit-ring-fig.png": "12cm/fruit-ring-fig.png",
+    "fruit-side-fig.png": "12cm/fruit-side-fig.png",
+    "fruit-pile-fig.png": "12cm/fruit-pile-fig.png",
+    "fruit-ring-kyoho.png": "12cm/fruit-ring-kyoho.png",
+    "fruit-side-kyoho.png": "12cm/fruit-side-kyoho.png",
+    "fruit-pile-kyoho.png": "12cm/fruit-pile-kyoho.png",
     "fruit-side-herb.png": "12cm/fruit-side-herb.png",
     "herb-ring.png": "12cm/herb-ring.png",
     "dog-cake.png": "12cm/dog-cake.png",
@@ -754,6 +859,12 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
     "fruit-ring-muscat.png": "18cm/fruit-ring-muscat.png",
     "fruit-side-muscat.png": "18cm/fruit-side-muscat.png",
     "fruit-pile-muscat.png": "18cm/fruit-pile-muscat.png",
+    "fruit-ring-fig.png": "18cm/fruit-ring-fig.png",
+    "fruit-side-fig.png": "18cm/fruit-side-fig.png",
+    "fruit-pile-fig.png": "18cm/fruit-pile-fig.png",
+    "fruit-ring-kyoho.png": "18cm/fruit-ring-kyoho.png",
+    "fruit-side-kyoho.png": "18cm/fruit-side-kyoho.png",
+    "fruit-pile-kyoho.png": "18cm/fruit-pile-kyoho.png",
     "fruit-side-herb.png": "18cm/fruit-side-herb.png",
     "herb-ring.png": "18cm/herb-ring.png",
     "dog-cake.png": "18cm/dog-cake.png",
@@ -781,6 +892,8 @@ function layerFileName(url) {
 }
 function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
   if (CONFIG.shop !== "pokke") return url;
+  // カレンダー専用の小さい丸絞りを通常サイズの画像で上書きしない。
+  if (url?.includes("/calendar/15cm/round-piping.png")) return url;
   const size=state.sel.variant?.size_label;
   if(!size)return url;
   if (["12cm", "15cm", "18cm"].includes(size) && MOCO_OPTION_NAMES.has(optionName))
@@ -811,11 +924,14 @@ function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
         : cakeLayerAsset(file))
     : url;
 }
-// oyatsupokkeのタルト・バスクは、商品土台とは別に通常の果物レイヤーが常に付く。
-// 他店舗の商品名が同じでも混ざらないよう、店舗キーpokkeだけに限定する。
+// バスクの既存イラストは専用の合成を使う。タルトの果物は通常の選択肢レイヤーで登録する。
 const OYATSU_PRODUCT_EXTRA_LAYERS = {
-  "フルーツタルト": [{ file: "tart-fruit-muscat.png", z: 35 }],
   "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
+};
+const OYATSU_FIG_DECORATION_LAYERS = {
+  "フルーツ1周": "fruit-ring-fig.png",
+  "フルーツサイド寄せ": "fruit-side-fig.png",
+  "フルーツ盛り": "fruit-pile-fig.png",
 };
 const DEFAULT_PASTEL = { hue: 340, softness: 0 };
 const DEFAULT_COLOR = "#D97A86";
@@ -890,6 +1006,12 @@ function pastelHueName(hue) {
 function loadImg(url) {
   url = safeImageUrl(url);
   if (!url) return Promise.resolve(null);
+  // 公開済みの同名PNGは長くキャッシュされるため、描き直さず色だけ替えた版を読み直す。
+  if (CONFIG.shop === "pokke" && layerFileName(url).endsWith("-kyoho.png")) {
+    const freshUrl = new URL(url, location.href);
+    freshUrl.searchParams.set("v", "20260930-color-only");
+    url = freshUrl.href;
+  }
   if (imgCache.has(url)) return imgCache.get(url);
   const p = new Promise((resolve) => {
     const img = new Image();
@@ -910,7 +1032,20 @@ function layerDrawRect(img) {
 }
 
 function drawLayerImage(ctx,img) {
+  // 小粒の絞りを、各サイズの既存の輪の位置・幅へ合わせて表示する。
+  if (CONFIG.shop === "pokke" && state.sel.product?.name === "デコレーションケーキ"
+      && ["12cm", "18cm"].includes(state.sel.variant?.size_label) && img.src.includes("/calendar/15cm/round-piping.png")) {
+    const target = state.sel.variant.size_label === "12cm" ? [170,158,642,515] : [54,92,852,600];
+    ctx.drawImage(img,110,107,734,569,...target);
+    return;
+  }
   const r=layerDrawRect(img);
+  // 15cmのもこもこホイップ（全面・フチ）は、15cmの土台（800px版）より上面が4〜13px下に描かれていて、
+  // 土台の白いフチが上にはみ出していた（2026-10-02 まりほ指摘）。12cmと同じ重なり方になるよう16px上げる
+  if (CONFIG.shop === "pokke" && state.sel.variant?.size_label === "15cm" && /\/cake-layers\/15cm\/moco-(full|edge)\.png/.test(img.src)) {
+    ctx.drawImage(img,r.x,r.y-16,r.w,r.h);
+    return;
+  }
   ctx.drawImage(img,r.x,r.y,r.w,r.h);
 }
 
@@ -927,6 +1062,64 @@ function imageAlphaBounds(img, key) {
   alphaBoundsCache.set(key,b);return b;
 }
 
+const DOG_WHIP_NAMES = ["わんこホイップ絞り", "犬ケーキに変更"];
+/* わんこホイップ＋ナンバークッキーの配置（2026-10-02 まりほ）。数字も犬も実物大のまま描く。
+ * ・大1〜2枚だけ：犬を上面の左、数字を右に並べる（上の弧はメッセージ用に空ける）
+ * ・それ以上（3枚以上・2人分・大＋小）：実物大では上面に入らないので、犬はいつもの位置のまま、
+ *   数字はケーキ手前の側面に立てて付ける（直書きメッセージのときと同じ考え方）
+ * 数字の画像は大・小とも同じ縮尺で描かれている（小は大の約0.53倍）ので、1つの倍率で描く。
+ * 座標は960pxの合成キャンバス上。上面の範囲（実測）：12cm 上153〜下693・左165〜右821／
+ * 15cm 104〜680・103〜854／18cm 114〜706・33〜934 */
+const NUMBER_COOKIE_SCALE = 220 / 510;   // 大の数字（画像の高さ約510px）を、普段どおり高さ220pxで描く倍率
+const DOG_NUMBER_PLAN = {
+  // plate：クッキープレートは上面の上側（楕円の幅にプレートが収まる高さから下へ）。そのとき犬は真ん中のまま少し下げる（dogUnderPlate）
+  "12cm": { dog: { cx: 342, cy: 470 }, top: { cx: 662, bottom: 580 }, side: { cx: 493, bottom: 840 }, plate: { cx: 493, top: 199 }, dogUnderPlate: { cx: 493, cy: 510 } },
+  "15cm": { dog: { cx: 333, cy: 480 }, top: { cx: 690, bottom: 590 }, side: { cx: 478, bottom: 835 }, plate: { cx: 478, top: 141 }, dogUnderPlate: { cx: 478, cy: 459 } },
+  "18cm": { dog: { cx: 280, cy: 495 }, top: { cx: 705, bottom: 605 }, side: { cx: 483, bottom: 865 }, plate: { cx: 483, top: 140 }, dogUnderPlate: { cx: 483, cy: 466 } },
+};
+function dogNumberPlan() {
+  if (CONFIG.shop !== "pokke") return null;
+  const plan = DOG_NUMBER_PLAN[state.sel.variant?.size_label];
+  if (!plan) return null;
+  const names = [...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {}));
+  if (!DOG_WHIP_NAMES.some((n) => names.includes(n))) return null;
+  const hasL = names.includes("ナンバークッキー大") && numberCookieHasPreviewDigits("ナンバークッキー大");
+  const hasS = names.includes("ナンバークッキー小") && numberCookieHasPreviewDigits("ナンバークッキー小");
+  const plate = names.includes("クッキープレート");
+  if (!hasL && !hasS && !plate) return null;
+  // 大1〜2枚（1人分）だけなら上面に並べる。それ以外は側面へ
+  const largeOpt = [...state.sel.options.keys()].map((id) => findOption(id)?.o).find((o) => o && optName(o) === "ナンバークッキー大");
+  const text = largeOpt ? normAnswer(state.sel.answers.get(previewQuestionForOption(largeOpt, "number")?.id)).text : "";
+  const groups = numberCookieDigitGroups(text);
+  // クッキープレートがあるときは、上面の上側をプレートが使うので、犬は真ん中のまま少し下げ・数字は側面へ
+  const onTop = !plate && hasL && !hasS && groups.length === 1 && groups[0].length <= 2;
+  return { ...plan, onTop, withPlate: plate };
+}
+// 犬の位置：数字を上面に並べるときは左へ、プレートがあるときは真ん中のまま少し下へ（大きさはそのまま）
+function drawPlannedDog(ctx, img, key, plan) {
+  const b = imageAlphaBounds(img, key);
+  const at = plan.onTop ? plan.dog : plan.dogUnderPlate;
+  // プレートと一緒のときは犬を少し小さく（0.85倍・2026-10-02 まりほ）。数字だけのときは元の大きさ
+  const k = plan.onTop ? 1 : 0.85, w = b.w * k, h = b.h * k;
+  ctx.drawImage(img, b.x, b.y, b.w, b.h, at.cx - w / 2, at.cy - h / 2, w, h);
+}
+// 数字を実物大で1列に並べる（上面の右、または手前の側面）。2人分の間は少し広く空ける。縮めない
+function drawPlannedNumbers(ctx, entries, plan) {
+  const spot = plan.onTop ? plan.top : plan.side;
+  const ordered = [...entries.filter(({ layer }) => layer.numberCookie.size === "L"), ...entries.filter(({ layer }) => layer.numberCookie.size === "S")];
+  const items = ordered.map(({ img, layer }) => {
+    const b = imageAlphaBounds(img, layer.url);
+    return { img, b, w: b.w * NUMBER_COOKIE_SCALE, h: b.h * NUMBER_COOKIE_SCALE, key: `${layer.numberCookie.size}${layer.numberCookie.group ?? 0}` };
+  });
+  const gaps = items.slice(1).map((it, i) => it.key === items[i].key ? 10 : 40);
+  const raw = items.reduce((n, x) => n + x.w, 0) + gaps.reduce((n, g) => n + g, 0);
+  // 実物大のまま描く（縮めない。実物のクッキーは小さくならない＝普段の並べ方と同じ）
+  let x = spot.cx - raw / 2;
+  items.forEach((it, i) => {
+    ctx.drawImage(it.img, it.b.x, it.b.y, it.b.w, it.b.h, x, spot.bottom - it.h, it.w, it.h);
+    x += it.w + (gaps[i] || 0);
+  });
+}
 function numberCookieLayout(size, layouts, selectedNames) {
   if (size === 'L' && selectedNames.has('メッセージをケーキに直書き')) {
     // 直書きの上面を空け、実物どおりケーキ手前の側面へ付ける。
@@ -1040,6 +1233,8 @@ function numberCookieLayouts(product, animalCount) {
 // 透過余白を除いた数字だけを、組み合わせごとの定位置へ横並びにする。
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
+  const dogPlan=dogNumberPlan();
+  if(dogPlan){drawPlannedNumbers(ctx,entries,dogPlan);return;}
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
   const animalCount=selectedAnimalToppingCount();
@@ -1166,6 +1361,13 @@ function messagePlateLayout(img, url, mode) {
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
   // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
   if(!mode){const o=layerDrawRect(img).x;return {b,cx:b.x+b.w/2+o,cy:b.y+b.h/2+o,w:b.w,h:b.h};}
+  // わんこホイップと一緒：上面の上側（犬の上・まりほ判断）。犬は少し下げる（drawPlannedDog）
+  if(mode==='dog'){
+    // プレートは形・大きさが決まっていないので、犬と一緒のときは少し小さく（0.75倍・2026-10-02 まりほ）。文字も合わせて縮む
+    const spot=(DOG_NUMBER_PLAN[state.sel.variant?.size_label]||DOG_NUMBER_PLAN["15cm"]).plate;
+    const w=b.w*.75,h=b.h*.75;
+    return {b,cx:spot.cx,cy:spot.top+h/2+10,w,h};
+  }
   const layout=mode==='fruit-side-number-large'?{cx:410,cy:430,w:410}
     :mode==='fruit-side'?{cx:265,cy:275,w:410}
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
@@ -1304,7 +1506,8 @@ function wrapDirectMessage(ctx, text, maxWidth, maxLines) {
 function directMessageLayout(selectedNames, calendarCake, calendarRows) {
   const fruitSide=selectedNames.has("フルーツサイド寄せ");
   const dogCake=selectedNames.has("わんこホイップ絞り")||selectedNames.has("犬ケーキに変更");
-  if(calendarCake)return { cx:400, cy:calendarRows>5?550:505, maxWidth:430, size:46, lineHeight:56 };
+  // 12cmの6段の月は、下の輪にかからないようメッセージを少しカレンダーへ寄せる（2026-10-02）
+  if(calendarCake)return { cx:400, cy:calendarRows>5?(state.sel.variant?.size_label==="12cm"?530:550):505, maxWidth:430, size:46, lineHeight:56 };
   if(fruitSide)return { cx:235, cy:295, maxWidth:320, size:64, lineHeight:88 };
   // 犬の顔に重ねず、見本で示された上側の弧の間へ置く。
   if(dogCake)return { cx:400, cy:210, maxWidth:430, size:48, lineHeight:60 };
@@ -1380,14 +1583,14 @@ function drawCalendarLayer(ctx, cal) {
 }
 
 function calendarLayerTransform(size) {
-  // 12cmは上面が小さいため、15cm基準の文字組みを少し縮めて下へ寄せる。
-  if (size === "12cm") return { scale: .93, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET + 20 };
+  // 12cmは文字組みを縮め、土台イラストの上面中央に合わせて右へ寄せる。
+  // 下にメッセージを入れても輪の内側に収まるよう .93 → .80 に縮めた（2026-10-02 まりほ指摘）
+  if (size === "12cm") return { scale: .80, offsetX: LEGACY_LAYER_OFFSET + 16, offsetY: LEGACY_LAYER_OFFSET + 10 };
   return { scale: 1, offsetX: LEGACY_LAYER_OFFSET, offsetY: LEGACY_LAYER_OFFSET };
 }
 
-function drawSizedCalendarLayer(ctx, cal) {
+function applyCalendarTransform(ctx) {
   const t = calendarLayerTransform(state.sel.variant?.size_label);
-  ctx.save();
   ctx.translate(t.offsetX, t.offsetY);
   if (t.scale !== 1) {
     // 横中心は変えず、カレンダーが載る上面中央を基準に縮小する。
@@ -1395,26 +1598,71 @@ function drawSizedCalendarLayer(ctx, cal) {
     ctx.scale(t.scale, t.scale);
     ctx.translate(-400, -300);
   }
+}
+function drawSizedCalendarLayer(ctx, cal) {
+  ctx.save();
+  applyCalendarTransform(ctx);
   drawCalendarLayer(ctx, cal);
   ctx.restore();
 }
 
 // 今の選択内容から、重ねる素材を下から順に並べる
+/* サイズ別のイラスト（店が商品設定で登録・2026-09-30）。選んだサイズ用があればそのURL、無ければ null。
+ * 登録があるときは、oyatsupokke用の直書きの差し替え（sizeSpecificLayerUrl）より優先する */
+function ownSizedLayer(item, key = "size_layer_urls") {
+  const size = state.sel.variant?.size_label;
+  const map = item?.[key];
+  const url = size && map && typeof map === "object" ? map[size] : null;
+  return typeof url === "string" && url ? url : null;
+}
+/* 組み合わせ別のイラスト（2026-09-30）。この選択肢と一緒に選ばれている選択肢の絵があればそのURL。
+ * 先頭から見て最初に当たったものを使い、その組み合わせにサイズ別があればそれを優先する */
+function comboLayer(o) {
+  const rules = Array.isArray(o?.combo_layers) ? o.combo_layers : [];
+  const size = state.sel.variant?.size_label;
+  for (const rule of rules) {
+    if (!rule?.when || !state.sel.options.has(rule.when)) continue;
+    const sized = size && rule.sizes && typeof rule.sizes === "object" ? rule.sizes[size] : null;
+    const url = (typeof sized === "string" && sized) || (typeof rule.url === "string" && rule.url) || null;
+    if (url) return url;
+  }
+  return null;
+}
 function currentLayers() {
   const p = state.sel.product;
-  if (!p?.layer_url) return null;
+  if (!p) return null;
+  const baseUrl = ownSizedLayer(p) || (p.layer_url ? sizeSpecificLayerUrl(p.layer_url, "base") : null);
+  if (!baseUrl) return null;
   const ownPreview = CONFIG.shop === "pokke";
-  const layers = [{ url: sizeSpecificLayerUrl(p.layer_url, "base"), z: 0 }];
+  const layers = [{ url: baseUrl, z: 0 }];
   if (CONFIG.shop === "pokke") {
+    const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
     for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      layers.push({ url: cakeLayerAsset(x.file), z: x.z });
+      let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
+        ? "basque-fruit-mix.png"
+        : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
+        ? "basque-fruit-fig.png"
+        : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
+      layers.push({ url: cakeLayerAsset(file), z: x.z });
     }
   }
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set((ownPreview ? [...state.sel.options.keys()] : []).map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
+  // フルーツミックスの原画は果物のみ。1周と盛りは元の白い絞りをサイズ別に残す。
+  const mixSize = state.sel.variant?.size_label;
+  if (ownPreview && p.name === "デコレーションケーキ" && ["12cm", "15cm", "18cm"].includes(mixSize)
+      && selectedNames.has("フルーツミックス")
+      && (selectedNames.has("フルーツ1周") || selectedNames.has("フルーツ盛り"))
+      && !selectedNames.has("丸絞り1周"))
+    layers.push({ url: cakeLayerAsset(mixSize === "15cm" ? "round-piping.png" : `${mixSize}/round-piping.png`), z: 38 });
+  // 片側寄せは既存の絞り付きレイヤーを下に残し、原画のミックスを重ねる。
+  if (ownPreview && p.name === "デコレーションケーキ" && ["12cm", "15cm", "18cm"].includes(mixSize)
+      && selectedNames.has("フルーツミックス") && selectedNames.has("フルーツサイド寄せ"))
+    layers.push({ url: cakeLayerAsset(mixSize === "15cm" ? "fruit-side-muscat.png" : `${mixSize}/fruit-side-muscat.png`), z: 38 });
   const largeNumberVisible=numberCookieHasPreviewDigits("ナンバークッキー大");
-  const dogNumberCombo = CONFIG.shop === "pokke" && selectedNames.has("わんこホイップ絞り") && largeNumberVisible;
+  // わんこホイップ＋ナンバークッキーは、以前は専用イラスト（顔＋前足）に差し替えていたが、
+  // 実物どおりのプレビューが難しいため、いつもの犬のまま数字を犬の下へ並べる（numberCookieLayout・2026-10-02 まりほ）
   const calendarCake = [...selectedNames].some(name=>CALENDAR_OPTION_NAMES.has(name));
   for (const g of sortedGroups(p)) {
     const selectedInGroup = g.options.filter((o) => state.sel.options.has(o.id));
@@ -1423,17 +1671,25 @@ function currentLayers() {
         const name=optName(o);
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
+        // 専用の盛り絵ができるまでは、いちじくの上にマスカットを重ねない。
+        if(ownPreview && p.name==="バスクチーズケーキ" && selectedNames.has("いちじく")
+          && name==="フルーツ盛り" && !comboLayer(o))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
-        const rawLayerUrl=CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
-          && state.sel.variant?.size_label==="15cm" && name==="丸絞り1周"
+        const rawLayerUrl=CONFIG.shop==="pokke" && p.name==="デコレーションケーキ"
+          && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]
+          ? cakeLayerAsset(OYATSU_FIG_DECORATION_LAYERS[name])
+          :CONFIG.shop==="pokke" && calendarCake && p.name==="デコレーションケーキ"
+          && ["12cm","15cm","18cm"].includes(state.sel.variant?.size_label) && name==="丸絞り1周"
           ? cakeLayerAsset("calendar/15cm/round-piping.png")
           :CONFIG.shop==="pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && name==="クッキープレート"
             ? cakeLayerAsset(p.name==="フルーツタルト"?"tart-message-plate.png":"basque-message-plate.png")
           :CONFIG.shop==="pokke" && selectedNames.has("フルーツサイド寄せ") && HERB_TOPPING_NAMES.has(name)
             ? cakeLayerAsset("fruit-side-herb.png") : o.layer_url;
-        const layerUrl=sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
+        // サイズ別の登録は「選択肢そのものの絵」のときだけ使う。ほかの選択で絵が替わる場合
+        // （サイド寄せのハーブ・いちじく・カレンダーの丸絞り・タルト等のプレート）はそちらを優先する
+        // 店が登録した組み合わせの絵がいちばん優先（例：いちじく×フルーツ1周）
+        const layerUrl=comboLayer(o)||(rawLayerUrl===o.layer_url&&ownSizedLayer(o))||sizeSpecificLayerUrl(rawLayerUrl,name==="ベースカラー変更"?"base":"option",name);
         if (layerUrl) {
-          if(dogNumberCombo && name==="わんこホイップ絞り")continue;
           // カレンダーケーキのクッキープレートは別添え。注文には残し、ケーキ上には描かない。
           if(calendarCake && name==="クッキープレート")continue;
           if(layerUrl.includes('{digit}')){
@@ -1452,11 +1708,17 @@ function currentLayers() {
           const linkedQ=state.questions.find(q=>qLive(q)&&isColorQuestionType(q.input_type)
             &&questionColorLinksTo(q,o)&&state.sel.options.has(qOptionId(q))
             &&parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).linked);
+          // 色見本から選ぶ質問は、選んだ色でこの選択肢のイラストを染める（カラーチャートと同じ）
+          const paletteQ=!q&&!linkedQ?state.questions.find(x=>qLive(x)&&qOptionId(x)===o.id&&x.input_type==="palette"):null;
+          const paletteHex=paletteQ?qChoices(paletteQ).find(c=>normAnswer(state.sel.answers.get(paletteQ.id)).choiceIds.includes(c.id))?.color_hex:null;
           const tint=q ? parsePastelAnswer(normAnswer(state.sel.answers.get(q.id)).text).hex
-            :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex : null;
+            :linkedQ ? parsePastelAnswer(normAnswer(state.sel.answers.get(linkedQ.id)).text).hex
+            :/^#[0-9A-Fa-f]{6}$/.test(paletteHex||"") ? paletteHex.toUpperCase() : null;
           const animalName=ownPreview&&ANIMAL_TOPPING_NAMES.has(name)?name:null;
           const messagePlatePlacement=ownPreview&&name==="クッキープレート"
-            ? largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
+            // わんこホイップがいるときは、上面の上側（犬の上）に置く（2026-10-02 まりほ判断）
+            ? DOG_WHIP_NAMES.some((n)=>selectedNames.has(n))?"dog"
+            : largeNumberVisible&&selectedNames.has("フルーツサイド寄せ")?"fruit-side-number-large"
               :largeNumberVisible?"number-large"
               :selectedNames.has("フルーツサイド寄せ")?"fruit-side":null
             :null;
@@ -1464,8 +1726,13 @@ function currentLayers() {
           const dynamicLargeAnimal=animalName && ["フルーツタルト","バスクチーズケーキ"].includes(p.name) && selectedNames.has("ナンバークッキー大");
           for(let animalCopy=0;animalCopy<(animalName ? state.sel.options.get(o.id).qty : 1);animalCopy++) layers.push({
             animalCopy,
-            url: layerUrl, z: animalName?(dynamicLargeAnimal?70:animalToppingIsBack(animalName,p.name,animalCopy)?64:70):(o.layer_z ?? 50), tint,
+            url: layerUrl, z: animalName
+              ? (o.layer_z == null || Number(o.layer_z) === 75
+                ? (dynamicLargeAnimal || !animalToppingIsBack(animalName,p.name,animalCopy) ? 90 : 64)
+                : Number(o.layer_z ?? 75))
+              : (o.layer_z ?? 50), tint,
             creamOnlyTint: !!linkedQ && ["フルーツ1周", "フルーツ盛り"].includes(name),
+            dogWhip: DOG_WHIP_NAMES.includes(name),
             animalTopping: animalName,
             dynamicLargeAnimal,
             messagePlatePlacement,
@@ -1475,7 +1742,7 @@ function currentLayers() {
           // 注文オプションや料金は増やさず、プレビュー上だけ自動で重ねる。
           if (ownPreview && MOCO_EDGE_OPTION_NAMES.has(name) && !selectedNames.has("丸絞り1周")) {
             layers.push({
-              url: calendarCake && p.name==="デコレーションケーキ" && state.sel.variant?.size_label==="15cm"
+              url: calendarCake && p.name==="デコレーションケーキ" && ["12cm","15cm","18cm"].includes(state.sel.variant?.size_label)
                 ? cakeLayerAsset("calendar/15cm/round-piping.png")
                 : sizeSpecificMocoEdgePipingAsset(state.sel.variant?.size_label),
               z: 38,
@@ -1486,22 +1753,18 @@ function currentLayers() {
           }
         }
       }
-    } else if (g.default_layer_url) {
+    } else if (g.default_layer_url || ownSizedLayer(g, "default_size_layer_urls")) {
       // 何も選ばれていないグループの既定イラスト（例: 仕上げ未選択時のノーマルデコ）
-      layers.push({ url: sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
+      layers.push({ url: ownSizedLayer(g, "default_size_layer_urls") || sizeSpecificLayerUrl(g.default_layer_url), z: g.default_layer_z ?? 50 });
     }
-  }
-  if (dogNumberCombo) {
-    layers.push({ url: cakeLayerAsset("dog-number-face.png"), z: 76 });
-    layers.push({ url: cakeLayerAsset("dog-number-left-paw.png"), z: 85, dogPaw: true });
-    layers.push({ url: cakeLayerAsset("dog-number-right-paw.png"), z: 85, dogPaw: true });
   }
   const calendar = currentCalendarLayer();
   for (const q of askedQuestions()) {
     const ids = normAnswer(state.sel.answers.get(q.id)).choiceIds;
     for (const c of qChoices(q)) {
-      if (ids.includes(c.id) && choiceAvailableOnPickup(c) && c.layer_url) {
-        layers.push({ url: c.layer_url, z: c.layer_z ?? 50 });
+      const choiceLayer = ownSizedLayer(c) || c.layer_url;
+      if (ids.includes(c.id) && choiceAvailableOnPickup(c) && choiceLayer) {
+        layers.push({ url: choiceLayer, z: c.layer_z ?? 50 });
       }
     }
   }
@@ -1516,6 +1779,8 @@ async function updatePreview() {
   const box = $("preview-canvas");
   const p = state.sel.product;
   const layers = currentLayers();
+  // 写真を出す商品は、商品一覧のカードと同じ横長4:3の枠にする（イラストは正方形のまま・2026-09-30）
+  box.classList.toggle("is-photo", !layers && !!p?.photo_url);
 
   if (layers) {
     const token = ++previewToken;
@@ -1532,18 +1797,23 @@ async function updatePreview() {
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
-    const numberEntries=[],dogPawEntries=[],dynamicLargeAnimalEntries=[],frontAnimalEntries=[];
+    const numberEntries=[],dogPawEntries=[],frontAnimalEntries=[];
+    const dogPlan=dogNumberPlan();
+    const numberZ = layers.find(layer => layer.numberCookie)?.z;
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
-      if(layers[i].directMessage){ctx.save();ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
+      // カレンダーケーキの下のメッセージは、カレンダーと同じ縮小・位置合わせで描く（12cmで下にはみ出していた・2026-10-02）
+      if(layers[i].directMessage){ctx.save();if(layers.some(l=>l.calendarCake))applyCalendarTransform(ctx);else ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
+      // わんこホイップ＋ナンバークッキー（大1〜2枚）：犬は上面の左へずらす（数字は drawNumberCookieLayers で右へ）
+      if(layers[i].dogWhip&&(dogPlan?.onTop||dogPlan?.withPlate)){drawPlannedDog(ctx,img,layers[i].url,dogPlan);continue;}
       if(layers[i].messagePlatePlacement){drawShiftedMessagePlate(ctx,img,layers[i].url,layers[i].messagePlatePlacement);drawMessagePlateText(ctx,img,layers[i].url,layers[i].messagePlatePlacement,layers[i].messagePlateText);continue;}
       if(layers[i].dogPaw){dogPawEntries.push(img);continue;}
       if(layers[i].numberCookie){numberEntries.push({img,layer:layers[i]});continue;}
       // z=64の奥2匹 → z=65のプレート → z=70の手前2匹、の順にその場で描く。
       if(layers[i].animalTopping){
-        if(layers[i].dynamicLargeAnimal)dynamicLargeAnimalEntries.push({img,layer:layers[i]});
-        else if(animalToppingIsBack(layers[i].animalTopping,state.sel.product?.name,layers[i].animalCopy || 0))
+        if (numberZ !== undefined ? layers[i].z < numberZ
+          : animalToppingIsBack(layers[i].animalTopping,state.sel.product?.name,layers[i].animalCopy || 0))
           drawAnimalToppingLayers(ctx,[{img,layer:layers[i]}]);
         else frontAnimalEntries.push({img,layer:layers[i]});
         continue;
@@ -1573,7 +1843,6 @@ async function updatePreview() {
     // 正面から、くま・わんこ → 数字 → ねこ・うさぎの奥行きに見えるよう、
     // 手前側の動物は数字を描いた後に重ねる。
     drawAnimalToppingLayers(ctx,frontAnimalEntries);
-    drawAnimalToppingLayers(ctx,dynamicLargeAnimalEntries);
     for(const img of dogPawEntries)drawLayerImage(ctx,img);
     return;
   }
@@ -1613,7 +1882,7 @@ function renderSizes() {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "pill" + (state.sel.variant?.id === v.id ? " selected" : "");
-    el.textContent = `${v.size_label}　${yen(v.price)}`;
+    el.textContent = `${v.size_label}　${yen(basePrice(v))}`;
     el.onclick = () => selectVariant(v);
     wrap.appendChild(el);
   }
@@ -1624,7 +1893,8 @@ function selectVariant(v) {
   ensureRequiredFallbacks();
   renderSizes();
   renderGroups();
-  $("sec-groups").classList.toggle("hidden", !state.sel.product.option_groups.length);
+  // 受取日 → ケーキの内容の順（2026-10-02 まりほ決定）。内容は受取日を選んでから出す
+  $("sec-groups").classList.add("hidden");
   // 受取日はサイズ確定後に（サイズ別上限があるため）
   state.sel.date = null;
   state.sel.slot = null;
@@ -1636,8 +1906,7 @@ function selectVariant(v) {
   const today = new Date(bounds.today + "T00:00:00");
   const end = new Date(bounds.end + "T00:00:00");
   const calBase = pStart && pStart > today ? (STAFF_MODE || pStart <= end ? pStart : end) : today;
-  // デモ：今月は締切で選べる日が少ないため、翌月から開く
-  state.calMonth = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1);
+  state.calMonth = new Date(calBase.getFullYear(), calBase.getMonth(), 1);
   $("sec-date").classList.remove("hidden");
   $("slot-area").classList.add("hidden");
   loadCalendar();
@@ -1762,6 +2031,11 @@ function openOptionSamplePhoto(url, optionName) {
   else window.open(src,'_blank','noopener,noreferrer');
 }
 
+// 選択肢がすべて「期間外は表示しない」で隠れているグループは、見出しごと出さない
+function groupAllHidden(g) {
+  const live = (g.options || []).filter((o) => o.is_available && !(o.shared_list_item_id && !o.shared_list_items));
+  return live.length > 0 && live.every((o) => hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id));
+}
 function renderGroups() {
   pruneHiddenQuestions();
   const wrap = $("group-list");
@@ -1774,6 +2048,7 @@ function renderGroups() {
     wrap.appendChild(pn);
   }
   for (const g of sortedGroups(state.sel.product)) {
+    if (groupAllHidden(g)) continue;
     const box = document.createElement("div");
     box.className = "group";
     box.dataset.questionKey = `group:${g.id}`;
@@ -1791,6 +2066,7 @@ function renderGroups() {
       if (!o.is_available) continue;
       // 共有リスト由来なのに項目が取れない=停止中（RLSで非表示）→ 出さない
       if (o.shared_list_item_id && !o.shared_list_items) continue;
+      if (hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id)) continue;
       const conflictIds = conflictsWithSelected(o.id);
       // 上にある大分類はいつでも変更できる。選ぶと、矛盾する後段の選択を toggleOption が外す。
       // 後段側は無効表示にし、「なぜ選べないか」が分かるようにする。
@@ -1800,7 +2076,8 @@ function renderGroups() {
       });
       const capacityConflict = toppingCapacityConflict(o);
       const row = document.createElement("label");
-      row.className = "opt" + ((blockingIds.length || capacityConflict) && !state.sel.options.has(o.id) ? " opt-disabled" : "");
+      // 選んだ受取日に選べないものも灰色で残す（消すと、その飾りを選びたい人が日付を変えられない・2026-10-02 まりほ）
+      row.className = "opt" + ((blockingIds.length || capacityConflict || !optionAvailableOnPickup(o)) && !state.sel.options.has(o.id) ? " opt-disabled" : "");
       const type = g.selection_type === "single" ? "radio" : "checkbox";
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
@@ -1815,8 +2092,17 @@ function renderGroups() {
              <button type="button" class="qty-btn qty-plus" aria-label="増やす">＋</button>
            </span>`
         : "";
-      const conflictNote = !optionAvailableOnPickup(o)
-        ? "この受取日は提供期間外です。受取日または選択肢を変更してください"
+      const period = optionPickupPeriod(o);
+      const hasPeriod = !!(period.pickup_from || period.pickup_until);
+      const blockedReason = optionBlockedOnDate(o, state.sel.date) ? state.dateBlocked.get(o.id) : null;
+      const conflictNote = blockedReason === "deadline"
+        ? `受取日の${o.order_deadline_days}日前が締切のため、${mdText(state.sel.date)}の受取には間に合いません`
+        : optionStopped(o, state.sel.date) || blockedReason === "stop"
+        ? `${mdText(state.sel.date)}の受取ではご用意できません`
+        : !optionAvailableOnPickup(o)
+        ? hasPeriod && optionAvailableOnPickup(o, null)   // 停止中ではなく、期間だけが合わない
+          ? `${periodText(period)}です。選んだ受取日（${mdText(state.sel.date)}）では選べません`
+          : "この受取日は提供期間外です。受取日または選択肢を変更してください"
         : !selected && capacityConflict
         ? capacityConflict
         : blockingIds.length && !selected
@@ -1824,18 +2110,11 @@ function renderGroups() {
           : "";
       row.innerHTML = `
         <input type="${type}" name="g-${esc(g.id)}" ${selected ? "checked" : ""} ${conflictNote ? "disabled" : ""}>
-        <span class="opt-name">${esc(optName(o))}${o.order_deadline_days != null ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切（受付可能日はカレンダーで確認）</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
+        <span class="opt-name">${esc(optName(o))}${hasPeriod && !conflictNote ? `<span class="opt-desc">${esc(periodText(period))}</span>` : ""}${o.order_deadline_days != null && blockedReason !== "deadline" ? `<span class="opt-desc">受取日の${esc(o.order_deadline_days)}日前締切</span>` : ""}${optDesc(o) ? `<span class="opt-desc">${esc(optDesc(o))}</span>` : ""}${optNote(o) ? `<span class="opt-note${o.note_accent ? " note-accent" : ""}">${esc(optNote(o))}</span>` : ""}${conflictNote ? `<span class="opt-conflict">${esc(conflictNote)}</span>` : ""}</span>
         ${safeImageUrl(o.photo_url) ? '<button type="button" class="opt-sample-button">見本を見る</button>' : ""}
         ${qtyUi}
         <span class="opt-price">${price}</span>`;
       const input = row.querySelector("input");
-      const period = choicePeriodText(optionPickupPeriod(o));
-      if (period) {
-        const note = document.createElement("span");
-        note.className = "opt-desc";
-        note.textContent = period + (!state.sel.date ? " 受取日を選ぶと確認できます" : "");
-        row.querySelector(".opt-name").appendChild(note);
-      }
       input.onclick = (e) => { e.stopPropagation(); toggleOption(g, o, input); };
       const sampleButton=row.querySelector('.opt-sample-button');
       if(sampleButton)sampleButton.onclick=(e)=>{
@@ -1865,7 +2144,7 @@ function renderGroups() {
         box.appendChild(buildDetachedToppingPicker(g,o.id));
       }
       // 選択肢の質問: この選択肢を選んだ人にだけ、選択肢のすぐ下に出す
-      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id && QuestionFlow.conditionMatches(x, state.sel.options)) : [];
+      const optionQs = selected ? state.questions.filter((x) => qLive(x) && qOptionId(x) === o.id && QuestionFlow.conditionMatches(x, state.sel.options, state.sel.answers)) : [];
       if (optionQs.length) {
         const wrapQ = document.createElement("div");
         wrapQ.className = "opt-question";
@@ -1924,23 +2203,6 @@ function toggleOption(g, o, input) {
   $("sec-questions").classList.add("hidden");
   updatePriceBar();
   updatePreview(); // 選択に応じてイラストを組み直す
-  // 選択肢の「できない日」を反映してカレンダーを引き直す（表示中なら常に）
-  if (state.sel.variant) {
-    loadCalendar().then((loaded) => {
-      if (!loaded) return;
-      if (state.sel.date && !STAFF_MODE) {   // 代行登録は満枠・締切の日も選べるので外さない
-        const st = state.avail[state.sel.date];
-        if (st !== "open" && st !== "few") {
-          state.sel.date = null;
-          state.sel.slot = null;
-          $("slot-area").classList.add("hidden");
-          renderCalendar();
-          saveState();
-          toast("選んだ内容がご用意できない日のため、受取日を選び直してください");
-        }
-      }
-    });
-  }
 }
 
 /* ---------- 4. カレンダー・時間枠 ---------- */
@@ -1955,14 +2217,16 @@ async function loadCalendar() {
   $("cal-title").textContent = `${m.getFullYear()}年${m.getMonth() + 1}月`;
   $("cal-grid").innerHTML = '<div class="dow">読み込み中…</div>';
   try {
-    const optIds = [...state.sel.options.keys()];
     const rows = await rpc("fn_get_availability", {
       p_tenant: state.tenant.id,
       p_product: state.sel.product.id,
       p_variant: state.sel.variant.id,
       p_from: fmtDate(first),
       p_to: fmtDate(last),
-      p_options: optIds.length ? optIds : null, // 選択肢の「できない日」も反映
+      // 選んだ選択肢では日を絞らない（2026-10-02）。受取日が先なので、選択肢で日を絞ると
+      // 「その日にしか合わない飾り」が必須の欄に入ったまま日付も飾りも変えられなくなる。
+      // 日付を変えて合わなくなった選択肢は selectDate が名前を出して外す
+      p_options: null,
     });
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
@@ -1995,6 +2259,7 @@ function renderCalendar() {
   const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const MARK = { open: "●", few: "▲", full: "×", closed: "" };
   const todayKey = BookingWindow.bounds(state.tenant).today;
+  // 受取日が先なので、選んだ選択肢・回答ではカレンダーを絞らない（loadCalendar と同じ理由）
   for (let day = 1; day <= days; day++) {
     const key = fmtDate(new Date(m.getFullYear(), m.getMonth(), day));
     const st = state.avail[key] || "closed";
@@ -2023,22 +2288,40 @@ function renderCalendar() {
     $("booking-window-note").textContent += ` この商品の受取期間はまだ先です。最初の受取日の予約は${opens.toISOString().slice(0,10).replaceAll('-','/')}から可能です（商品の受付開始日時も適用されます）。`;
   }
 }
+async function loadDateBlockedOptions(key) {
+  state.dateBlocked = new Map();
+  state.dateBlockedFor = key;
+  if (STAFF_MODE || !state.sel.product) return;   // 代行登録は店の判断で選べる（サーバーも同じ）
+  try {
+    const rows = await rpc("fn_options_unavailable_on", { p_tenant: state.tenant.id, p_product: state.sel.product.id, p_date: key });
+    if (state.dateBlockedFor !== key) return;
+    for (const r of rows || []) state.dateBlocked.set(r.option_id, r.reason);
+  } catch { /* 取れなくても注文の確定時にサーバーが確認する */ }
+}
 async function selectDate(key) {
+  const firstDate = !state.sel.date;
   state.sel.date = key;
-  let cleared = pruneUnavailableChoiceAnswers();
-  for (const id of state.sel.options.keys()) {
-    const o = findOption(id)?.o;
-    if (o && !optionAvailableOnPickup(o)) {
+  await loadDateBlockedOptions(key);
+  if (state.sel.date !== key) return;   // 待っている間に別の日が押された
+  const cleared = [];
+  for (const id of [...state.sel.options.keys()]) {
+    const f = findOption(id);
+    if (f && !optionAvailableOnPickup(f.o)) {
       state.sel.options.delete(id);
       for (const q of state.questions) if (qOptionId(q) === id) state.sel.answers.delete(q.id);
-      cleared = true;
+      cleared.push(`${f.g.name}「${optName(f.o)}」`);
     }
   }
+  cleared.push(...pruneUnavailableChoiceAnswers());
   ensureRequiredFallbacks();
   renderGroups();
   renderQuestions();
   updatePriceBar();
-  if (cleared) toast("受取日が提供期間外の回答を解除しました。質問の回答を選び直してください");
+  // 何が外れたかを名前で伝える（「解除しました」だけでは分からない・2026-10-02 まりほ指摘）
+  if (cleared.length) {
+    const [, mm, dd] = key.split("-").map(Number);
+    toast(`${mm}/${dd}の受取では選べないため、${cleared.join("、")}の選択を外しました。選び直してください`, 7000);
+  }
   track("date_selected");
   state.sel.slot = null;
   renderCalendar();
@@ -2058,7 +2341,7 @@ async function selectDate(key) {
   renderSlots();
   saveState();
   $("slot-area").classList.remove("hidden");
-  if (!THEME_PREVIEW) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (!THEME_PREVIEW && !RESTORING && firstDate) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function renderSlots() {
   const wrap = $("slot-pills");
@@ -2073,7 +2356,11 @@ function renderSlots() {
     if (full && !STAFF_MODE) el.disabled = true;
     else el.onclick = () => {
       if (full) toast("この時間帯は満員です。代行登録なので選べます（登録前に確認が出ます）");
+      const first = !state.sel.slot;
       state.sel.slot = s; renderSlots(); saveState();
+      // 時間まで決まったら、次の「ケーキの内容」へ
+      if (first && !THEME_PREVIEW && !$("sec-groups").classList.contains("hidden"))
+        $("sec-groups").scrollIntoView({ behavior: "smooth", block: "start" });
     };
     wrap.appendChild(el);
   }
@@ -2089,22 +2376,45 @@ $("cal-next").onclick = () => { state.calMonth = new Date(state.calMonth.getFull
  */
 const qOptionId = (q) => q.option_id || q.trigger_option_id || null;
 const qLive = (q) => q.is_active !== false && (q.label || "").trim() !== "";
+// 回答の選択肢の「選べない日」（2026-10-02）。お店が日付を1日ずつ登録する
+const choiceStopped = (c, date) => !!date && (c.choice_availability_overrides || []).some((s) => s.date === date);
 function choiceAvailableOnPickup(c, date = state.sel.date) {
   return c.is_available !== false && (!date ||
-    ((!c.pickup_from || date >= c.pickup_from) && (!c.pickup_until || date <= c.pickup_until)));
+    ((!c.pickup_from || date >= c.pickup_from) && (!c.pickup_until || date <= c.pickup_until) && !choiceStopped(c, date)));
 }
+const choiceUnavailableNote = (c) => choiceAvailableOnPickup(c) ? "" : choiceStopped(c, state.sel.date) ? "・この日は選べません" : "・期間外";
+/* 「期間外はお客様に表示しない」にした選択肢・回答の選択肢（2026-09-30・10-02 見直し）。
+ * どの受取日でも選べないもの＝期間が終わった／予約できる範囲より先に始まるものだけ隠す。
+ * お店の代行登録と管理画面の見本では全部出す */
+function hiddenOutsidePeriod(item, period = item) {
+  if (!item?.hide_outside_period || STAFF_MODE || EDITOR_PREVIEW) return false;
+  const from = period?.pickup_from || null, until = period?.pickup_until || null;
+  if (!from && !until) return false;
+  // 選んだ受取日では判断しない：受取日によって選べないものは灰色で見せ、日付を変えれば選べると分かるようにする。
+  // 隠すのは、予約できる範囲のどの日でも選べないもの（期間が終わった／予約できる範囲より先に始まる）だけ
+  const day = (offset) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
+  return (!!until && until < day(0)) || (!!from && from > day(state.tenant?.booking_window_days ?? 90));
+}
+const visibleChoices = (cs) => cs.filter((c) => !hiddenOutsidePeriod(c));
 function choicePeriodText(c) {
-  return c.pickup_from || c.pickup_until
-    ? `（受取日：${c.pickup_from || "制限なし"}〜${c.pickup_until || "制限なし"}）` : "";
+  return c.pickup_from || c.pickup_until ? `（${periodText(c)}）` : "";
 }
+// 受取期間を「受取日 10/1〜10/31 のみ」の形に（年は出さない＝お客様が読むのは月日だけ）
+const mdText = (iso) => { const [, m, d] = String(iso).split("-").map(Number); return `${m}/${d}`; };
+function periodText(p) {
+  const from = p.pickup_from ? mdText(p.pickup_from) : "", until = p.pickup_until ? mdText(p.pickup_until) : "";
+  return `受取日 ${from && until ? `${from}〜${until}` : from ? `${from}以降` : `${until}まで`} のみ`;
+}
+// 受取日に合わない回答を外し、外したものを「質問「回答」」の形で返す（何が外れたかお客様に伝えるため）
 function pruneUnavailableChoiceAnswers() {
-  let cleared = false;
+  const cleared = [];
   for (const q of state.questions) {
     const answer = normAnswer(state.sel.answers.get(q.id));
-    const ids = answer.choiceIds.filter(id => (q.common_question_choices || []).some(c => c.id === id && choiceAvailableOnPickup(c)));
+    const choices = q.common_question_choices || [];
+    const ids = answer.choiceIds.filter(id => choices.some(c => c.id === id && choiceAvailableOnPickup(c)));
     if (ids.length !== answer.choiceIds.length) {
+      for (const id of answer.choiceIds) if (!ids.includes(id)) cleared.push(`${q.label}「${choices.find(c => c.id === id)?.label || ""}」`);
       state.sel.answers.set(q.id, { ...answer, choiceIds: ids });
-      cleared = true;
     }
   }
   return cleared;
@@ -2123,12 +2433,12 @@ function normAnswer(a) {
 function visibleQuestions() {
   if (!state.sel.product) return [];
   return QuestionFlow.ordered(state.sel.product, [], state.questions).map(entry => entry.data)
-    .filter(q => qLive(q) && QuestionFlow.conditionMatches(q, state.sel.options));
+    .filter(q => qLive(q) && QuestionFlow.conditionMatches(q, state.sel.options, state.sel.answers));
 }
 function optionQuestions() {   // いま選ばれている選択肢にぶら下がる質問
   const out = [];
   for (const id of state.sel.options.keys()) {
-    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id && QuestionFlow.conditionMatches(x, state.sel.options)));
+    out.push(...state.questions.filter((x) => qLive(x) && qOptionId(x) === id && QuestionFlow.conditionMatches(x, state.sel.options, state.sel.answers)));
   }
   return out;
 }
@@ -2141,7 +2451,7 @@ function isMessageQuestion(q){
 }
 
 function answerInputsHtml(q) {
-  const cs = qChoices(q);
+  const cs = visibleChoices(qChoices(q)); // 「期間外は表示しない」の回答は隠す
   const plus = (c) => (c.price_delta ? `（+${yen(c.price_delta)}）` : "");
   if (q.input_type === "image") {
     return `<span class="img-box" id="img-box-${esc(q.id)}">` +
@@ -2169,21 +2479,34 @@ function answerInputsHtml(q) {
   }
   if (q.input_type === "date") return `<input type="date">`;
   if (q.input_type === "textarea" || (q.input_type === "text" && isMessageQuestion(q))) {
-    const placeholder = isMessageQuestion(q) ? "例：Happy Birthday"
+    // 例文は店が質問ごとに書ける（2026-10-02）。空欄のときだけ既定の例文
+    const placeholder = (q.placeholder || "").trim() || (isMessageQuestion(q) ? "例：Happy Birthday"
       : /伝達事項/.test(q.label || "") ? "例：予約者本人には知らせず、当日持参する封筒でお伝えします"
-      : "こちらにご記入ください";
+      : "こちらにご記入ください");
     return `<textarea rows="3" placeholder="${esc(placeholder)}"></textarea>`;
   }
   if (q.input_type === "select") {
     return `<select><option value="">選択してください</option>` +
-      cs.map((c) => `<option value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceAvailableOnPickup(c) ? "" : "・期間外"}</option>`).join("") + `</select>`;
+      cs.map((c) => `<option value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</option>`).join("") + `</select>`;
+  }
+  // 色見本から選ぶ（2026-10-02）：店が決めた色の丸から1つ選ぶ。中身はラジオボタン
+  if (q.input_type === "palette") {
+    return `<span class="palette-list">` + cs.map((c) => {
+      const hex = /^#[0-9A-Fa-f]{6}$/.test(c.color_hex || "") ? c.color_hex : "#FFFFFF";
+      return `<label class="pick palette-pick"><input type="radio" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>` +
+        `<i class="palette-chip" style="background:${hex}" aria-hidden="true"></i>` +
+        `<span class="palette-name">${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</span></label>`;
+    }).join("") + `</span>`;
   }
   if (q.input_type === "radio" || q.input_type === "checkbox") {
     const t = q.input_type === "radio" ? "radio" : "checkbox";
     return `<span class="pick-list">` + cs.map((c) =>
-      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}>${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceAvailableOnPickup(c) ? "" : "・期間外"}</label>`).join("") + `</span>`;
+      `<label class="pick"><input type="${t}" name="q-${esc(q.id)}" value="${esc(c.id)}" ${choiceAvailableOnPickup(c) ? "" : "disabled"}><span class="pick-text">${esc(c.label)}${plus(c)}${esc(choicePeriodText(c))}${choiceUnavailableNote(c)}</span>` +
+      // 回答の見本写真は、その回答の右に小さく出す（押すと大きく開く）。一覧の下にまとめると、どれの写真か分からず欄からはみ出していた（2026-10-02）
+      (safeImageUrl(c.photo_url) ? `<button type="button" class="opt-sample-button pick-sample" data-src="${esc(safeImageUrl(c.photo_url))}" data-name="${esc(c.label)}" aria-label="${esc(c.label)}の見本を見る">見本を見る</button>` : "") +
+      `</label>`).join("") + `</span>`;
   }
-  return `<input type="text">`;
+  return `<input type="text" placeholder="${esc((q.placeholder || "").trim())}">`;
 }
 /* 質問1つ分の入力欄を作る。共通の質問も選択肢の質問も同じ部品を使う */
 /* 店が用意した「見本の画像」（色見本・仕上がりの例など）。
@@ -2200,15 +2523,20 @@ function wireSampleImage(el) {
 }
 
 function buildQuestionField(q) {
-  const field = document.createElement("label");
+  // 中に押せる部品が複数ある回答方法は label にしない。label だと枠のどこを押しても中の最初の部品が押されたことになり、
+  // 写真を押すと「×」が押されて消える／質問文を押すと最初の回答が選ばれる（2026-10-02 まりほ指摘）
+  const field = document.createElement(["image", "radio", "checkbox", "palette", "pastel_color", "color"].includes(q.input_type) ? "div" : "label");
   field.className = "field";
   field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
     (q.help_text ? `<span class="help ${q.help_accent ? "note-accent" : ""}">${esc(q.help_text)}</span>` : "") +
     sampleImageHtml(q.sample_image_url) + answerInputsHtml(q) +
-    qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") +
+    (q.input_type === "select" ? qChoices(q).filter(c => c.photo_url).map(c => `<span class="help">${esc(c.label)}の見本${sampleImageHtml(c.photo_url)}</span>`).join("") : "") +
     (!state.sel.date && qChoices(q).some(c => c.pickup_from || c.pickup_until)
       ? '<span class="help">受取日を選ぶと、提供期間に合う回答を確認できます。期間外の回答は解除されます。</span>' : "");
   wireSampleImage(field);
+  for (const b of field.querySelectorAll(".pick-sample")) {
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openOptionSamplePhoto(b.dataset.src, b.dataset.name); };
+  }
 
   if(q.input_type==='pastel_color'){
     field.classList.add('pastel-field');
@@ -2234,9 +2562,14 @@ function buildQuestionField(q) {
     field.className = "field img-field";
     const picker = field.querySelector(".img-pick");
     const file = picker.querySelector("input[type=file]");
-    picker.onclick = (e) => { e.preventDefault(); if (!picker.classList.contains("disabled")) file.click(); };
+    picker.onclick = (e) => {
+      if (e.target === file) return;  // file.click() から戻ってきたクリックは止めない（止めると選択画面が開かない）
+      e.preventDefault();
+      if (!picker.classList.contains("disabled")) file.click();
+    };
     file.onchange = async (e) => {
-      const files = e.target.files;
+      // 先に配列へ写す。value を空にすると FileList も空になり「画像ファイルをお選びください」になっていた（2026-10-02）
+      const files = [...(e.target.files || [])];
       e.target.value = "";        // 同じ写真をもう一度選べるように
       await addImageFiles(q, files);
     };
@@ -2254,10 +2587,10 @@ function buildQuestionField(q) {
     inputs[0].setAttribute('pattern','[0-9０-９\\s・･]*');
     const groupHelp=document.createElement('span');
     groupHelp.className='help number-cookie-group-help';
-    groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：11 15';
+    groupHelp.textContent='2人分の場合は、数字の間をスペースで空けてください。例：1 12';
     inputs[0].insertAdjacentElement('afterend',groupHelp);
   }
-  const multi = q.input_type === "radio" || q.input_type === "checkbox";
+  const multi = q.input_type === "radio" || q.input_type === "checkbox" || q.input_type === "palette";
   if (multi) inputs.forEach((i) => { i.checked = saved.choiceIds.includes(i.value); });
   else if (q.input_type === "select") inputs[0].value = saved.choiceIds[0] || "";
   else inputs[0].value = saved.text || "";
@@ -2272,10 +2605,17 @@ function buildQuestionField(q) {
     }
     updatePriceBar();
     updatePreview();
+    // この回答を表示条件にしている質問があれば、出し入れのために描き直す（2026-10-02）
+    if ((multi || q.input_type === "select") && qChoices(q).some((c) => state.questions.some((x) => x.condition_choice_id === c.id))) {
+      renderGroups();
+      renderQuestions();
+    }
   };
   inputs.forEach((i) => { i.oninput = onChange; i.onchange = onChange; });
   return field;
 }
+// ケーキの内容（選択肢・質問）を出してよいか。受取日を選んでから（見本表示では常に出す）
+const contentReady = () => !!state.sel.date || THEME_PREVIEW || EDITOR_PREVIEW;
 function renderQuestions() {
   pruneHiddenQuestions();
   const wrap = $("group-list");
@@ -2289,7 +2629,7 @@ function renderQuestions() {
   for (const entry of QuestionFlow.ordered(state.sel.product, state.sel.product.option_groups, state.questions)) {
     if (rows.has(entry.key)) wrap.appendChild(rows.get(entry.key));
   }
-  $("sec-groups").classList.toggle("hidden", !wrap.querySelector('[data-question-key]'));
+  $("sec-groups").classList.toggle("hidden", !contentReady() || !wrap.querySelector('[data-question-key]'));
   for (const q of askedQuestions()) if (q.input_type === "image") paintImageAnswer(q);
 }
 
@@ -2394,6 +2734,21 @@ async function uploadOrderPreview() {
   return j.id;
 }
 
+// 添付写真の表示元。表示中は仮の住所（blob:）、下書きから戻した後は保存しておいた縮小画像（JPEGのdata URL）
+const slotImageSrc = (slot) => safeImageUrl(slot?.url)
+  || (/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(slot?.thumb || "") ? slot.thumb : "");
+// 下書き用の小さな縮小画像（data URL）。表示中の写真は仮の住所（blob:）なので、更新すると表示できなくなる
+async function imageThumbDataUrl(blob, side = 240) {
+  try {
+    const bmp = await createImageBitmap(blob);
+    const r = Math.min(1, side / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * r)); c.height = Math.max(1, Math.round(bmp.height * r));
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.7);
+  } catch { return null; }
+}
+
 async function addImageFiles(q, files) {
   const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
   if (!list.length) { toast("画像ファイルをお選びください"); return; }
@@ -2402,20 +2757,46 @@ async function addImageFiles(q, files) {
   if (room <= 0) { toast(`「${q.label}」は${imgMax(q)}枚までです`); return; }
   if (list.length > room) toast(`あと${room}枚まで追加できます`);
   for (const file of list.slice(0, room)) {
-    const slot = { id: null, url: null, note: "", busy: true };
+    // 元の写真を手元に残す＝「切り取る」を何度押しても元の写真から切り直せる
+    const slot = { id: null, url: null, note: "", busy: true, file };
     images.push(slot);
     paintImageAnswer(q);
     try {
       const up = await uploadOneImage(file, q);
+      if (!images.includes(slot)) continue;   // 送信中に×で取り消された（送った画像は予約に紐づかず24時間で消える）
       slot.id = up.id;
       slot.url = up.url;
+      slot.thumb = await imageThumbDataUrl(file);
       slot.busy = false;
     } catch (e) {
-      images.splice(images.indexOf(slot), 1);
+      if (images.includes(slot)) images.splice(images.indexOf(slot), 1);
       toast(e.message);
     }
     paintImageAnswer(q);
+    saveState();
   }
+}
+
+/* 貼った写真を切り取って差し替える。切った画像を新しく送り、この枠の画像を入れ替える
+ * （前の画像は予約に紐づかないまま残り、サーバー側の24時間の掃除で消える） */
+async function cropImageSlot(q, slot) {
+  const cropped = await ImageCrop.open(slot.file, { allowOriginal: false, title: "写真の使う範囲を決める" });
+  if (!cropped) return;
+  const before = { id: slot.id, url: slot.url, thumb: slot.thumb };
+  slot.busy = true;
+  paintImageAnswer(q);
+  try {
+    const up = await uploadOneImage(cropped, q);
+    slot.id = up.id;
+    slot.url = up.url;
+    slot.thumb = await imageThumbDataUrl(cropped);
+  } catch (e) {
+    Object.assign(slot, before);
+    toast(e.message);
+  }
+  slot.busy = false;
+  paintImageAnswer(q);
+  saveState();
 }
 
 /* 質問1つぶんの添付欄を描き直す（サムネイル・×・「写真を選ぶ」の出し分け） */
@@ -2430,17 +2811,28 @@ function paintImageAnswer(q) {
     const cell = document.createElement("span");
     cell.className = "img-cell";
     if (slot.busy) {
-      cell.innerHTML = `<span class="img-thumb busy">送信中…</span>`;
-    } else {
-      // 写真ごとにひとこと（「1枚目はこの形、2枚目はこの色」が書けるように）
-      cell.innerHTML =
-        `<span class="img-thumb"><img src="${esc(safeImageUrl(slot.url))}" alt="">` +
-        `<button type="button" class="rm" title="外す">×</button></span>` +
-        `<input type="text" class="img-note-input" maxlength="100" placeholder="この写真について（任意）">`;
+      // 送信中でも取り消せるように×を付ける
+      cell.innerHTML = `<span class="img-thumb busy">送信中…<button type="button" class="rm" title="取り消す">×</button></span>`;
       cell.querySelector(".rm").onclick = () => {
         images.splice(images.indexOf(slot), 1);
         paintImageAnswer(q);
+        saveState();
       };
+    } else {
+      // 写真ごとにひとこと（「1枚目はこの形、2枚目はこの色」が書けるように）
+      cell.innerHTML =
+        `<span class="img-thumb"><img src="${esc(slotImageSrc(slot))}" alt="">` +
+        `<button type="button" class="rm" title="外す">×</button></span>` +
+        (slot.file instanceof Blob && window.ImageCrop ? `<button type="button" class="img-crop-btn">切り取る</button>` : "") +
+        // 説明は写真の右に広く取る（サムネイル幅に押し込むと読めない・2026-10-02 まりほ指摘）。サーバーの上限は200字
+        `<textarea class="img-note-input" rows="4" maxlength="200" placeholder="この写真について（任意）&#10;例：このお花の配置で、色はピンクにしたいです"></textarea>`;
+      cell.querySelector(".rm").onclick = () => {
+        images.splice(images.indexOf(slot), 1);
+        paintImageAnswer(q);
+        saveState();   // 外した写真が更新で戻ってこないように
+      };
+      // 切り取りは押したときだけ（2026-09-30）。お客様の手順は増やさない
+      cell.querySelector(".img-crop-btn")?.addEventListener("click", () => cropImageSlot(q, slot));
       const noteEl = cell.querySelector(".img-note-input");
       noteEl.value = slot.note || "";
       noteEl.oninput = () => { slot.note = noteEl.value; };
@@ -2481,11 +2873,13 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
+  if (!s.date) return "受取日を選んでください";
+  if (!s.slot) return "受取時間を選んでください";
   pruneHiddenQuestions();
   const capacityError=toppingCapacityError();
   if(capacityError)return capacityError;
   for (const g of sortedGroups(s.product)) {
-    if (g.is_required && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
+    if (g.is_required && !groupAllHidden(g) && ![...s.options.keys()].some((id) => g.options.some((o) => o.id === id)))
       return `「${g.name}」を選択してください`;
   }
   for (const [id, v] of s.options) {
@@ -2510,8 +2904,6 @@ function validate() {
       if((value||'').trim()&&!parseCalendarDate(value))return `「${q?.label || '印をつける日にち'}」をカレンダーからお選びください`;
     }
   }
-  if (!s.date) return "受取日を選んでください";
-  if (!s.slot) return "受取時間を選んでください";
   for (const q of askedQuestions()) {
     const a = normAnswer(s.answers.get(q.id));
     if (q.input_type === "image") {
@@ -2570,10 +2962,11 @@ function renderConfirm() {
   const rows = [];
   const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
-  row("価格", yen(s.variant.price));
+  row("価格", basePrice(s.variant) < s.variant.price ? `${yen(basePrice(s.variant))}（ご予約時の価格）` : yen(s.variant.price));
   for (const [id, v] of s.options) {
     const f = findOption(id);
-    const price = f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料";
+    const price = (f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料") +
+      (optionPriceLocked(f.o) ? "・ご予約時の価格" : "");
     const text = (v.text || "").trim() ? `「${v.text.trim()}」` : "";
     row(f.g.name, `${optName(f.o)}${v.qty > 1 ? ` ×${v.qty}` : ""}${text}（${price}）`);
   }
@@ -2583,7 +2976,7 @@ function renderConfirm() {
       if (a.images.length) {
         rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span>` +
           `<span class="confirm-thumbs">` +
-          a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(safeImageUrl(x.url))}" alt="">` +
+          a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(slotImageSrc(x))}" alt="">` +
             ((x.note || "").trim() ? `<span class="cap">${esc((x.note || "").trim())}</span>` : "") +
             `</span>`).join("") + `</span></div>`);
       }
@@ -2600,6 +2993,10 @@ function renderConfirm() {
       const date = parseIsoDate(v);
       if (date) v = `${date.year}年${date.month}月${date.day}日`;
       row(q.label, v);
+    } else if (v && q.input_type === "palette") {
+      const c = q.common_question_choices.find((x) => x.id === a.choiceIds[0]);
+      const hex = /^#[0-9A-Fa-f]{6}$/.test(c?.color_hex || "") ? c.color_hex : null;
+      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
     } else if (v && isColorQuestionType(q.input_type)) {
       rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
@@ -2614,7 +3011,9 @@ function renderConfirm() {
     (STAFF_MODE ? "（なし・確認メールは送られません）" : ""));
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
-  row("お支払い", "店頭でのお支払い");
+  row("お支払い", payChoice() !== "card" ? "店頭でのお支払い"
+    : review ? "事前にカード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
+    : "事前にカード（このあとSquareのお支払い画面に進みます）");
   rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
@@ -2653,6 +3052,8 @@ $("btn-submit").onclick = async () => {
           address: $("cust-address") ? $("cust-address").value.trim() || null : null,
         },
         payment_method: "store",
+        // 事前にカードを選んだ印（確認メールの「お支払い」の行を変える。支払いそのものは予約のあと）
+        ...(payChoice() === "card" ? { prepay: true } : {}),
         preview_id: previewId,
         options: [...s.options].map(([option_id, v]) => ({
           option_id, quantity: v.qty, text: (v.text || "").trim() || null,
@@ -2744,6 +3145,17 @@ $("btn-submit").onclick = async () => {
       p2.innerHTML = `${r.review_state === 'requested' ? '依頼内容・お見積もりの確認は' : 'ご予約の変更・キャンセルは'}<a href="manage.html?t=${encodeURIComponent(r.manage_token)}">こちらのページ</a>から（確認メールにも同じリンクが届きます）`;
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
+    // Squareでの事前払い（任意・2026-10-02）。払う処理は予約確認ページに寄せ、?pay=1 でそのまま支払い画面へ進む
+    if (!STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && r.manage_token && state.tenant.square_prepay_enabled &&
+        r.review_state !== "requested" && r.total_amount > 0 && !$("done-prepay")) {
+      const div = document.createElement("div");
+      div.id = "done-prepay";
+      div.className = "done-prepay";
+      div.innerHTML =
+        `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">事前にカードでお支払いする（任意）</a>` +
+        `<p class="small">ご希望の方だけ。お支払いがなければ、受取の際に店頭でお支払いください。あとでご予約の確認ページからもお支払いいただけます。</p>`;
+      $("view-done").querySelector(".done-box").appendChild(div);
+    }
     // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）
     if (!STAFF_MODE && r.manage_token && state.tenant.line_notify_enabled && !$("done-line-link")) {
       const div = document.createElement("div");
@@ -2759,6 +3171,12 @@ $("btn-submit").onclick = async () => {
     $("view-form").classList.add("hidden");
     if (RETRY_ENABLED) retryStore().clear();
     window.scrollTo({ top: 0 });
+    // 事前にカードを選んだ人は、そのまま支払い画面へ（予約はもう成立している）
+    if (payChoice() === "card" && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
+      const link = $("done-prepay")?.querySelector("a");
+      if (link) link.textContent = "お支払い画面に移動しています…";
+      setTimeout(() => { location.href = `manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1`; }, 800);
+    }
   } catch (e) {
     let uncertain = false;
     try { uncertain = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage error */ }
@@ -2776,8 +3194,15 @@ $("btn-submit").onclick = async () => {
 };
 
 load().catch((e) => {
-  $("shop-name").textContent = "読み込みエラー";
   console.error(e);
+  // お客様には「何が起きたか」と「どうすればいいか」だけを出す（2026-10-02）
+  $("shop-name").textContent = "ただいま予約ページを表示できません";
+  const box = document.createElement("div");
+  box.className = "load-error";
+  box.innerHTML = `<p>少し時間をおいてから、もう一度開いてください。</p>
+    <p><button type="button" class="btn-primary" onclick="location.reload()">もう一度読み込む</button></p>`;
+  const form = $("view-form");
+  if (form) { form.replaceChildren(box); form.classList.remove("hidden"); }
 });
 
 /* ---------- 見た目（tenants.theme） ----------

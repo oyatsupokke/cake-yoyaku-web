@@ -270,6 +270,8 @@ async function loadOrders() {
 $("review-filter").onchange = () => loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
 
 /* ---------- 受取リスト ---------- */
+// 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
+const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE");
 function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
@@ -292,7 +294,8 @@ function renderPickup() {
         <span class="order-total">${yen(o.quote?.amount ?? o.total_amount)}${reviewPending(o) ? "（未確定）" : ""}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${REVIEW[o.review_state] ? `<span class="status-badge st-image">${REVIEW[o.review_state]}${o.review_state==='quoted' && new Date(o.quote?.expires_at)<=new Date() ? '・回答期限切れ' : ''}</span>` : ""}
-        ${o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
+        ${legacyOrder(o) ? `<span class="status-badge st-legacy" title="旧予約フォーム（SELECTTYPE）で受けたご予約">旧フォーム</span>`
+          : o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${prepayBadge(o)}
         ${(o.order_images || []).length ? `<button type="button" class="status-badge st-image photo-badge" aria-label="お客様の添付画像を見る（${o.order_images.length}枚）">📷${o.order_images.length}</button>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
@@ -438,6 +441,10 @@ function fillOrderBody(el, o) {
     rows.push(`<div class="confirm-row" data-q="${esc(a.question_id || "")}">` +
       `<span class="k">${esc(a.label_snapshot)}</span><span class="v">${answerValueHtml(v)}</span></div>`);
   }
+  if (legacyOrder(o)) {
+    row("受付", "旧予約フォーム（SELECTTYPE）から移したご予約");
+    if (o.price_lock) row("価格", "ご予約時の価格のまま（お客様が内容を変更しても、前に選んだ分は同じ価格）");
+  }
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
   rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
@@ -447,7 +454,8 @@ function fillOrderBody(el, o) {
     row("支払い", `事前払い ${yen(o.paid_amount)}（Square）`);
     row("当日のお支払い", p.over > 0 ? `なし（${yen(p.over)} の返金が必要）` : p.due > 0 ? `${yen(p.due)}（差額）` : "なし");
   } else {
-    row("支払い", o.payment_method === "store" ? "店頭払い" : o.payment_method);
+    row("支払い", (o.payment_method === "store" ? "店頭払い" : o.payment_method) +
+      (legacyOrder(o) ? "（旧フォームでのお支払い済みかは未照合）" : ""));
   }
   let actions = "";
   if (o.status !== "canceled") {

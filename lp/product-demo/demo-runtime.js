@@ -12,7 +12,9 @@ function order(p,n){
 function seed(){return [0,1,2].map((i)=>{const p=C.products[i%C.products.length];return {...order({product_id:p.id,variant_id:p.product_variants[0].id,pickup_slot_id:C.slots[i].id,pickup_date:today()},i+1),status:['new','confirmed','in_production'][i]};});}
 let orders;try{orders=JSON.parse(sessionStorage.getItem(KEY));}catch{}if(!Array.isArray(orders))orders=seed();
 const save=()=>sessionStorage.setItem(KEY,JSON.stringify(orders));save();
-const tables={v_public_tenant:[C.tenant],tenants:[C.tenant],tenant_users:[{tenant_id:C.tenant.id}],products:C.products,common_questions:C.questions,pickup_time_slots:C.slots,option_groups:C.option_groups||[],capacity_rules:[],date_overrides:[]};
+const tables={v_public_tenant:[C.tenant],tenants:[C.tenant],tenant_users:[{tenant_id:C.tenant.id}],products:C.products,common_questions:C.questions,pickup_time_slots:C.slots,option_groups:C.option_groups||[],option_availability_overrides:C.option_stops||[],capacity_rules:[],date_overrides:[]};
+// その受取日に選べない選択肢（本番の fn_options_unavailable_on の簡易版：選べない日・選択肢ごとの締切）
+function unavailableOn(productId,date){const p=C.products.find(x=>x.id===productId);if(!p)return [];const days=(new Date(date+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5,rows=[];for(const g of [...(p.option_groups||[]),...(C.option_groups||[])])for(const o of g.options||[]){if((C.option_stops||[]).some(s=>s.option_id===o.id&&s.date===date))rows.push({option_id:o.id,reason:'stop'});else if(o.order_deadline_days!=null&&days<o.order_deadline_days)rows.push({option_id:o.id,reason:'deadline'});}return rows;}
 function filtered(rows,u){for(const [k,v] of u.searchParams){if(v.startsWith('eq.'))rows=rows.filter(r=>String(r[k])===v.slice(3));if(v.startsWith('gte.'))rows=rows.filter(r=>String(r[k])>=v.slice(4));if(v.startsWith('lte.'))rows=rows.filter(r=>String(r[k])<=v.slice(4));if(v.startsWith('neq.'))rows=rows.filter(r=>String(r[k])!==v.slice(4));}return rows;}
 const response=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'Content-Type':'application/json'}});
 window.fetch=async(input,init={})=>{try{
@@ -26,7 +28,8 @@ window.fetch=async(input,init={})=>{try{
  if(u.pathname.includes('/rpc/')){
  const name=u.pathname.split('/').pop();
  if(name==='fn_log_form_event')return response({ok:true});
- if(name==='fn_get_availability'){const rows=[];for(let d=new Date(body.p_from+'T12:00:00');d<=new Date(body.p_to+'T12:00:00');d.setDate(d.getDate()+1)){const key=d.toISOString().slice(0,10),count=orders.filter(o=>o.pickup_date===key&&o.status!=='canceled').length;rows.push({d:key,status:key<=today()?'closed':count>=10?'full':count>=7?'few':'open'});}return response(rows);}
+ if(name==='fn_get_availability'){const rows=[],closed=C.tenant.closed_weekdays||[];for(let d=new Date(body.p_from+'T12:00:00');d<=new Date(body.p_to+'T12:00:00');d.setDate(d.getDate()+1)){const key=d.toISOString().slice(0,10),count=orders.filter(o=>o.pickup_date===key&&o.status!=='canceled').length;rows.push({d:key,status:key<=today()||closed.includes(d.getDay())?'closed':count>=10?'full':count>=7?'few':'open'});}return response(rows);}
+ if(name==='fn_options_unavailable_on')return response(unavailableOn(body.p_product,body.p_date));
  if(name==='fn_get_slot_availability')return response(C.slots.map(s=>({slot_id:s.id,is_full:false})));
  if(name==='fn_place_order'||name==='fn_staff_place_order'){
  if(orders.filter(o=>o.pickup_date===body.p.pickup_date&&o.status!=='canceled').length>=10)return response({ok:false,message:'デモの1日上限10台に達しました'});
@@ -44,6 +47,8 @@ window.addEventListener('DOMContentLoaded',()=>{
  document.getElementById('demo-reset').onclick=()=>{sessionStorage.removeItem(KEY);sessionStorage.removeItem('cake_demo_last_date');localStorage.removeItem('cake_form_pokke');location.reload();};
  const samples={'cust-sei':'体験','cust-mei':'サンプル','cust-sei-kana':'タイケン','cust-mei-kana':'サンプル','cust-phone':'00000000000','cust-email':'demo@example.invalid','cust-postal':'000-0000','cust-address':'サンプル県サンプル市1-2-3'};for(const [id,v]of Object.entries(samples)){const el=document.getElementById(id);if(el)el.value=v;}
  document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&(/products\.html|reset\.html|manage\.html/.test(a.getAttribute('href')||'')||(a.origin!==location.origin && !a.href.startsWith('https://cakebook.jp/')))){e.preventDefault();alert('このデモでは、お客様の予約操作を体験できます。管理機能は、お店の登録後にお試しください。');}},true);
+ // 完了画面の「確認のご連絡をお待ちください」は本物と同じ文言なので、デモだと分かる1行に差し替える（pokkeのお客様が迷い込んでも本当の予約と取り違えないように）
+ const pickup=document.getElementById('done-pickup');if(pickup)new MutationObserver(()=>{const t=pickup.textContent;if(t.includes('確認のご連絡をお待ちください。'))pickup.textContent=t.replace('お渡しします。確認のご連絡をお待ちください。','お渡しします（デモのため、実際の予約は入っていません）。').replace('確認のご連絡をお待ちください。','デモのため、実際の予約は入っていません。');}).observe(pickup,{childList:true,characterData:true,subtree:true});
  const done=document.querySelector('#view-done .done-box');if(done){const p=document.createElement('p');p.innerHTML='<b>こんな予約ページを、あなたのお店にも。</b><br><a class="demo-signup" href="/lp/#price">料金プランを見る →</a><small class="demo-trial-note">初期費用0円。お申し込みは準備中です。</small><a href="/lp/">サービス紹介ページに戻る</a>';done.append(p);}
 });
 })();

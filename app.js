@@ -462,6 +462,11 @@ function legacyCakeName(name, size) {
   const n = String(name || ""), sz = String(size || "");
   return !sz || n.includes(sz) ? n : `${n} ${sz}`;
 }
+function legacyPrefill() {
+  const pre = EDIT_ORDER?.legacy_prefill;
+  const saved = (EDIT_ORDER?.options || []).some((o) => o.option_id) || (EDIT_ORDER?.answers || []).some((a) => a.question_id);
+  return pre && !saved ? pre : null;
+}
 function showLegacyOrderNote(validIds) {
   const legacy = (EDIT_ORDER?.options || []).filter((o) => !o.option_id || !validIds.has(o.option_id));
   const locked = !!EDIT_ORDER?.price_lock;
@@ -472,8 +477,10 @@ function showLegacyOrderNote(validIds) {
   box.innerHTML =
     `<p class="legacy-title">前のご予約内容</p>` +
     `<p>${esc(legacyCakeName(EDIT_ORDER.product_name, EDIT_ORDER.variant_label))}</p>` +
-    (items ? `<ul>${items}</ul><p class="legacy-help">予約フォームが新しくなったため、上の内容は引き継がれていません。同じ内容をご希望の場合は、下から選び直してください。</p>` : "") +
-    (locked ? `<p class="legacy-help">同じケーキ・同じサイズなら、ケーキ本体はご予約時の価格のままです。新しく追加するオプションは、表示の価格が加わります。</p>` : "");
+    (items ? `<ul>${items}</ul><p class="legacy-help">${legacyPrefill()
+      ? "予約フォームが新しくなったため、上の内容を新しいフォームの選択肢に置き換えて選んであります。追加・変更したいところだけ直してください。新しいフォームに同じものが無い内容は選ばれていないので、ご確認ください。"
+      : "予約フォームが新しくなったため、上の内容は引き継がれていません。同じ内容をご希望の場合は、下から選び直してください。"}</p>` : "") +
+    (locked ? `<p class="legacy-help">同じケーキ・同じサイズなら、ケーキ本体はご予約時の価格のままです。前のご予約で選んでいたオプションも、ご予約時の価格のままです。新しく追加するオプションは、表示の価格が加わります。</p>` : "");
   const first = document.querySelector("#view-form .step");
   if (first) first.before(box); else $("view-form").prepend(box);
 }
@@ -515,11 +522,14 @@ async function enterEditMode() {
     if (v) selectVariant(v);
 
     const validIds = new Set(p.option_groups.flatMap((g) => g.options.map((o) => o.id)));
-    state.sel.options = new Map((EDIT_ORDER.options || [])
+    // 旧フォームから移した予約は、前の内容を今の選択肢に置き換えた下書き（orders.legacy_prefill）で開く。
+    // お客様が一度変更して今の選択肢で保存された後は使わない（2026-10-02）
+    const prefill = legacyPrefill();
+    state.sel.options = new Map((prefill?.options || EDIT_ORDER.options || [])
       .filter((o) => o.option_id && validIds.has(o.option_id))
       .map((o) => [o.option_id, { qty: o.quantity || 1, text: o.text || "" }]));
     state.sel.answers = new Map();
-    for (const a of EDIT_ORDER.answers || []) {
+    for (const a of prefill?.answers || EDIT_ORDER.answers || []) {
       if (!a.question_id) continue;
       const cur = state.sel.answers.get(a.question_id) || { text: null, choiceIds: [] };
       if (a.choice_id) cur.choiceIds.push(a.choice_id);
@@ -690,7 +700,15 @@ function toast(msg, ms = 3200) {
 /* ---------- 金額 ---------- */
 function optionPrice(o) {
   const price = o.size_prices?.[state.sel.variant?.size_label];
-  return Number.isInteger(price) ? price : o.price_delta;
+  const now = Number.isInteger(price) ? price : o.price_delta;
+  // 移行予約で前に選んでいたオプションは予約時の値段のまま（price_lock.options・2026-10-02）。
+  // 実際の請求はサーバー側 fn_apply_price_lock が決め、ここは表示を合わせるだけ
+  const locked = EDIT_MODE ? Number(EDIT_ORDER?.price_lock?.options?.[o.id]) : NaN;
+  return Number.isInteger(locked) && locked >= 0 && locked < now ? locked : now;
+}
+function optionPriceLocked(o) {
+  const price = o.size_prices?.[state.sel.variant?.size_label];
+  return optionPrice(o) < (Number.isInteger(price) ? price : o.price_delta);
 }
 function optionMaxQuantity(o) {
   // タルト・バスク上に無理なく載せられるナンバークッキー大は2枚まで。
@@ -2952,7 +2970,8 @@ function renderConfirm() {
   row("価格", basePrice(s.variant) < s.variant.price ? `${yen(basePrice(s.variant))}（ご予約時の価格）` : yen(s.variant.price));
   for (const [id, v] of s.options) {
     const f = findOption(id);
-    const price = f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料";
+    const price = (f.o.requires_review ? `${optionPrice(f.o) ? '+'+yen(optionPrice(f.o)*v.qty)+'・' : ''}追加希望は別途見積もり` : optionPrice(f.o) ? `+${yen(optionPrice(f.o) * v.qty)}` : "無料") +
+      (optionPriceLocked(f.o) ? "・ご予約時の価格" : "");
     const text = (v.text || "").trim() ? `「${v.text.trim()}」` : "";
     row(f.g.name, `${optName(f.o)}${v.qty > 1 ? ` ×${v.qty}` : ""}${text}（${price}）`);
   }

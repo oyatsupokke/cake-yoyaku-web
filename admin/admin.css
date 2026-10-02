@@ -230,6 +230,7 @@
 
 /* 電話予約（代行登録）の目印（受取リストのバッジ） */
 .st-staff { background: #eef4ff; color: #3b6bb5; }
+.st-legacy { background: #f3efe6; color: #7a5b2b; }
 
 /* 「？」ヘルプ：タップで説明が開く（スマホにはホバーが無いため） */
 .tip {

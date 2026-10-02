@@ -185,7 +185,7 @@ body {
 
 @font-face {
   font-family: "oyatsupokkefont";
-  src: url("assets/fonts/oyatsupokke.ttf") format("truetype");
+  src: url("/assets/fonts/oyatsupokke.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -229,6 +229,8 @@ body {
 }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--primary); }
 .field .help { font-weight: normal; font-size: .76rem; color: var(--mute); margin: 2px 0 0; }
+/* 質問の補足は改行をそのまま出す（管理画面で複数行を書けるようにした・2026-10-02） */
+.field .help, .cfield .help { white-space: pre-line; }
 /* 選択式の質問（ラジオ・チェックボックス） */
 .pick-list { display: block; margin-top: 6px; }
 label.pick {
@@ -244,6 +246,9 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .pay-note {
   background: #fff5e8; border-radius: var(--r); padding: 10px 14px; font-size: .88rem; margin: 16px 0;
 }
+.pay-note.pay-choice { background: none; padding: 0; font-size: 1rem; }
+.pay-choice .pay-title { font-weight: bold; margin-bottom: 6px; }
+.pay-choice .pay-card-note { margin: 4px 0 0; }
 
 /* ボタン */
 .btn-primary {
@@ -333,6 +338,11 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .line-invite .small { margin-top: 6px; }
 .line-linked { color: #06925f; font-weight: bold; margin: 0; }
 
+/* ---------- Squareでの事前払い（完了画面） ---------- */
+.done-prepay { margin: 18px 0 0; text-align: center; }
+.done-prepay .btn-primary { display: block; box-sizing: border-box; width: 100%; text-decoration: none; text-align: center; }
+.done-prepay .small { margin-top: 6px; }
+
 /* ---------- 代行登録モード（お店が電話予約を入力する画面） ---------- */
 .staff-banner {
   background: #fff4e5; border: 1.5px solid #f0a24b; color: #8a5a1c;
@@ -377,14 +387,21 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 
 /* ---- 画像の添付（2026-09-06：「画像を貼ってもらう」形式の質問の回答欄） ---- */
 .img-box { display: block; font-weight: normal; }
-.img-list { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 10px; }
+.img-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 10px; }
 .img-list:empty { margin: 0; }
-.img-cell { display: flex; flex-direction: column; gap: 5px; width: 116px; }
+/* 写真（と「切り取る」）を左、その写真の説明を右に広く（2026-10-02） */
+.img-cell { display: grid; grid-template-columns: 116px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 12px; row-gap: 6px; align-items: start; }
+.img-cell .img-thumb { grid-column: 1; grid-row: 1; }
+.img-cell .img-crop-btn { grid-column: 1; grid-row: 2; }
+.img-cell .img-note-input { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; }
+.field .img-cell textarea.img-note-input { margin-top: 0; min-height: 116px; resize: vertical; }
 .img-note-input {
-  width: 100%; padding: 6px 8px; font-size: 16px; font-family: inherit;
+  width: 100%; padding: 8px 10px; font-size: 16px; font-family: inherit; line-height: 1.5;
   border: 1px solid var(--box); border-radius: var(--r); background: var(--bg); color: var(--ink);
 }
 .img-note-input:focus { outline: none; border-color: var(--accent); }
+/* 貼った写真を切り取る（押したときだけ・2026-09-30） */
+.img-crop-btn { font: inherit; font-size: .8rem; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line, #ddd); background: #fff; color: inherit; cursor: pointer; min-height: 32px; }
 .img-thumb {
   position: relative; display: block; width: 116px; height: 116px; overflow: hidden;
   border: 1px solid var(--box); border-radius: var(--r); background: var(--boxbg);
@@ -402,6 +419,9 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
   color: var(--accent-deep); font-size: .92rem; font-weight: bold; cursor: pointer;
 }
 .img-pick.disabled { opacity: .45; pointer-events: none; }
+/* .field input の display:block が hidden属性に勝ち、ブラウザ標準の「ファイルを選択」が出て
+   押しても開かなかった（2026-10-02）。ファイル欄は必ず隠し、「写真を選ぶ」から開く */
+.field .img-pick input[type="file"] { display: none !important; }
 .img-note { display: block; color: var(--mute); margin: 6px 0 0; font-weight: normal; }
 .confirm-thumbs { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }
 .confirm-thumb { display: flex; flex-direction: column; gap: 3px; width: 84px; text-align: right; }
@@ -417,3 +437,31 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
   display: block; max-width: 100%; width: auto; max-height: 220px;
   border: 1px solid var(--line); border-radius: var(--r-lg);
 }
+
+/* 写真を出す商品は「選択中のケーキ」も一覧のカードと同じ横長4:3（2026-09-30） */
+.preview-canvas.is-photo { height: auto; aspect-ratio: 4 / 3; }
+
+/* 旧フォームから移ったご予約の、前のご予約内容（変更画面の先頭・2026-09-30） */
+.legacy-order-note { border: 1px solid var(--line, #ddd); border-radius: 10px; background: #fffaf0; padding: 12px 14px; margin: 12px 0 18px; font-size: .9rem; line-height: 1.7; text-align: left; }
+.legacy-order-note .legacy-title { font-weight: bold; margin: 0 0 4px; }
+.legacy-order-note p { margin: 0 0 4px; }
+.legacy-order-note ul { margin: 4px 0 6px; padding-left: 1.3em; }
+.legacy-order-note .legacy-help { font-size: .82rem; color: #6f6560; }
+
+/* 予約ページを読み込めなかった時の案内（2026-10-02） */
+.load-error { text-align: center; padding: 32px 16px; line-height: 1.8; }
+/* 色見本から選ぶ（2026-10-02）：店が決めた色の丸を並べ、名前を下に添える */
+.palette-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+label.pick.palette-pick { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 84px; margin: 0; padding: 8px 4px; text-align: center; font-weight: normal; cursor: pointer; border: 1px solid transparent; border-radius: var(--r); }
+label.pick.palette-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.palette-chip { display: block; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(0,0,0,.16); box-shadow: inset 0 0 0 3px #fff; }
+.palette-name { font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+label.pick.palette-pick:has(input:checked) { border-color: var(--primary-deep); background: var(--bg); }
+label.pick.palette-pick:has(input:checked) .palette-chip { box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px var(--primary-deep); }
+label.pick.palette-pick:has(input:focus-visible) { outline: 2px solid var(--primary-deep); outline-offset: 2px; }
+label.pick.palette-pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+/* グループ・選択肢の説明と注意書きも、管理画面で入れた改行をそのまま出す（2026-10-02 まりほ指摘） */
+.group .group-desc, .group .group-note, .opt .opt-desc, .opt .opt-note { white-space: pre-line; }
+/* 回答の選択肢の「見本を見る」（飾りの選択肢と同じボタン・押すと写真が大きく開く・2026-10-02） */
+label.pick .pick-text { flex: 1 1 auto; min-width: 0; }
+label.pick .pick-sample { flex: 0 0 auto; margin: -4px 0; }

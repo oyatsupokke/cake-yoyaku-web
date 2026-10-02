@@ -994,6 +994,12 @@ function drawLayerImage(ctx,img) {
     return;
   }
   const r=layerDrawRect(img);
+  // 15cmのもこもこホイップ（全面・フチ）は、15cmの土台（800px版）より上面が4〜13px下に描かれていて、
+  // 土台の白いフチが上にはみ出していた（2026-10-02 まりほ指摘）。12cmと同じ重なり方になるよう16px上げる
+  if (CONFIG.shop === "pokke" && state.sel.variant?.size_label === "15cm" && /\/cake-layers\/15cm\/moco-(full|edge)\.png/.test(img.src)) {
+    ctx.drawImage(img,r.x,r.y-16,r.w,r.h);
+    return;
+  }
   ctx.drawImage(img,r.x,r.y,r.w,r.h);
 }
 

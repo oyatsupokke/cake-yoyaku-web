@@ -2413,7 +2413,9 @@ function wireSampleImage(el) {
 }
 
 function buildQuestionField(q) {
-  const field = document.createElement("label");
+  // 中に押せる部品が複数ある回答方法は label にしない。label だと枠のどこを押しても中の最初の部品が押されたことになり、
+  // 写真を押すと「×」が押されて消える／質問文を押すと最初の回答が選ばれる（2026-10-02 まりほ指摘）
+  const field = document.createElement(["image", "radio", "checkbox", "palette", "pastel_color", "color"].includes(q.input_type) ? "div" : "label");
   field.className = "field";
   field.innerHTML = `${esc(q.label)}${q.is_required ? '<span class="req">必須</span>' : ""}` +
     (q.help_text ? `<span class="help ${q.help_accent ? "note-accent" : ""}">${esc(q.help_text)}</span>` : "") +

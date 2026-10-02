@@ -1654,9 +1654,11 @@ function previewLayerEntries(p) {
       const animalName = state.tenantSubdomain === "pokke" && ADMIN_ANIMAL_NAMES.has(optionName) ? optionName : null;
       entries.push({
         key: `options:${o.id}`, label: `${groupName}：${optionName}`,
-        url: o.layer_url, z: animalName ? (adminAnimalIsBack(animalName, p.name) ? 64 : 70) : Number(o.layer_z ?? 20), stable: stable++,
+        url: o.layer_url, z: animalName && Number(o.layer_z) === 75
+          ? (adminAnimalIsBack(animalName, p.name) ? 64 : 90)
+          : Number(o.layer_z ?? 20), stable: stable++,
         record: o, column: "layer_z",
-        animalName, automatic: !!animalName,
+        animalName,
       });
     }
   }
@@ -1677,10 +1679,10 @@ function previewLayerEntries(p) {
 }
 
 function setPreviewLayerOrder(entries) {
-  const movable = entries.filter((entry) => !entry.fixed && !entry.automatic);
-  const zValues = movable.map((entry) => Number(entry.z) || 20).sort((a, b) => a - b);
+  const movable = entries.filter((entry) => !entry.fixed);
   movable.forEach((entry, index) => {
-    const z = zValues[index];
+    // 同じ値の動物が複数いても、1回の移動で確実に順番が変わるようにする。
+    const z = (index + 1) * 10;
     entry.z = z;
     entry.record[entry.column] = z;
     const field = [...document.querySelectorAll("[data-layer-order-key]")]
@@ -1793,10 +1795,10 @@ function renderLayerOrder(p) {
       <div class="layer-order-name"><strong>${esc(entry.label)}</strong><span>後ろから${index + 1}番目／全${entries.length}枚</span></div>
       <div class="layer-order-actions">
         <label class="layer-visible"><input type="checkbox" ${hidden.has(entry.key) ? "" : "checked"}>表示</label>
-        ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : entry.automatic
-          ? `<span class="tag hi">位置・前後は自動調整</span>${POKKE_ONLY_TAG}` : `
-          <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) || entries[index - 1]?.automatic ? "disabled" : ""}>1つ後ろへ</button>
-          <button type="button" class="pill layer-front" ${index === entries.length - 1 || entries[index + 1]?.automatic ? "disabled" : ""}>1つ前へ</button>`}
+        ${entry.fixed ? `<span class="tag">一番後ろに固定</span>` : `
+          ${entry.animalName ? `<span class="tag hi">位置は自動調整</span>${POKKE_ONLY_TAG}` : ""}
+          <button type="button" class="pill layer-back" ${index <= (entries[0]?.fixed ? 1 : 0) ? "disabled" : ""}>1つ後ろへ</button>
+          <button type="button" class="pill layer-front" ${index === entries.length - 1 ? "disabled" : ""}>1つ前へ</button>`}
       </div>`;
     row.querySelector(".layer-visible input").addEventListener("change", (event) => {
       if (event.currentTarget.checked) hidden.delete(entry.key);

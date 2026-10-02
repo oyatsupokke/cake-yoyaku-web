@@ -474,7 +474,7 @@ function openCancelView() {
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(o.total_amount)}</span></div>`);
   if (o.payment?.paid_amount > 0)
-    rows.push(`<p class="small">事前にお支払いいただいた ${yen(o.payment.paid_amount)} は、キャンセルポリシーに沿ってお店から返金いたします。</p>`);
+    rows.push(`<p class="small">キャンセルすると、事前にお支払いいただいた ${yen(o.payment.paid_amount)} は、お支払いに使われたカードへ自動で全額返金されます（カード会社により、反映まで日数がかかる場合があります）。</p>`);
   $("cancel-detail").innerHTML = rows.join("");
   $("cancel-error").classList.add("hidden");
   show("view-cancel");
@@ -493,7 +493,9 @@ $("btn-cancel-confirm").onclick = async () => {
     kickMailWorker();
     $("done-emoji").classList.add("hidden"); // 絵文字（しおれたバラ）は出さない（2026-10-02 まりほ）
     $("done-title").textContent = "ご予約をキャンセルしました";
-    $("done-text").textContent = "確認メールをお送りしますのでご確認ください。またのご利用をお待ちしております。";
+    $("done-text").textContent = (r.refund_amount > 0
+      ? `事前にお支払いいただいた ${yen(r.refund_amount)} は、お支払いに使われたカードへ返金いたします（カード会社により、反映まで日数がかかる場合があります）。`
+      : "") + "確認メールをお送りしますのでご確認ください。またのご利用をお待ちしております。";
     show("view-done");
   } catch (e) {
     $("cancel-error").textContent = e.message;

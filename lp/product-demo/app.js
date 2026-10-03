@@ -438,6 +438,10 @@ async function load() {
   const pnote = (state.tenant.preview_note || "").trim();
   $("preview-note").textContent = pnote;
   $("preview-note").classList.toggle("hidden", !pnote);
+  // 予約ページの上のお知らせ（店ごとの設定・空欄なら出さない。2026-10-03）
+  const notice = (state.tenant.page_notice || "").trim();
+  $("page-notice").textContent = notice;
+  $("page-notice").classList.toggle("hidden", !notice);
   // 受取時間の注意書き（店ごとの設定・空欄なら出さない。2026-10-03）
   const knote = (state.tenant.pickup_note || "").trim();
   $("pickup-note").textContent = knote;

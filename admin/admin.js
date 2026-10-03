@@ -1224,6 +1224,7 @@ async function loadTenantForm() {
   $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
+  $("t-page-notice").value = t.page_notice || "";
   $("t-preview-note").value = t.preview_note || "";
   $("t-pickup-note").value = t.pickup_note || "";
   $("t-cancel").value = t.cancel_policy || "";
@@ -1288,6 +1289,8 @@ async function loadTenantForm() {
   regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
   regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
   regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
+  regField("tenants", T, "page_notice", $("t-page-notice"),
+    { get: () => $("t-page-notice").value.trim() || null });   // 空欄=何も出さない
   regField("tenants", T, "preview_note", $("t-preview-note"),
     { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
   regField("tenants", T, "pickup_note", $("t-pickup-note"),

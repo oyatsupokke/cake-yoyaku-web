@@ -4,7 +4,8 @@
  *       → ③カード不要の7日間お試し（setup_trial・一般公開なし）
  * 有料契約は管理画面から別途申込。決済完了で本受注開始。
  * メール確認がONのプロジェクトでは、確認リンクで本ページに戻ってから②③を続行
- * （入力内容は localStorage に退避しておく）
+ * （入力内容は sessionStorage に退避しておく。確認リンクを別タブ・別の端末で開いたときは
+ *   登録時にアカウントへ持たせた user_metadata.registration から復元する）
  * ===================================================================== */
 
 const CONFIG = {
@@ -19,6 +20,22 @@ const PENDING_KEY = "cyb_signup_pending";
 let session = null;
 let registrationAuthenticated = false;
 try { session = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { /* noop */ }
+
+/* 入力途中の店名・住所・電話の退避先（2026-10-03 点検指摘で localStorage → sessionStorage）。
+ * localStorage だと登録が終わらなかった人の店名・住所・電話が、その端末にいつまでも残る。
+ * 確認メールのリンクは新しいタブで開くことが多く sessionStorage は空になるが、
+ * そのときは resumeFromEmailConfirm が user_metadata.registration（登録時に一緒に送っている）から復元する。
+ * ログインの保存（SESSION_KEY）は管理画面と共有する設計なので localStorage のまま。 */
+const pendingStore = {
+  get() {
+    try { return JSON.parse(sessionStorage.getItem(PENDING_KEY) || "null"); }
+    catch { return null; } // 壊れた値・保存できない設定のブラウザ → 無いものとして、アカウント側から復元する
+  },
+  set(info) { try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(info)); } catch { /* 無くてもアカウント側から復元できる */ } },
+  clear() { try { sessionStorage.removeItem(PENDING_KEY); } catch { /* noop */ } },
+};
+// 以前の版が localStorage に残した入力内容は消す（必要ならアカウント側から復元できる）
+try { localStorage.removeItem(PENDING_KEY); } catch { /* noop */ }
 
 /* ---------- 表示切り替え ---------- */
 function show(step) {
@@ -97,14 +114,29 @@ async function checkSubdomain() {
     st.textContent = "✗ 英小文字・数字・ハイフンで3〜30文字（先頭末尾は英数字）";
     return;
   }
-  const res = await fetch(`${CONFIG.url}/rest/v1/rpc/fn_subdomain_available`, {
-    method: "POST",
-    headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_sub: v }),
-  });
-  const ok = await res.json().catch(() => false);
-  st.className = "small " + (ok === true ? "subdomain-ok" : "subdomain-ng");
-  st.textContent = ok === true ? "✓ この店舗IDは使えます" : "✗ この店舗IDは使えません（使用済みか予約語です）";
+  // 確認できなかった（通信失敗・サーバーの不調）ときは「使えません」と言わない（2026-10-03 点検指摘）。
+  // 打ち直している間に前の確認の返事が遅れて届くことがあるので、届いた時点の入力欄が
+  // 確認した値と違えば何もしない（新しい入力の結果を古い返事で上書きしない）。
+  let ok = null;
+  try {
+    const res = await fetch(`${CONFIG.url}/rest/v1/rpc/fn_subdomain_available`, {
+      method: "POST",
+      headers: { apikey: CONFIG.anonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_sub: v }),
+    });
+    if (res.ok) ok = await res.json().catch(() => null);
+  } catch { /* 通信失敗 → ok は null のまま */ }
+  if ($("s-subdomain").value.trim().toLowerCase() !== v) return;
+  if (ok === true) {
+    st.className = "small subdomain-ok";
+    st.textContent = "✓ この店舗IDは使えます";
+  } else if (ok === false) {
+    st.className = "small subdomain-ng";
+    st.textContent = "✗ この店舗IDは使えません（使用済みか予約語です）";
+  } else {
+    st.className = "small subdomain-ng";
+    st.textContent = "店舗IDを確認できませんでした。しばらくしてからお試しください";
+  }
 }
 
 /* ---------- 登録本体 ---------- */
@@ -136,7 +168,7 @@ async function onSignup() {
   $("btn-signup").disabled = true;
   try {
     if (registrationAuthenticated) {
-      await rpcSignupTenant(info); localStorage.removeItem(PENDING_KEY); location.href = "admin/"; return;
+      await rpcSignupTenant(info); pendingStore.clear(); location.href = "admin/"; return;
     }
     const redirect = encodeURIComponent(location.origin + location.pathname);
     const body = await authFetch("signup", {
@@ -154,7 +186,7 @@ async function onSignup() {
       location.href = "admin/";
     } else {
       // メール確認ON：入力内容を退避して確認待ち画面
-      localStorage.setItem(PENDING_KEY, JSON.stringify(info));
+      pendingStore.set(info);
       show("verify");
     }
   } catch (e) {
@@ -175,7 +207,7 @@ async function resumeFromEmailConfirm() {
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   history.replaceState(null, "", location.pathname); // トークンをURLから消す
-  let pending = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
+  let pending = pendingStore.get();
   if (!pending) {
     const r = await fetch(`${CONFIG.url}/auth/v1/user`, { headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${at}` } });
     if (r.ok) pending = (await r.json()).user_metadata?.registration;
@@ -183,7 +215,7 @@ async function resumeFromEmailConfirm() {
   if (!pending) { location.href = "admin/"; return true; }
   try {
     await rpcSignupTenant(pending);
-    localStorage.removeItem(PENDING_KEY);
+    pendingStore.clear();
     location.href = "admin/";
   } catch (e) {
     registrationAuthenticated = true;

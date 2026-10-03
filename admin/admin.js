@@ -233,11 +233,14 @@ function setDate(d) {
   $("date-input").value = state.date;
   loadOrders();
 }
-$("date-prev").onclick = () => { const d = new Date(state.date); d.setDate(d.getDate() - 1); setDate(d); };
-$("date-next").onclick = () => { const d = new Date(state.date); d.setDate(d.getDate() + 1); setDate(d); };
+// "YYYY-MM-DD" を端末の時刻のその日として作る（new Date("2026-12-24") はUTC扱いになり、
+// 日本より西の時差の端末では前日にずれるため）
+const parseYmd = (s) => { const [y, m, d] = String(s).split("-").map(Number); return new Date(y, m - 1, d); };
+$("date-prev").onclick = () => { const d = parseYmd(state.date); d.setDate(d.getDate() - 1); setDate(d); };
+$("date-next").onclick = () => { const d = parseYmd(state.date); d.setDate(d.getDate() + 1); setDate(d); };
 $("date-today").onclick = () => setDate(new Date());
 $("date-tomorrow").onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); setDate(d); };
-$("date-input").onchange = () => { if ($("date-input").value) setDate(new Date($("date-input").value)); };
+$("date-input").onchange = () => { if ($("date-input").value) setDate(parseYmd($("date-input").value)); };
 
 /* ---------- 注文ロード ---------- */
 // order_previews は注文1件に1枚（order_id が unique）なので、APIは配列でなく1件のまとまりか null で返す。

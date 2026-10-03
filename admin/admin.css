@@ -461,3 +461,12 @@ html.lightbox-open { overflow: hidden; }
   .settings-jumps a { display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px;white-space:normal;text-align:center; }
   .settings-anchor { scroll-margin-top:18px; }
 }
+/* 未確認をまとめて確認（絞り込み「全日の未確認」のときだけ出る） */
+.bulk-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; font-size: .92rem; }
+.bulk-confirm.hidden { display: none; }
+/* 店側からの受取日時の変更（予約カードの中） */
+.slot-change .slot-change-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.slot-change .slot-change-row .field { flex: 1 1 160px; }
+.slot-change .slot-notify-label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.slot-change .slot-notify-label input { width: 18px; height: 18px; }
+.slot-change .error:empty { display: none; }

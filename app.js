@@ -67,7 +67,11 @@ function basePrice(v) {
  * 電話で受けた予約をお店が入力する。締切後・満枠・休業日はオレンジ表示になり、
  * 警告つきで選べる（サーバー側も fn_staff_place_order で店のログインを検証）。
  * メールアドレスは空欄OK＝空欄なら確認メールは送られない */
-const STAFF_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && !EDIT_MODE && new URLSearchParams(location.search).get("staff") === "1";
+const STAFF_MODE = !EDITOR_PREVIEW && !TRIAL_MODE && new URLSearchParams(location.search).get("staff") === "1";
+/* 店側からの内容変更（2026-10-03）＝ ?staff=1&edit=<order_id>。管理画面の「内容を変更」から開く。
+ * お客様の変更モードと同じ画面を使い、送信だけ fn_staff_replace（店のログイン・期限なし・満枠は確認して強行）。
+ * この組み合わせでは edit の値は manage_token ではなく予約のID */
+const STAFF_EDIT = STAFF_MODE && EDIT_MODE;
 function staffSession() {
   try { return JSON.parse(localStorage.getItem("pokke_admin_session")); } catch { return null; }
 }
@@ -154,6 +158,17 @@ async function staffRpc(name, args) {
   return res.json();
 }
 
+async function staffReplaceOrder(p) {
+  const notify = !!$("staff-notify")?.checked;
+  let r = await staffRpc("fn_staff_replace", { p_order: EDIT_TOKEN, p, p_force: false, p_notify: notify });
+  if (!r.ok && r.staff_confirm) {
+    const go = confirm(`${r.message}\n\nこのまま変更しますか？（変更後の分も台数として数えられます）`);
+    if (!go) return r;
+    r = await staffRpc("fn_staff_replace", { p_order: EDIT_TOKEN, p, p_force: true, p_notify: notify });
+  }
+  return r;
+}
+
 async function staffPlaceOrder(p) {
   let r = await staffRpc("fn_staff_place_order", { p, p_force: false });
   if (!r.ok && r.staff_confirm) {
@@ -162,6 +177,22 @@ async function staffPlaceOrder(p) {
     r = await staffRpc("fn_staff_place_order", { p, p_force: true });
   }
   return r;
+}
+
+/* 店側の内容変更：確認画面に「お客様に変更のご案内（メール・LINE）を送る」（既定ON。メールもLINEも無ければ出さない） */
+function renderStaffNotify() {
+  let box = $("staff-notify-box");
+  const canMail = !!$("cust-email").value.trim();
+  const canLine = !!EDIT_ORDER?.line_linked;
+  if (!canMail && !canLine) { box?.remove(); return; }
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "staff-notify-box"; box.className = "confirm-box";
+    box.innerHTML = `<label class="check"><input type="checkbox" id="staff-notify" checked> <span></span></label>`;
+    document.querySelector("#view-confirm .preview-note").before(box);
+  }
+  box.querySelector("span").textContent = "お客様に変更のご案内を送る（" +
+    [canMail ? "メール" : "", canLine ? "LINE" : ""].filter(Boolean).join("・") + "）";
 }
 
 /* ---------- 郵便番号→住所の自動入力（zipcloud） ---------- */
@@ -433,6 +464,7 @@ async function load() {
   state.slots = slots;
   renderProducts();
   if (EDIT_MODE) {
+    if (STAFF_EDIT) enterStaffMode();
     await enterEditMode();
   } else if (STAFF_MODE) {
     enterStaffMode();
@@ -510,7 +542,17 @@ function showLegacyOrderNote(validIds) {
 /* ---------- 変更モードの初期化：既存予約を読み込んでフォームに展開 ---------- */
 async function enterEditMode() {
   let r = null;
-  try { r = await rpc("fn_manage_get_order", { p_token: EDIT_TOKEN }); } catch { /* 下で弾く */ }
+  try {
+    r = STAFF_EDIT ? await staffRpc("fn_staff_get_order", { p_order: EDIT_TOKEN })
+                   : await rpc("fn_manage_get_order", { p_token: EDIT_TOKEN });
+  } catch (e) { if (STAFF_EDIT) r = { ok: false, message: e.message }; }
+  if (STAFF_EDIT && (!r?.ok || !r.allowed?.content)) {
+    $("view-form").classList.add("hidden");
+    const b = document.querySelector(".staff-banner");
+    if (b) b.innerHTML = "⚠️ " + esc(r?.message || "このご予約はいま変更できません（キャンセル済み・受渡済み・追加希望の途中）。") +
+      '　<a href="admin/">管理画面に戻る</a>';
+    return;
+  }
   if (!r?.ok || !r.allowed?.content) {
     // 期限切れ・キャンセル済みなどは管理ページに戻して理由を表示させる
     location.replace(`manage.html?t=${encodeURIComponent(EDIT_TOKEN)}`);
@@ -519,8 +561,16 @@ async function enterEditMode() {
   EDIT_ORDER = r.order;
   RESTORING = true;
   try {
-    document.querySelector(".shop-sub").textContent = `ご予約内容の変更（No.${EDIT_ORDER.order_number}）`;
+    document.querySelector(".shop-sub").textContent = `ご予約内容の変更（No.${EDIT_ORDER.order_number}）` + (STAFF_EDIT ? "　お店の操作" : "");
     document.title = `${state.tenant.name}｜ご予約内容の変更`;
+    if (STAFF_EDIT) {
+      const b = document.querySelector(".staff-banner");
+      if (b) b.innerHTML = `📞 <strong>No.${esc(String(EDIT_ORDER.order_number))} ${esc(EDIT_ORDER.customer?.name || "")}様のご予約を変更しています</strong>：` +
+        "予約番号・お客様の変更リンクはそのまま。お客様向けの変更期限は見ません。満枠・休業の日は確認のうえ強行できます。";
+      document.querySelector("#view-confirm .confirm-title").textContent = "変更内容の確認";
+      document.querySelector("#view-confirm .preview-note").textContent =
+        "内容を確認のうえ「この内容に変更する」を押すと、このご予約が変更後の内容に置き換わります。";
+    }
     $("btn-submit").textContent = SUBMIT_LABEL;
 
     const c = EDIT_ORDER.customer || {};
@@ -2967,6 +3017,7 @@ $("btn-confirm").onclick = () => {
   const err = validate();
   if (err) { toast(err); return; }
   renderConfirm();
+  if (STAFF_EDIT) renderStaffNotify();
   track("confirm_viewed", { option_count: state.sel.options.size });
   $("view-form").classList.add("hidden");
   $("view-confirm").classList.remove("hidden");
@@ -3068,7 +3119,7 @@ $("btn-submit").onclick = async () => {
         tenant_id: state.tenant.id,
         product_id: s.product.id,
         variant_id: s.variant.id,
-        quantity: 1,
+        quantity: EDIT_MODE && EDIT_ORDER?.quantity > 1 ? EDIT_ORDER.quantity : 1,   // 変更は元の数量を保つ
         pickup_date: s.date,
         pickup_slot_id: s.slot.id,
         customer: {
@@ -3112,7 +3163,9 @@ $("btn-submit").onclick = async () => {
       pending = retryStore().begin(payload, s.slot.label);
       payload = pending.payload;
     }
-    const r = EDIT_MODE
+    const r = STAFF_EDIT
+      ? await staffReplaceOrder(payload.p)
+      : EDIT_MODE
       ? await rpc("fn_manage_replace", { p_token: EDIT_TOKEN, p: payload.p })
       : STAFF_MODE
         ? await staffPlaceOrder(payload.p)
@@ -3133,7 +3186,7 @@ $("btn-submit").onclick = async () => {
       $("view-done").querySelector("h2").textContent = "ご予約内容を変更しました";
     }
     if (STAFF_MODE) {
-      $("view-done").querySelector("h2").textContent = "予約を登録しました";
+      $("view-done").querySelector("h2").textContent = STAFF_EDIT ? "ご予約内容を変更しました" : "予約を登録しました";
       $("view-done").querySelector(".done-emoji").textContent = "📞";
     }
     $("done-number").textContent = `No.${r.order_number}`;
@@ -3141,7 +3194,9 @@ $("btn-submit").onclick = async () => {
     const [y, m, d] = payload.p.pickup_date.split("-");
     $("done-pickup").textContent =
       `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} に${state.tenant.name}でお渡しします。` +
-      (EDIT_MODE ? "変更後の内容で確認メールをお送りします。"
+      (STAFF_EDIT ? (r.notified ? "「確認済」のまま変更しました。お客様に変更のご案内をお送りします。"
+                               : "「確認済」のまま変更しました（お客様へのご案内は送っていません）。")
+       : EDIT_MODE ? "変更後の内容で確認メールをお送りします。"
        : STAFF_MODE ? ($("cust-email").value.trim()
            ? "「確認済」で登録し、お客様に確認メールをお送りします。"
            : "「確認済」で登録しました（メール未記入のため確認メールは送られません）。")
@@ -3162,7 +3217,7 @@ $("btn-submit").onclick = async () => {
       const back = document.createElement("p");
       back.id = "done-staff-back";
       back.innerHTML = `<a href="admin/">← 管理画面に戻る</a>　` +
-        `<a href="?shop=${encodeURIComponent(CONFIG.shop)}&staff=1">続けてもう1件登録する</a>`;
+        (STAFF_EDIT ? "" : `<a href="?shop=${encodeURIComponent(CONFIG.shop)}&staff=1">続けてもう1件登録する</a>`);
       $("view-done").querySelector(".done-box").appendChild(back);
     }
     // 変更・キャンセル用の専用リンク（確認メールにも同じものが載る）

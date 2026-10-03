@@ -255,7 +255,8 @@ async function loadOrders() {
   const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
   $("tab-kitchen").classList.toggle("hidden", !!filter);
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
-    (filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
+    (filter === "new" ? `&status=eq.new&review_state=eq.none`
+      : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
     `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
@@ -269,8 +270,55 @@ async function loadOrders() {
   renderPickup();
   if ($("kitchen-range-mode").checked) await loadKitchenRange();
   else renderKitchen();
+  refreshUnconfirmedCount().catch(() => {});
 }
 $("review-filter").onchange = () => loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
+
+/* ---------- 未確認をまとめて確認（2026-10-03・まりほ要望） ----------
+ * 絞り込み「全日の未確認」は、受取日に関係なく status=new（追加希望の確認待ちは除く）を受取日順に並べる。
+ * 一覧の上のボタンで、いま画面に出ている分だけをまとめて「確認済」にする（見ていない予約は対象にしない）。
+ * 選択肢の名前には件数を添え、絞り込みを開かなくても未確認が残っているか分かるようにする。 */
+let unconfirmedCountGeneration = 0;
+async function refreshUnconfirmedCount() {
+  const opt = $("review-filter")?.querySelector('option[value="new"]');
+  if (!opt || !state.tenantId) return;
+  const generation = ++unconfirmedCountGeneration, tenant = state.tenantId;
+  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${tenant}&status=eq.new&review_state=eq.none&select=id`, {
+    method: "HEAD",
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, Prefer: "count=exact" },
+  });
+  // 要求が重なったときは最新の応答だけを出す（古い応答で、まとめて確認した後の件数を戻さない）
+  if (!res.ok || generation !== unconfirmedCountGeneration || tenant !== state.tenantId) return;
+  const n = Number(res.headers.get("content-range")?.split("/")[1]);
+  opt.textContent = Number.isFinite(n) && n > 0 ? `全日の未確認（${n}件）` : "全日の未確認";
+}
+function renderBulkConfirm() {
+  const box = $("bulk-confirm");
+  if (!box) return;
+  const targets = $("review-filter")?.value === "new" ? state.orders.filter((o) => o.status === "new" && !reviewPending(o)) : [];
+  box.classList.toggle("hidden", !targets.length);
+  if (!targets.length) return;
+  $("bulk-confirm-note").textContent = `未確認 ${targets.length}件（受取日順）。内容を見てから、まとめて確認済にできます。`;
+  $("bulk-confirm-btn").textContent = `→ ${targets.length}件をまとめて確認済にする`;
+}
+$("bulk-confirm-btn").onclick = async () => {
+  const targets = state.orders.filter((o) => o.status === "new" && !reviewPending(o));
+  if (!targets.length) return;
+  const lines = targets.slice(0, 8).map((o) => `No.${o.order_number} ${o.pickup_date} ${o.customer_name}様`).join("\n");
+  if (!confirm(`表示中の未確認 ${targets.length}件を「確認済」にしますか？\n（お客様へのメールは送りません）\n\n${lines}${targets.length > 8 ? `\n…ほか${targets.length - 8}件` : ""}`)) return;
+  const btn = $("bulk-confirm-btn"); btn.disabled = true;
+  let done;
+  try {
+    // 画面に出ている予約だけを対象にする。読み込み後に状態が変わった分（キャンセル等）は条件で外れる
+    const ids = targets.map((o) => o.id).join(",");
+    done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none`, { status: "confirmed" });
+  } catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); btn.disabled = false; return; }
+  toast(`${Array.isArray(done) ? done.length : targets.length}件を「確認済」にしました`);
+  // 更新は済んでいるので、再読み込みの失敗は別の案内にする（一覧が古いままなのを伝える）
+  try { await loadOrders(); }
+  catch { toast("確認済にしましたが、一覧を読み直せませんでした。ページを再読み込みしてください。"); }
+  finally { btn.disabled = false; }
+};
 
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
@@ -279,8 +327,10 @@ function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
   const active = state.orders;
+  renderBulkConfirm();
   if (!active.length) {
-    wrap.innerHTML = `<p class="empty-note">${$("review-filter")?.value ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
+    const filter = $("review-filter")?.value;
+    wrap.innerHTML = `<p class="empty-note">${filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
     return;
   }
   for (const o of active) {
@@ -461,6 +511,12 @@ function fillOrderBody(el, o) {
       (legacyOrder(o) ? "（旧フォームでのお支払い済みかは未照合）" : ""));
   }
   let actions = "";
+  // 店側からの変更（2026-10-03）。未確認・確認済で、追加希望（見積もり）の途中でないものだけ
+  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none";
+  if (staffEditable) {
+    actions += `<button type="button" class="pill slot-btn">受取日時を変更</button>` +
+               `<button type="button" class="pill content-btn">内容を変更</button>`;
+  }
   if (o.status !== "canceled") {
     actions += `<button type="button" class="pill danger cancel-btn">キャンセル</button>`;
   }
@@ -485,11 +541,74 @@ function fillOrderBody(el, o) {
     openOrderGallery(list, Math.max(0, list.findIndex((x) => x.url === btn.dataset.url)));
   };
   el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
+  el.querySelector(".content-btn")?.addEventListener("click", () => {
+    // 予約ページを「代行＋変更」で開く（番号・お客様の変更リンクは維持。送信は fn_staff_replace）
+    window.open(`../?shop=${encodeURIComponent(state.subdomain)}&staff=1&edit=${encodeURIComponent(o.id)}`, "_blank");
+  });
+  el.querySelector(".slot-btn")?.addEventListener("click", (e) => {
+    const button = e.currentTarget;   // 非同期の失敗時には currentTarget が null になるため先に取る
+    button.disabled = true;
+    renderSlotChange(el, o).catch(() => { toast("受取時間の一覧を読み込めませんでした"); button.disabled = false; });
+  });
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
       updateStatus(o, "canceled");
   });
 }
+/* ---------- 店側からの受取日時の変更（2026-10-03・まりほ指摘「お店側で変更できなくない？」） ----------
+ * 電話で「別の日にしたい」と言われたときに、キャンセル＋入れ直しをせずに動かす（番号・変更リンク・内容はそのまま）。
+ * 期限はお店の判断なので見ない。満枠・休業・締切は fn_staff_change_slot が staff_confirm で返し、確認して強行する。 */
+let activeSlotsCache = null;
+async function activeSlots() {
+  if (activeSlotsCache?.tenant === state.tenantId) return activeSlotsCache.rows;
+  const rows = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_active=is.true&select=id,label,start_time&order=start_time`);
+  activeSlotsCache = { tenant: state.tenantId, rows };
+  return rows;
+}
+async function renderSlotChange(el, o) {
+  const slots = await activeSlots();
+  el.querySelector(".slot-change")?.remove();
+  const box = document.createElement("form");
+  box.className = "confirm-box slot-change";
+  const canNotify = !!(o.customer_email || "").trim() || !!o.line_user_id;
+  box.innerHTML = `
+    <p>受取日時だけを変えます。予約番号・ご予約内容・お客様の変更リンクはそのままです。</p>
+    <div class="slot-change-row">
+      <label class="field">受取日<input type="date" class="slot-date" required value="${esc(o.pickup_date)}"></label>
+      <label class="field">受取時間<select class="slot-id" required>${slots.map((s) => `<option value="${esc(s.id)}" ${s.id === o.pickup_slot_id ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</select></label>
+    </div>
+    ${canNotify ? `<label class="slot-notify-label"><input type="checkbox" class="slot-notify" checked> お客様に変更のご案内を送る（${[(o.customer_email || "").trim() ? "メール" : "", o.line_user_id ? "LINE" : ""].filter(Boolean).join("・")}）</label>`
+                : `<p class="small">メール未記入・LINE未連携のため、お客様へのご案内は送られません。</p>`}
+    <div class="order-actions">
+      <button type="submit" class="pill slot-save">この日時に変更する</button>
+      <button type="button" class="pill slot-cancel">やめる</button>
+    </div>
+    <p class="slot-error error" role="status"></p>`;
+  box.querySelector(".slot-cancel").onclick = () => { box.remove(); el.querySelector(".slot-btn")?.removeAttribute("disabled"); };
+  box.onsubmit = async (e) => {
+    e.preventDefault(); if (!box.reportValidity()) return;
+    const date = box.querySelector(".slot-date").value, slot = box.querySelector(".slot-id").value;
+    const notify = !!box.querySelector(".slot-notify")?.checked;
+    const label = slots.find((s) => s.id === slot)?.label || "";
+    const err = box.querySelector(".slot-error"); err.textContent = "";
+    const btn = box.querySelector(".slot-save"); btn.disabled = true;
+    try {
+      let r = await api("POST", "/rest/v1/rpc/fn_staff_change_slot", { p_order: o.id, p_date: date, p_slot: slot, p_force: false, p_notify: notify });
+      if (!r.ok && r.staff_confirm) {
+        if (!confirm(`${r.message}\n\nそれでも ${date} ${label} に変更しますか？（変更後の分も台数として数えられます）`)) { btn.disabled = false; return; }
+        r = await api("POST", "/rest/v1/rpc/fn_staff_change_slot", { p_order: o.id, p_date: date, p_slot: slot, p_force: true, p_notify: notify });
+      }
+      if (!r.ok) throw new Error(r.message || "変更できませんでした");
+      // お客様へのご案内はアウトボックスに積んであるので、送信ワーカーを起こす（失敗しても変更は成立済み）
+      if (r.notified) fetch(`${CONFIG.url}/functions/v1/send-order-emails`, { method: "POST", headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}` } }).catch(() => {});
+      toast(`No.${o.order_number} を ${date} ${label} に変更しました${r.notified ? "（お客様へご案内を送ります）" : ""}`);
+      await loadOrders();
+    } catch (error) { err.textContent = error.message; btn.disabled = false; }
+  };
+  const anchor = el.querySelector(".order-actions");
+  if (anchor) anchor.after(box); else el.appendChild(box);
+}
+
 /* ---------- Squareでの事前払い・返金（2026-10-02） ----------
  * 当日のお支払い＝合計 − 事前払い。安くなった・キャンセルした分は、店がここから返金する（自動では返さない） */
 function prepayNumbers(o) {

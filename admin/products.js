@@ -732,10 +732,36 @@ async function loadAll(keepCurrent = true) {
   state.fields = []; // 入力欄の登録をやり直す
   renderTabs();
   renderEditor();
+  renderSelfcheck();   // 自動点検の結果（予約できない設定があれば先頭に出す）
   await state.capacityLoading;
   renderCategories();
   $("save-bar").classList.remove("hidden");
   markDirty();
+}
+
+
+/* ---------- 自動点検の結果（2026-10-03） ----------
+ * サーバーが毎日、公開中の商品ごとに「必須のものを順に埋めた注文」を条件の分かれ道ごとに組み立てて
+ * 本番と同じ検証に通し（保存はしない）、弾かれた分岐を selfcheck_results に残す。
+ * 店主には「どの商品の・どの選び方で・何と言われて止まるか」だけを見せる。問題がなければ何も出さない */
+async function renderSelfcheck() {
+  const host = $("admin-body");
+  if (!host) return;
+  host.querySelector(".selfcheck-warn")?.remove();
+  let rows = [];
+  try {
+    rows = await api("GET", `/rest/v1/selfcheck_results?tenant_id=eq.${state.tenantId}&ok=eq.false` +
+      `&select=product_name,branch,message,checked_at&order=product_name,branch&limit=50`);
+  } catch { return; }   // 表が無い・読めないときは何も出さない（点検は補助）
+  if (!rows.length) return;
+  const when = rows[0].checked_at ? new Date(rows[0].checked_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const box = document.createElement("div");
+  box.className = "selfcheck-warn";
+  box.innerHTML = `<strong>⚠️ 自動点検：いまの設定では、お客様が予約できない場合があります</strong>` +
+    `<span class="small">（${esc(when)} の点検・この画面で設定を直すと次の点検で消えます）</span><ul>` +
+    rows.map((r) => `<li>「${esc(r.product_name)}」で <b>${esc(r.branch)}</b> と進むと：${esc(r.message || "")}</li>`).join("") +
+    `</ul><span class="small">直し方が分からないときは、この文をそのままサポートへお送りください。</span>`;
+  host.prepend(box);
 }
 
 /* ---------- 商品タブ（2026-09-06：カテゴリで畳む＋名前で絞る） ----------

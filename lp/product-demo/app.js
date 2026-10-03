@@ -3008,9 +3008,58 @@ function validate() {
   return null;
 }
 
+
+/* ---------- エラーの場所まで戻る（2026-10-03 まりほ要望） ----------
+ * 入力チェックやサーバーの拒否は、押したボタンの近くに文だけ出ていた。スマホでは該当の欄が画面の
+ * ずっと上にあり、「どこを直せばいいか」が分からない（10/10受取のお客様が確認画面で止まった件）。
+ * エラー文の「…」の中の名前から、選択グループ・選択肢・質問・お客様情報の欄を探して、そこまで
+ * スクロールし、数秒だけ枠を光らせる。見つからないときは従来どおり文だけ出す。 */
+const firstText = (el) => {
+  const n = [...(el?.childNodes || [])].find((x) => x.nodeType === 3 && x.textContent.trim());
+  return (n ? n.textContent : el?.textContent || "").trim();
+};
+function findErrorTarget(msg) {
+  const m = /「([^」]+)」/.exec(msg || "");
+  const name = m ? m[1] : null;
+  const form = $("view-form");
+  if (name) {
+    for (const g of form.querySelectorAll(".group")) if (firstText(g.querySelector("h3")) === name) return g;
+    for (const r of form.querySelectorAll(".opt")) if (firstText(r.querySelector(".opt-name")) === name) return r;
+    for (const f of form.querySelectorAll(".field")) if (firstText(f) === name) return f;
+  }
+  const t = msg || "";
+  if (/ケーキとサイズ/.test(t)) return $("sec-size").classList.contains("hidden") ? $("sec-products") : $("sec-size");
+  if (/受取時間/.test(t)) return $("slot-area");
+  if (/受取日/.test(t)) return $("sec-date");
+  if (/お名前/.test(t)) return $("cust-sei");
+  if (/フリガナ/.test(t)) return $("cust-sei-kana");
+  if (/郵便番号/.test(t)) return $("cust-postal");
+  if (/ご住所/.test(t)) return $("cust-address");
+  if (/電話/.test(t)) return $("cust-phone");
+  if (/メールアドレス/.test(t)) return $("cust-email");
+  return null;
+}
+function showErrorAt(msg) {
+  const el = findErrorTarget(msg);
+  toast(msg, el ? 6000 : 3200);
+  if (!el) return false;
+  // 確認画面にいたら入力画面へ戻す（サーバーに弾かれたとき）
+  if (!$("view-confirm").classList.contains("hidden")) {
+    $("view-confirm").classList.add("hidden");
+    $("view-form").classList.remove("hidden");
+    $("price-bar").classList.remove("hidden");
+  }
+  const box = el.closest(".group, .opt, .field, .step") || el;
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+  box.classList.remove("error-flash"); void box.offsetWidth; box.classList.add("error-flash");
+  setTimeout(() => box.classList.remove("error-flash"), 4000);
+  if (el.matches("input, textarea, select")) setTimeout(() => el.focus({ preventScroll: true }), 400);
+  return true;
+}
+
 $("btn-confirm").onclick = () => {
   const err = validate();
-  if (err) { toast(err); return; }
+  if (err) { showErrorAt(err); return; }
   renderConfirm();
   if (STAFF_EDIT) renderStaffNotify();
   track("confirm_viewed", { option_count: state.sel.options.size });
@@ -3033,7 +3082,9 @@ function renderConfirm() {
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
     : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。" : "この内容で注文すると、ご注文が確定します。";
   const rows = [];
-  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
+  // 見出しが長い行（質問文など）は上下2段に組む＝スマホで値の列が潰れない（2026-10-03）
+  const rowCls = (k) => `confirm-row${String(k || "").length > 12 ? " stack" : ""}`;
+  const row = (k, v) => rows.push(`<div class="${rowCls(k)}"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
   row("価格", basePrice(s.variant) < s.variant.price ? `${yen(basePrice(s.variant))}（ご予約時の価格）` : yen(s.variant.price));
   for (const [id, v] of s.options) {
@@ -3047,7 +3098,7 @@ function renderConfirm() {
     const a = normAnswer(s.answers.get(q.id));
     if (q.input_type === "image") {
       if (a.images.length) {
-        rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span>` +
+        rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span>` +
           `<span class="confirm-thumbs">` +
           a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(slotImageSrc(x))}" alt="">` +
             ((x.note || "").trim() ? `<span class="cap">${esc((x.note || "").trim())}</span>` : "") +
@@ -3069,9 +3120,9 @@ function renderConfirm() {
     } else if (v && q.input_type === "palette") {
       const c = q.common_question_choices.find((x) => x.id === a.choiceIds[0]);
       const hex = /^#[0-9A-Fa-f]{6}$/.test(c?.color_hex || "") ? c.color_hex : null;
-      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
+      rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
     } else if (v && isColorQuestionType(q.input_type)) {
-      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
+      rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
   }
   const [y, m, d] = s.date.split("-");
@@ -3271,6 +3322,8 @@ $("btn-submit").onclick = async () => {
       ? "送信結果を確認できませんでした。もう一度押すと、前回と同じ申し込みの結果を確認します。入力を変更しても、新しい予約は作りません。"
       : e.message;
     $("submit-error").classList.remove("hidden");
+    // サーバーが「どの欄か」を名指しで弾いたときは、入力画面のその欄まで戻る（文だけ残しても直せないため）
+    if (!uncertain) showErrorAt(e.message);
   } finally {
     btn.disabled = false;
     let pending = false;

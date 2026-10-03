@@ -241,6 +241,21 @@ function track(step, detail) {
     keepalive: true,
   }).catch(() => {});   // 計測の失敗が注文の邪魔をしないこと
 }
+// 止まったお客様の記録（2026-10-04・運営日報）。エラー文と code だけを送る（お客様の入力は入れない）。
+// 内容変更で止まった人も知りたいので EDIT_MODE でも送る（mode で区別）。代行・お試し・見本では送らない
+function trackStuck(step, message, code) {
+  if (THEME_PREVIEW || EDITOR_PREVIEW || TRIAL_MODE || STAFF_MODE || RESTORING || !state.tenant || !message) return;
+  fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
+    method: "POST",
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p: {
+      tenant_id: state.tenant.id, session_id: SESSION_ID, step,
+      product_id: state.sel?.product?.id ?? null,
+      detail: { message: String(message).slice(0, 200), code: code || null, mode: EDIT_MODE ? "edit" : "new" },
+    } }),
+    keepalive: true,
+  }).catch(() => {});
+}
 
 /* ---------- 入力途中の自動保存（更新しても続きから再開できる） ---------- */
 const SAVE_KEY = `cake_form_${CONFIG.shop}`;
@@ -3059,7 +3074,7 @@ function showErrorAt(msg) {
 
 $("btn-confirm").onclick = () => {
   const err = validate();
-  if (err) { showErrorAt(err); return; }
+  if (err) { trackStuck("confirm_blocked", err); showErrorAt(err); return; }
   renderConfirm();
   if (STAFF_EDIT) renderStaffNotify();
   track("confirm_viewed", { option_count: state.sel.options.size });
@@ -3219,7 +3234,9 @@ $("btn-submit").onclick = async () => {
     if (!r.ok) {
       // A business rejection is definitive; transport errors remain pending.
       if (RETRY_ENABLED && r.code !== "request_conflict") retryStore().clear();
-      throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
+      const why = r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした");
+      trackStuck("order_rejected", why, r.code);
+      throw new Error(why);
     }
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）

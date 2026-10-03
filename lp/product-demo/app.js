@@ -3267,3 +3267,37 @@ window.addEventListener("message", (e) => {
   if (e.origin !== location.origin) return;
   if (e.data && e.data.type === "pokke-theme") applyTheme(e.data.theme);
 });
+
+/* ---------- 見出しの番号（1〜）を、いま出ている手順だけで上から振り直す（2026-10-03 点検指摘） ----------
+ * 「ご記入欄」（#sec-questions）は質問の作り直し（cb0dcfd）以降、質問をケーキの内容の中に並べるため出ない。
+ * 「ケーキの内容」（#sec-groups）も選択肢・質問の無い商品では出ない。HTMLの番号のままだと
+ * 「1,2,3,5」のように飛ぶので、見えている手順を数え直す。
+ * ただし「ケーキの内容」は受取日を選ぶまで隠しているだけ（中身はある）のときも数に入れる。
+ * そうしないと受取日を選んだ瞬間に下の「お客様情報」の番号が 4→5 と変わってしまう。
+ * 表示の切り替えは app.js のあちこち（選択・リセット・変更モード・見本表示）で起きるので、
+ * 呼び忘れが出ないよう、手順の class の変化と「ケーキの内容」の中身の変化を見張って振り直す。 */
+function stepPending(sec) {
+  if (sec.id !== "sec-groups") return false;
+  const date = $("sec-date");
+  return !!date && !date.classList.contains("hidden") && !contentReady() &&
+    !!$("group-list")?.querySelector("[data-question-key]");
+}
+function renumberSteps() {
+  let n = 0;
+  for (const sec of document.querySelectorAll("#view-form .step")) {
+    const no = sec.querySelector(".step-no");
+    if (!no) continue;
+    if (sec.classList.contains("hidden") && !stepPending(sec)) continue;
+    const label = String(++n);
+    if (no.textContent !== label) no.textContent = label;
+  }
+}
+(() => {
+  const steps = document.querySelectorAll("#view-form .step");
+  if (!steps.length || typeof MutationObserver !== "function") return;
+  const observer = new MutationObserver(renumberSteps);
+  steps.forEach((sec) => observer.observe(sec, { attributes: true, attributeFilter: ["class"] }));
+  const groups = $("group-list");
+  if (groups) observer.observe(groups, { childList: true });
+  renumberSteps();
+})();

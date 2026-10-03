@@ -332,9 +332,10 @@
     font-size: 1rem; font-weight: bold; padding: 8px 6px; cursor: pointer;
   }
 }
-}
 
 /* ---- 設定 › 見た目 ---- */
+/* 2026-10-03：直前に余分な「}」があり、下の .th-cols が丸ごと無視されていた（9/3〜）。
+   消したので、広い画面では左に設定・右に見本の2列になる（1200px〜。admin-layout.css でも幅を調整） */
 .th-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .th-sw { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 .th-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }

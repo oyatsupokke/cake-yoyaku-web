@@ -149,7 +149,7 @@ async function loadOrderImages() {
       byQ.set(x.question_id, [...(byQ.get(x.question_id) || []), x]);
     }
     for (const [qid, list] of byQ) {
-      const cell = $("order-detail").querySelector(`[data-q="${qid}"] .v`);
+      const cell = $("order-detail").querySelector(`[data-q="${CSS.escape(String(qid))}"] .v`);
       if (cell) cell.outerHTML = thumbs(list);
       else rest.push(...list);
     }

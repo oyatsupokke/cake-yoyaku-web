@@ -8,3 +8,20 @@
 .cb-workload th:nth-child(n+2),.cb-workload td:nth-child(n+2){white-space:nowrap}
 /* ボタンが2行になるときは均等に（「登録なしで／デモを体験」） */
 .cb .cb-btn{text-wrap:balance;text-align:center}
+/* スマホの見出しを大きく（2026-10-03 まりほ指摘「スマホで見ると小さい」。元は22px＝カードの小見出しとほぼ同じだった） */
+@media (max-width:640px){
+  .cb-section h2{font-size:26px}
+  .cb-closing h2{font-size:28px}
+}
+/* 「設定が難しそう…という方へ」（はじめ方の下・2026-10-03 まりほ要望） */
+.cb-assist{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:28px 30px;margin:0 0 26px}
+.cb-assist-head{margin-bottom:20px}
+.cb-assist-head h3{font-size:20px;margin-bottom:6px}
+.cb-assist-head p{font-size:14px;color:var(--sub)}
+.cb-assist-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 28px}
+.cb-assist-grid article{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start}
+.cb-assist-grid svg{color:var(--accent);grid-row:span 2;margin-top:2px}
+.cb-assist-grid h4{font-family:var(--head);font-size:16px;margin:0 0 4px}
+.cb-assist-grid p{font-size:14.5px;color:var(--sub);line-height:1.8;margin:0}
+.cb-assist-note{margin-top:18px;font-size:13px;color:var(--sub);line-height:1.8}
+@media (max-width:640px){.cb-assist{padding:22px 18px}.cb-assist-grid{grid-template-columns:1fr}.cb-assist-head h3{font-size:18px}}

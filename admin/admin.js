@@ -198,7 +198,7 @@ function renderBillingBanner(t) {
     const expired = !t.trial_ends_at || new Date(t.trial_ends_at) <= new Date();
     $("billing-page-status").textContent = expired ? "お試し終了・休止中" : "カード不要のお試し中";
     $("billing-page-help").textContent = `有料契約の決済完了から${priceText}で、本予約の受付を開始します。`;
-    html = expired ? "7日間のお試しが終了しました。設定は保存されています。" : "カード不要の7日間お試し中です。本予約は受け付けません。";
+    html = expired ? "14日間のお試しが終了しました。設定は保存されています。" : "カード不要の14日間お試し中です。本予約は受け付けません。";
     if (!expired) html += ` <a class="pill" href="../?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
     html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;
   } else if (status === "none") {
@@ -320,6 +320,10 @@ $("bulk-confirm-btn").onclick = async () => {
   finally { btn.disabled = false; }
 };
 
+/* お店のメモ（orders.staff_note・2026-10-03）。カードには印だけ、中身は詳細の欄で読み書きする */
+const staffNoteBadge = (o) => (o.staff_note || "").trim()
+  ? `<span class="status-badge st-note" title="${esc((o.staff_note || "").trim().slice(0, 80))}">📝 メモ</span>` : "";
+
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
 const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE");
@@ -352,6 +356,7 @@ function renderPickup() {
         ${prepayBadge(o)}
         ${(o.order_images || []).length ? `<button type="button" class="status-badge st-image photo-badge" aria-label="お客様の添付画像を見る（${o.order_images.length}枚）">📷${o.order_images.length}</button>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
+        ${staffNoteBadge(o)}
       </div>
       ${o.status === "new" && !reviewPending(o) ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
       <div class="order-body hidden"></div>`;
@@ -497,6 +502,7 @@ function fillOrderBody(el, o) {
   if (legacyOrder(o)) {
     row("受付", "旧予約フォーム（SELECTTYPE）から移したご予約");
     if (o.price_lock) row("価格", "ご予約時の価格のまま（お客様が内容を変更しても、前に選んだ分は同じ価格）");
+    rows.push(`<div class="confirm-row"><span class="k">移行時の記録</span><span class="v pre">${esc(o.internal_memo)}</span></div>`);
   }
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
@@ -529,6 +535,7 @@ function fillOrderBody(el, o) {
     (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
+  renderStaffNote(el, o);
   if (o.review_state && o.review_state !== "none") renderQuoteEditor(el,o);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
@@ -555,6 +562,42 @@ function fillOrderBody(el, o) {
       updateStatus(o, "canceled");
   });
 }
+/* ---------- お店のメモ（2026-10-03・まりほ要望） ----------
+ * 予約ごとに店内向けのメモを残す（例：電話で聞いた補足・当日の受け渡しの注意）。お客様には見えない。
+ * 保存はこの欄だけで完結し（まとめて保存バーは使わない）、保存するとカードの印と製造カードにも出る。 */
+function renderStaffNote(el, o) {
+  const box = document.createElement("div");
+  box.className = "confirm-box staff-note";
+  box.innerHTML = `<label class="field">お店のメモ（お客様には見えません）<textarea class="staff-note-text" rows="3" maxlength="2000" placeholder="例：電話で「ろうそく5本つけて」と追加依頼あり"></textarea></label>
+    <div class="order-actions"><button type="button" class="pill staff-note-save" disabled>メモを保存</button><span class="staff-note-state small"></span></div>`;
+  const ta = box.querySelector(".staff-note-text"), btn = box.querySelector(".staff-note-save"), st = box.querySelector(".staff-note-state");
+  ta.value = o.staff_note || "";
+  ta.addEventListener("input", () => { btn.disabled = ta.value === (o.staff_note || ""); st.textContent = btn.disabled ? "" : "未保存"; });
+  btn.onclick = async () => {
+    const value = ta.value.trim() || null;
+    btn.disabled = true; st.textContent = "保存中…";
+    try {
+      const rows = await api("PATCH", `/rest/v1/orders?id=eq.${o.id}&tenant_id=eq.${state.tenantId}`, { staff_note: value });
+      // 更新された行が、この予約の1件であることを確かめる（所属が外れた・予約が消えた等で0件なら失敗扱い）
+      if (!Array.isArray(rows) || rows.length !== 1 || rows[0]?.id !== o.id) throw new Error("not updated");
+      o.staff_note = value;
+      // 期間表示の製造カードは別の注文オブジェクトを使うので、そちらにも写す
+      const rangeOrder = kitchenRange?.orders?.find((item) => item.id === o.id);
+      if (rangeOrder) rangeOrder.staff_note = value;
+      // カードの印を描き直す（詳細は開いたまま）
+      const head = el.closest(".order-card")?.querySelector(".order-head");
+      head?.querySelector(".st-note")?.remove();
+      if (value) head?.insertAdjacentHTML("beforeend", staffNoteBadge(o));
+      toast(`No.${o.order_number} のメモを保存しました`);
+      renderKitchen();
+      // 保存を待つ間に書き足した分は未保存のまま残す
+      const dirty = ta.value !== (o.staff_note || "");
+      btn.disabled = !dirty; st.textContent = dirty ? "未保存" : "保存しました";
+    } catch { st.textContent = "保存できませんでした。通信状態を確認して、もう一度お試しください。"; btn.disabled = false; }
+  };
+  el.appendChild(box);
+}
+
 /* ---------- 店側からの受取日時の変更（2026-10-03・まりほ指摘「お店側で変更できなくない？」） ----------
  * 電話で「別の日にしたい」と言われたときに、キャンセル＋入れ直しをせずに動かす（番号・変更リンク・内容はそのまま）。
  * 期限はお店の判断なので見ない。満枠・休業・締切は fn_staff_change_slot が staff_confirm で返し、確認して強行する。 */
@@ -821,7 +864,8 @@ function renderKitchen() {
         `</div>` : ""}
       <ul>${opts}${notes}</ul>
       ${o.review_state === 'accepted' && o.quote ? `<p style="white-space:pre-wrap"><strong>合意した追加希望：</strong>${esc(o.quote.description)}</p>` : ""}
-      ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}`;
+      ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}
+      ${(o.staff_note || "").trim() ? `<p class="knote"><strong>お店のメモ：</strong>${esc(o.staff_note.trim())}</p>` : ""}`;
     wrap.appendChild(card);
   }
 }
@@ -1315,6 +1359,16 @@ async function unusedTenantSave() {
 // 「商品ごとの上限」は商品エディタ（products.html）の各商品ページへ移設（まりほ指摘 2026-08-25：分類が変）
 
 function initLineSettings(t) {
+  // LINE通知はStandardの機能（2026-10-03 まりほ決定）。Liteでは接続の手順を出さず、切り替えの案内だけ出す
+  const lite = t.reservation_plan === 'lite';
+  const card = $('settings-line');
+  // 先頭の3つ（見出し・説明・状態）だけ残し、手順・ボタンは隠す
+  if (card) Array.from(card.children).forEach((el, i) => { el.hidden = lite && i >= 3; });
+  if (lite) {
+    const st = $('line-config-status');
+    if (st) st.textContent = 'LINE通知はStandardプランの機能です。「ご契約・お支払い」からStandardへ切り替えると使えます。';
+    return;
+  }
   if (window.loadLineConnectionSettings) window.loadLineConnectionSettings(t);
 }
 
@@ -1717,12 +1771,12 @@ async function renderLiteUsage(t) {
   let box=document.getElementById('lite-usage');
   if(!box){box=document.createElement('div');box.id='lite-usage';box.className='confirm-box';$('billing-banner').after(box);}
   box.hidden=t.reservation_plan!=='lite';if(box.hidden)return;
-  box.textContent='Lite：受取月ごとにネット予約50台まで・最大30日先まで';
+  box.textContent='Lite：受取月ごとにネット予約30台まで・最大30日先まで';
   try{
     const rows=await api('POST','/rest/v1/rpc/fn_reservation_usage',{p_tenant:t.id});
     box.replaceChildren();
     for(const row of rows){const line=document.createElement('p');const month=Number(row.month.slice(5,7));
-      line.textContent=`${month}月受取分：残り${Math.max(0,50-row.used_units)}台（${row.used_units}／50台）${row.used_units>=50?'・この月の新規ネット予約は停止中です':''}`;box.appendChild(line);}
+      const limit=row.limit??30;line.textContent=`${month}月受取分：残り${Math.max(0,limit-row.used_units)}台（${row.used_units}／${limit}台）${row.used_units>=limit?'・この月の新規ネット予約は停止中です':''}`;box.appendChild(line);}
     const link=document.createElement('a');link.href='?tab=billing';link.textContent='Standardプランを見る（月額4,980円）';box.appendChild(link);
     const help=document.createElement('p');help.className='small';help.textContent='Standardは月間台数の上限なし・最大90日先まで。「ご契約・お支払い」から変更料金を確認できます。';box.appendChild(help);
   }catch{box.textContent+='（利用台数を取得できません。再読み込みしてください）';}

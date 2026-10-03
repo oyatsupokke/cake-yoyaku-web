@@ -5,14 +5,14 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>新規登録｜ケーキ予約システム</title>
-<link rel="stylesheet" href="styles.css?v=1791012061">
-<link rel="stylesheet" href="signup.css?v=1791012061">
+<link rel="stylesheet" href="styles.css?v=1791017611">
+<link rel="stylesheet" href="signup.css?v=1791017611">
 </head>
 <body>
 <div id="app">
   <header class="shop-header">
     <h1>🎂 ケーキ予約システム</h1>
-    <p class="shop-sub">新規登録（カード不要・7日間無料）</p>
+    <p class="shop-sub">新規登録（カード不要・14日間無料）</p>
   </header>
 
   <!-- ステップ表示 -->
@@ -25,7 +25,7 @@
   <main id="view-account" class="hidden">
     <div class="confirm-box">
       <h3>お店の情報</h3>
-      <label class="field">プラン<select id="s-plan"><option value="standard">Standard（月額4,980円）</option><option value="lite">Lite（月額1,980円・月50台まで）</option></select><small>カード不要で７日間、設定とテスト予約を試せます。Liteは期間内申込で最初の３か月1,480円。</small></label>
+      <label class="field">プラン<select id="s-plan"><option value="standard">Standard（月額4,980円）</option><option value="lite">Lite（月額1,980円・月30台まで）</option></select><small>カード不要で14日間、設定とテスト予約を試せます。Liteは期間内申込で最初の３か月1,480円。</small></label>
         <label class="field">店名 <span class="req">必須</span>
         <input type="text" id="s-name" placeholder="例）oyatsupokke" autocomplete="organization">
       </label>
@@ -64,7 +64,7 @@
 
     <div class="trial-note">
       <p><strong>ご利用の流れ</strong></p>
-      <p><strong>カード登録なしで7日間</strong>、お店の設定とテスト予約をお試しいただけます。お試し中はお客様からの本予約を受け付けません。有料契約のお申し込み・決済が完了すると、選んだプラン（Liteは月額1,980円、Standardは月額4,980円・税込）の課金と本予約の受付が始まります。契約せず期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p>
+      <p><strong>カード登録なしで14日間</strong>、お店の設定とテスト予約をお試しいただけます。お試し中はお客様からの本予約を受け付けません。有料契約のお申し込み・決済が完了すると、選んだプラン（Liteは月額1,980円、Standardは月額4,980円・税込）の課金と本予約の受付が始まります。契約せず期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p>
     </div>
 
     <button type="button" class="btn-primary btn-wide" id="btn-signup">カード登録なしで始める</button>
@@ -113,6 +113,6 @@
   </footer>
 </div>
 <div id="toast" class="hidden"></div>
-<script src="signup.js?v=1791012061"></script>
+<script src="signup.js?v=1791017611"></script>
 </body>
 </html>

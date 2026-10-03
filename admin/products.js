@@ -90,6 +90,10 @@ function validateChange(c) {
       (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
     throw new Error("選択肢の締切は0〜365の整数で入力してください");
   }
+  if (c.table === "options" && c.patch.self_cancel_days != null &&
+      (!Number.isInteger(c.patch.self_cancel_days) || c.patch.self_cancel_days < 1 || c.patch.self_cancel_days > 365)) {
+    throw new Error("お客様ご自身でのキャンセルの期限は1〜365の整数で入力してください");
+  }
 
   if (c.table === "products") {
     const source = state.products.find(p => p.id === c.id) || {};
@@ -156,7 +160,7 @@ function validateQuestionFlow(changes) {
 
 async function saveAll() {
   if (state.saving) return;
-  const invalidDeadline = [...document.querySelectorAll(".o-deadline, .o-size-price, .o-maxq")].find(el => !el.checkValidity());
+  const invalidDeadline = [...document.querySelectorAll(".o-deadline, .o-self-cancel, .o-size-price, .o-maxq")].find(el => !el.checkValidity());
   if (invalidDeadline) {
     const row = invalidDeadline.closest(".opt");
     if (!row.classList.contains("open")) row.querySelector(".o-more").click();
@@ -2217,7 +2221,7 @@ function buildGroupBox(p, g) {
       const qs = questionsOf(o.id);
       return {
         sharedNote:o.shared_list_items?.note || "", sharedFrom:o.shared_list_items?.available_from || "", sharedUntil:o.shared_list_items?.available_until || "",
-        photo:o.photo_url || "", accent:!!o.note_accent, sizePrices:{...o.size_prices}, deadline:o.order_deadline_days, from:o.pickup_from || "", until:o.pickup_until || "", review:!!o.requires_review, maxQty:o.max_quantity,
+        photo:o.photo_url || "", accent:!!o.note_accent, sizePrices:{...o.size_prices}, deadline:o.order_deadline_days, selfCancel:o.self_cancel_days, from:o.pickup_from || "", until:o.pickup_until || "", review:!!o.requires_review, maxQty:o.max_quantity,
         id: o.id, description:o.description || "", note:o.note || "", name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
@@ -2259,6 +2263,7 @@ function buildGroupBox(p, g) {
           <span class="pv-price">${priceText}</span>
         </div>
         ${o.deadline != null ? `<p class="desc">受取日の${esc(o.deadline)}日前締切（受付可能日はカレンダーで確認）</p>` : ""}
+        ${o.selfCancel != null ? `<p class="desc">受取日の${esc(o.selfCancel)}日前を過ぎるとキャンセル・内容変更はできません</p>` : ""}
         ${o.description ? `<p class="desc">${esc(o.description)}</p>` : ""}${note ? `<p class="cnote${o.accent ? " accent" : ""}">${esc(note)}</p>` : ""}
         ${from || until ? `<p class="desc">受取日：${esc(from || "制限なし")}〜${esc(until || "制限なし")}</p>` : ""}
         ${o.maxQty > 1 ? `<p class="desc">数量：1〜${esc(o.maxQty)}個</p>` : ""}
@@ -2386,6 +2391,7 @@ function marksHtml(o, ov) {
     + mk(!!ov.qs?.length, ov.qs?.length > 1 ? `質問${ov.qs.length}件` : "質問あり", "質問なし")
     + mk(!!o.photo_url, "見本写真あり", "見本写真なし")
     + (o.order_deadline_days != null ? `<span class="mk">${esc(o.order_deadline_days)}日前締切</span>` : "")
+    + (o.self_cancel_days != null ? `<span class="mk">キャンセルは${esc(o.self_cancel_days)}日前まで</span>` : "")
     + (o.requires_review ? '<span class="mk">見積もり・承諾が必要</span>' : "")
     + (Object.keys(o.size_prices || {}).length ? '<span class="mk">サイズ別料金あり</span>' : "");
 }
@@ -2436,6 +2442,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><label class="k" for="deadline-${esc(o.id)}">この選択肢の締切（受取日の何日前まで）</label>
         <input id="deadline-${esc(o.id)}" class="o-deadline" type="number" min="0" max="365" step="1" placeholder="商品と同じ" value="${esc(o.order_deadline_days)}">
         <p class="small">空欄は商品と同じ。例：デザイン指定は7日前。商品やほかの選択肢より準備期間が長い場合に適用します。定休日の数え方・締切時刻はお店の設定に従います。</p></div>
+      <div class="fb"><label class="k" for="selfcancel-${esc(o.id)}">お客様ご自身でのキャンセル・内容変更（受取日の何日前まで）</label>
+        <input id="selfcancel-${esc(o.id)}" class="o-self-cancel" type="number" min="1" max="365" step="1" placeholder="お店の設定どおり" value="${esc(o.self_cancel_days)}">
+        <p class="small">空欄はお店の設定どおり。例：写真やデザインの準備を先に始めるものは7日前。期限を過ぎると、お客様は予約確認ページからキャンセル・内容変更できなくなり、お店への連絡になります（お店の画面からは期限後も変更できます）。予約ページのこの選択肢の下にも表示します。設定を変えても、すでに入っている予約の期限は変わりません。</p></div>
       <div class="option-detail-rule-actions">
         <button type="button" class="pill o-stops">ご用意できない日を設定</button>
         <button type="button" class="pill o-excl">同時に選べないものを選ぶ</button>
@@ -2515,6 +2524,15 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   deadlineEl.addEventListener("input", () => {
     o.order_deadline_days = deadlineEl.value === "" ? null : Number(deadlineEl.value);
     ov.deadline = o.order_deadline_days; repaintMarks(); paintGroup();
+  });
+
+  const selfCancelEl = row.querySelector(".o-self-cancel");
+  regField("options", o.id, "self_cancel_days", selfCancelEl, {
+    get: () => selfCancelEl.value === "" ? null : Number(selfCancelEl.value),
+  });
+  selfCancelEl.addEventListener("input", () => {
+    o.self_cancel_days = selfCancelEl.value === "" ? null : Number(selfCancelEl.value);
+    ov.selfCancel = o.self_cancel_days; repaintMarks(); paintGroup();
   });
 
   const descEl = row.querySelector(".o-desc");

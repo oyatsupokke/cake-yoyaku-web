@@ -1,15 +1,10 @@
 SetEnvIf Request_URI ".*" Ngx_Cache_NoCacheMode=off
 SetEnvIf Request_URI ".*" Ngx_Cache_AllCacheMode
 RewriteEngine on
-# http→https と www→apex。転送先は cakebook.jp に固定する（2026-10-03 点検指摘）。
-# 以前は Host ヘッダーの値をそのまま転送先に使っていて、偽の Host を送られると他所のURLへ飛ばす応答を返し得た。
-# ・置換先に「?」を書かないので、元のクエリ文字列（?shop=… など）は mod_rewrite が自動で付け直す
-# ・$1 はディレクトリ単位の書き換えなので先頭の「/」が付かない＝「https://cakebook.jp/」の後ろにそのまま足しても二重にならない
-# ・www 以外の見知らぬホスト名で届いたものも cakebook.jp に寄せる（この置き場所は cakebook.jp 専用）
 RewriteCond %{HTTPS} !on
-RewriteRule ^(.*)$ https://cakebook.jp/$1 [R=301,L]
-RewriteCond %{HTTP_HOST} !^cakebook\.jp$ [NC]
-RewriteRule ^(.*)$ https://cakebook.jp/$1 [R=301,L]
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
 # Clean store URLs, while existing pages and directories keep their paths.
 RewriteCond %{REQUEST_FILENAME} !-f

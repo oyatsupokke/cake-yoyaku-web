@@ -15,9 +15,6 @@
   dialog.setAttribute('aria-label', '質問の目次');
   dialog.innerHTML = '<div class="outline-head"><strong>質問の目次</strong><button type="button" class="outline-close">閉じる</button></div><p class="outline-product"></p><nav class="outline-list" aria-label="設定項目"></nav>';
   app.appendChild(dialog);
-  // 目次を左に出すのは1600px以上。admin-layout.css の @media(min-width:1600px) と必ず揃える
-  // （products.css の 1280px の指定は admin-layout.css が !important で上書きしていて効かない）。
-  // 1280〜1599pxは左メニューと本文で幅が足りないため、目次は「☰ 質問一覧」から開く小窓で出す。
   const wide = matchMedia('(min-width: 1600px)');
   let entries = [], signature = '', scheduled = false, scrollScheduled = false, nextId = 0;
   const ids = new WeakMap();

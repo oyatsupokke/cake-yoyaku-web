@@ -18,14 +18,11 @@ globalThis.ReservationUpgrade = (() => {
     if(!response.ok) throw new Error(data.error || '変更状況を確認できません。再度ログインしてお試しください。');
     return data;
   }
-  async function show(data, version) {
+  async function show(data) {
     hidden('upgrade-quote',true);hidden('upgrade-payment',true);hidden('upgrade-retry',true);
     el('upgrade-status').textContent=data.message || '';
     if(data.state==='completed') {
-      const tenantId=tenant.id;
-      const rows=await api('GET',`/rest/v1/tenants?id=eq.${encodeURIComponent(tenantId)}&select=*`);
-      // 読み込み中に店や画面が切り替わっていたら、古い応答で上書きしない
-      if(version!==generation||tenant?.id!==tenantId)return;
+      const rows=await api('GET',`/rest/v1/tenants?id=eq.${tenant.id}&select=*`);
       if(rows[0]?.reservation_plan!=='standard') throw new Error('切り替えを反映中です。変更状況をもう一度確認してください。');
       renderBillingBanner(rows[0]);
       if(el('t-booking-window')) el('t-booking-window').max='90';
@@ -63,7 +60,7 @@ globalThis.ReservationUpgrade = (() => {
     try {
       const data=await request(action,useQuote?quoteId:null);
       if(version!==generation)return;
-      await show(data,version);
+      await show(data);
     }catch(error){
       if(version===generation){el('upgrade-status').textContent=error.message;hidden('upgrade-preview',false);}
     }finally{if(version===generation)waiting(false);}

@@ -45,26 +45,15 @@ globalThis.BookingReport = (() => {
   }
   async function fetchOrders(get, tenant, from, to) {
     const orders = [];
-    // 500件ずつ、変わらない id の順に「前回の最後の id より後」を読む（カーソル方式）。
-    // 件数で飛ばす方式（offset）だと、読んでいる間に予約が増減したとき同じ予約を二重に数えたり取りこぼしたりする。
     // 応答の件数がサーバーの上限で切られても、空ページまで読み進める。
-    let after = null;
     for (;;) {
       const page = await get(`/rest/v1/orders?tenant_id=eq.${encodeURIComponent(tenant)}` +
-        `&pickup_date=gte.${from}&pickup_date=lte.${to}&order=id.asc` +
-        (after === null ? "" : `&id=gt.${encodeURIComponent(after)}`) +
-        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500`);
+        `&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,id.asc` +
+        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500&offset=${orders.length}`);
       if (!Array.isArray(page)) throw new Error("予約データを取得できませんでした");
-      if (!page.length) break;
-      const last = String(page[page.length - 1].id);
-      // id が進まない応答は読み続けると止まらないので打ち切る（通常は起きない）
-      if (after !== null && !(last > after)) throw new Error("予約データを取得できませんでした");
+      if (!page.length) return orders;
       orders.push(...page);
-      after = last;
     }
-    // 画面・CSVはこれまでどおり「受取日 → id」の順で受け取る
-    return orders.sort((a, b) => String(a.pickup_date).localeCompare(String(b.pickup_date)) ||
-      (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
   }
   return {norm, productKey, answers, options, rows, summary, csv, fetchOrders};
 })();

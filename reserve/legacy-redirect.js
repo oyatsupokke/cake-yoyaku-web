@@ -8,9 +8,7 @@
     const slug = internalShop === "pokke" ? "oyatsupokke" : internalShop;
     if (/^[a-z0-9][a-z0-9-]{0,48}$/.test(slug)) {
       bookingParams.delete("shop");
-      // URLSearchParams.size は古い Safari（17未満）に無く undefined＝残すべきパラメータが消えていた（2026-10-03 点検指摘）
-      const rest = bookingParams.toString();
-      location.replace("/" + slug + "/" + (rest ? "?" + rest : "") + location.hash);
+      location.replace("/" + slug + "/" + (bookingParams.size ? "?" + bookingParams : "") + location.hash);
     }
   }
 })();

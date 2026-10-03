@@ -50,7 +50,7 @@ function lock(on) {
 const textField = (path, label, max = 120) => `<label class="field">${escape(label)}<input type="text" data-path="${path}" maxlength="${max}" value="${escape(get(path))}"></label>`;
 const numberField = (path, label, placeholder = '', max = 1000000, min = 0) => {
   const money = /\.price$/.test(path), missing = money && get(path) === null;
-  return `<label class="field ${missing ? 'ai-money-missing' : ''}">${escape(label)}<input type="number" data-path="${path}" ${money ? 'required' : ''} min="${min}" max="${max}" step="1" value="${escape(get(path))}" placeholder="${escape(placeholder)}">${money ? '<span class="ai-money-help">税込価格を入力してください（必須）</span>' : ''}</label>`;
+  return `<label class="field ${missing ? 'ai-money-missing' : ''}">${escape(label)}<input type="number" data-path="${path}" ${money ? 'required' : ''} min="${min}" max="${max}" step="1" value="${escape(get(path))}" placeholder="${escape(placeholder)}">${money ? '<span class="ai-money-help">金額を入力してください（空欄は0円円）</span>' : ''}</label>`;
 };
 const checkField = (path, label) => `<label class="ai-review-check"><input type="checkbox" data-path="${path}" ${get(path) ? 'checked' : ''}>${escape(label)}</label>`;
 const action = (name, path, label) => `<button type="button" class="pill" data-action="${name}" data-list="${path}">${escape(label)}</button>`;
@@ -207,19 +207,17 @@ async function save() {
   }
   if (!submitted) { submitted = saveDraft; requestId = crypto.randomUUID(); persist(); }
   lock(true); message('非公開商品を保存しています…');
-  // 保存できたかは戻り値の中身でなくフラグで見る（IDが空で返っても「保存済み」を取り違えない）
-  let savedId = null, saved = false;
+  let savedId = null;
   try {
     savedId = await api('POST', '/rest/v1/rpc/fn_create_product_from_suggestion', {
       p_tenant: state.tenantId, p_request_id: requestId, p_draft: submitted,
     });
-    saved = true;
     suggestion = null; submitted = null; requestId = null; source.value = ''; persist();
     state.current = { id: savedId }; await reloadAll();
     dialog.close(); toast('非公開で保存しました。予約画面で確認してください');
     document.getElementById('draft-preview-open').click();
   } catch (error) {
-    if (saved) {
+    if (savedId) {
       dialog.close(); toast('商品は保存済みです。再読み込みして確認してください');
     } else {
       // DB検証エラーは全体がロールバック。通信エラーは同じリクエストで再送する。

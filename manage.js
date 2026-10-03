@@ -149,7 +149,7 @@ async function loadOrderImages() {
       byQ.set(x.question_id, [...(byQ.get(x.question_id) || []), x]);
     }
     for (const [qid, list] of byQ) {
-      const cell = $("order-detail").querySelector(`[data-q="${CSS.escape(String(qid))}"] .v`);
+      const cell = $("order-detail").querySelector(`[data-q="${qid}"] .v`);
       if (cell) cell.outerHTML = thumbs(list);
       else rest.push(...list);
     }
@@ -286,8 +286,19 @@ function renderOrder() {
     });
   }
 
+  // 選択肢ごとの期限（例：写真付きのデザインは7日前まで）を過ぎた時の案内
+  const oc = o.option_cutoff;
+  const cutoffMsg = oc?.passed && ["new", "confirmed"].includes(o.status) && !["requested", "quoted"].includes(o.review_state)
+    ? `「${oc.option_names.join("」「")}」をお選びのご予約は、受取日の${oc.days}日前（${oc.label}）を過ぎると、この画面からキャンセル・内容変更できません。ご希望の場合は、お手数ですがお店まで直接ご連絡ください。`
+    : "";
+
   // 操作できない場合の案内
   const note = $("locked-note");
+  if (cutoffMsg && (allowed.slot || allowed.content || allowed.cancel)) {
+    const p = document.createElement("p");
+    p.className = "action-hint"; p.textContent = cutoffMsg;
+    list.appendChild(p);
+  }
   if (!allowed.slot && !allowed.content && !allowed.cancel) {
     let msg;
     if (o.status === "canceled") {
@@ -296,6 +307,8 @@ function renderOrder() {
       msg = "このご予約はお渡し済みです。ご利用ありがとうございました。";
     } else if (o.status === "in_production") {
       msg = "ご予約のケーキのご用意を進めております。ご変更・キャンセルをご希望の場合は、お手数ですがお店まで直接ご連絡ください。";
+    } else if (cutoffMsg) {
+      msg = cutoffMsg;
     } else if (o.review_state && o.review_state !== 'none') {
       msg = o.review_state === 'requested' ? 'お店が追加希望の対応内容と金額を確認しています。予約はまだ確定していません。' : '追加希望のあるご注文の内容・日時の変更は、お店へご連絡ください。';
     } else {

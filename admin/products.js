@@ -1627,10 +1627,12 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     const setTexts = () => {
       const palette = box.classList.contains("is-palette");
       name.placeholder = palette ? "色の名前（例：さくらピンク）" : "回答の名前を入力";
-      add.textContent = palette ? "＋ この色を追加" : "＋ 回答の選択肢を追加";
+      const target = addTargetName(box.querySelector(".q-label")?.value, "この質問");
+      add.textContent = palette ? `＋「${target}」に色を足す` : `＋「${target}」の回答を足す`;
     };
     box.paletteTexts = setTexts;
     setTexts();
+    box.querySelector(".q-label")?.addEventListener("input", setTexts);
     add.onclick = async () => {
       const palette = box.classList.contains("is-palette");
       const label = name.value.trim();
@@ -2286,7 +2288,12 @@ function buildGroupBox(p, g) {
 
   const nameEl = box.querySelector(".gname");
   regField("option_groups", g.id, "name", nameEl);
-  nameEl.addEventListener("input", () => { view.name = nameEl.value; paint(); });
+  const optionAddButton = box.querySelector(".ga-add");
+  const paintOptionAddLabel = () => {
+    if (optionAddButton) optionAddButton.textContent = `＋「${addTargetName(nameEl.value, "この質問")}」に選択肢を足す`;
+  };
+  paintOptionAddLabel();
+  nameEl.addEventListener("input", () => { view.name = nameEl.value; paint(); paintOptionAddLabel(); });
   linkLight(nameEl, () => box.querySelector(".pv-name"));
 
   const typeEl = box.querySelector(".gh-type");
@@ -2397,6 +2404,14 @@ function marksHtml(o, ov) {
 }
 
 // oyatsupokkeだけに出る特別な設定の目印（他店の画面にはこの設定自体が出ない）
+// 追加ボタンに「どこに足すか」を名前で入れる（2026-10-03 まりほ指摘：どれがグループ・質問・小質問の追加か見分けにくい）。
+// 長い名前は途中で切る。名前が空のときは「この質問」などの言い方に戻す。
+function addTargetName(value, fallback) {
+  const text = String(value || "").trim();
+  if (!text) return fallback;
+  return text.length > 14 ? text.slice(0, 13) + "…" : text;
+}
+
 const POKKE_ONLY_TAG = `<span class="tag pokke-only" title="oyatsupokkeだけの特別な設定です。他のお店の画面には出ません">oyatsupokke専用</span>`;
 
 function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
@@ -2460,7 +2475,7 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       </div>
       </section>
       <section class="option-detail-section option-detail-questions">
-      <h4>この選択肢を選んだ人への質問</h4>
+      <h4 class="o-questions-title">この選択肢を選んだ人への質問</h4>
       <div class="fb o-questions">
         <p class="small">選択式と記載欄など、複数の質問を順番に表示できます。</p>
         <p class="small">質問・回答の追加、削除、停止はその場で反映されます。</p><div class="o-qbox"></div>
@@ -2505,6 +2520,13 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
   linkLightWithin(row, rowLight, ".o-question-item");
 
   const nameEl = row.querySelector(".oname");
+  const paintSubQuestionLabels = () => {
+    const target = addTargetName(nameEl.value, "この選択肢");
+    row.querySelector(".o-questions-title").textContent = `「${target}」を選んだ人への質問`;
+    row.querySelector(".o-qadd").textContent = `＋「${target}」を選んだ人にだけ聞く質問を足す`;
+  };
+  paintSubQuestionLabels();
+  nameEl.addEventListener("input", paintSubQuestionLabels);
   regField("options", o.id, "name", nameEl);
   nameEl.addEventListener("input", () => { ov.name = nameEl.value; paintGroup(); });
   linkLight(nameEl, rowLight);

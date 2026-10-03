@@ -771,3 +771,17 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
 .pv-palette{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .pv-palette-pick{display:flex;flex-direction:column;align-items:center;gap:4px;width:76px;font-size:.78rem;text-align:center;overflow-wrap:anywhere}
 .pv-palette-pick i{display:block;width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.16)}
+
+/* 小質問（選択肢を選んだ人への質問）を、その選択肢の内側だと見て分かるようにする（2026-10-03 まりほ指摘）。
+   一段右に下げ、左の帯でつなぐ。追加ボタンは横幅いっぱいにせず、帯の内側に置く。 */
+.option-detail-section.option-detail-questions {
+  margin: 10px 0 4px 18px; padding: 12px 14px 14px;
+  border: 0; border-left: 4px solid var(--primary-deep); border-radius: 0 10px 10px 0;
+  background: #fbf5f7;
+}
+.option-detail-questions > .o-questions-title::before { content: "↳ "; color: var(--primary-deep); }
+.o-questions > .o-qadd { display: inline-block; width: auto; max-width: 100%; align-self: flex-start; white-space: normal; text-align: left; }
+@media (max-width: 640px) {
+  .option-detail-section.option-detail-questions { margin-left: 8px; padding: 10px 10px 12px; }
+}
+

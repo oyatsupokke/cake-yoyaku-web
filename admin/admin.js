@@ -255,8 +255,7 @@ async function loadOrders() {
   const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
   $("tab-kitchen").classList.toggle("hidden", !!filter);
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
-    (filter === "new" ? `&status=eq.new&review_state=eq.none`
-      : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
+    (filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
     `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
@@ -270,49 +269,8 @@ async function loadOrders() {
   renderPickup();
   if ($("kitchen-range-mode").checked) await loadKitchenRange();
   else renderKitchen();
-  refreshUnconfirmedCount().catch(() => {});
 }
 $("review-filter").onchange = () => loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
-
-/* ---------- 未確認をまとめて確認（2026-10-03・まりほ要望） ----------
- * 絞り込み「全日の未確認」は、受取日に関係なく status=new（追加希望の確認待ちは除く）を受取日順に並べる。
- * 一覧の上のボタンで、いま画面に出ている分だけをまとめて「確認済」にする（見ていない予約は対象にしない）。
- * 選択肢の名前には件数を添え、絞り込みを開かなくても未確認が残っているか分かるようにする。 */
-async function refreshUnconfirmedCount() {
-  const opt = $("review-filter")?.querySelector('option[value="new"]');
-  if (!opt || !state.tenantId) return;
-  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${state.tenantId}&status=eq.new&review_state=eq.none&select=id`, {
-    method: "HEAD",
-    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, Prefer: "count=exact" },
-  });
-  if (!res.ok) return;
-  const n = Number(res.headers.get("content-range")?.split("/")[1]);
-  opt.textContent = Number.isFinite(n) && n > 0 ? `全日の未確認（${n}件）` : "全日の未確認";
-}
-function renderBulkConfirm() {
-  const box = $("bulk-confirm");
-  if (!box) return;
-  const targets = $("review-filter")?.value === "new" ? state.orders.filter((o) => o.status === "new" && !reviewPending(o)) : [];
-  box.classList.toggle("hidden", !targets.length);
-  if (!targets.length) return;
-  $("bulk-confirm-note").textContent = `未確認 ${targets.length}件（受取日順）。内容を見てから、まとめて確認済にできます。`;
-  $("bulk-confirm-btn").textContent = `→ ${targets.length}件をまとめて確認済にする`;
-}
-$("bulk-confirm-btn").onclick = async () => {
-  const targets = state.orders.filter((o) => o.status === "new" && !reviewPending(o));
-  if (!targets.length) return;
-  const lines = targets.slice(0, 8).map((o) => `No.${o.order_number} ${o.pickup_date} ${o.customer_name}様`).join("\n");
-  if (!confirm(`表示中の未確認 ${targets.length}件を「確認済」にしますか？\n（お客様へのメールは送りません）\n\n${lines}${targets.length > 8 ? `\n…ほか${targets.length - 8}件` : ""}`)) return;
-  const btn = $("bulk-confirm-btn"); btn.disabled = true;
-  try {
-    // 画面に出ている予約だけを対象にする。読み込み後に状態が変わった分（キャンセル等）は条件で外れる
-    const ids = targets.map((o) => o.id).join(",");
-    const done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none`, { status: "confirmed" });
-    toast(`${Array.isArray(done) ? done.length : targets.length}件を「確認済」にしました`);
-    await loadOrders();
-  } catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); }
-  finally { btn.disabled = false; }
-};
 
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
@@ -321,10 +279,8 @@ function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
   const active = state.orders;
-  renderBulkConfirm();
   if (!active.length) {
-    const filter = $("review-filter")?.value;
-    wrap.innerHTML = `<p class="empty-note">${filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
+    wrap.innerHTML = `<p class="empty-note">${$("review-filter")?.value ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
     return;
   }
   for (const o of active) {

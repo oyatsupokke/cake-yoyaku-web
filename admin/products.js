@@ -751,16 +751,25 @@ async function renderSelfcheck() {
   let rows = [];
   try {
     rows = await api("GET", `/rest/v1/selfcheck_results?tenant_id=eq.${state.tenantId}&ok=eq.false` +
-      `&select=product_name,branch,message,checked_at&order=product_name,branch&limit=50`);
+      `&select=product_name,branch,message,kind,checked_at&order=product_name,branch&limit=50`);
   } catch { return; }   // 表が無い・読めないときは何も出さない（点検は補助）
   if (!rows.length) return;
   const when = rows[0].checked_at ? new Date(rows[0].checked_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const li = (r) => `<li>「${esc(r.product_name)}」で <b>${esc(r.branch)}</b> と進むと：${esc(r.message || "")}</li>`;
+  // 店が画面で直せるもの（setup）と、運営が直すもの（system）を分けて出す。
+  // system は店の操作では直らないので、直し方ではなく「連絡済み・待っていてください」を伝える（2026-10-03）
+  const setup = rows.filter((r) => r.kind === "setup");
+  const system = rows.filter((r) => r.kind !== "setup");
   const box = document.createElement("div");
   box.className = "selfcheck-warn";
-  box.innerHTML = `<strong>⚠️ 自動点検：いまの設定では、お客様が予約できない場合があります</strong>` +
-    `<span class="small">（${esc(when)} の点検・この画面で設定を直すと次の点検で消えます）</span><ul>` +
-    rows.map((r) => `<li>「${esc(r.product_name)}」で <b>${esc(r.branch)}</b> と進むと：${esc(r.message || "")}</li>`).join("") +
-    `</ul><span class="small">直し方が分からないときは、この文をそのままサポートへお送りください。</span>`;
+  box.innerHTML =
+    (setup.length ? `<strong>⚠️ 自動点検：この設定のままだと、お客様が予約できない選び方があります</strong>` +
+      `<ul>${setup.map(li).join("")}</ul>` +
+      `<span class="small">必須の項目に、選べる選択肢（または回答）を1つ以上登録してください。直すと次の点検（毎朝）で消えます。</span>` : "") +
+    (system.length ? `<strong>⚠️ 自動点検：システムの不具合で、予約できない選び方が見つかりました</strong>` +
+      `<ul>${system.map(li).join("")}</ul>` +
+      `<span class="small">お店の設定の問題ではありません。運営に自動で連絡済みで、こちらで直します。お客様から問い合わせがあれば、お電話などで予約をお受けください（「予約の直接登録」で入れられます）。</span>` : "") +
+    `<span class="small">（${esc(when)} の点検）</span>`;
   host.prepend(box);
 }
 

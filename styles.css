@@ -486,3 +486,4 @@ label.pick .pick-sample { flex: 0 0 auto; margin: -4px 0; }
 .selfcheck-warn ul { margin: 8px 0 6px; padding-left: 1.3em; }
 .selfcheck-warn li { margin: 3px 0; }
 .selfcheck-warn .small { display: block; color: var(--mute); font-size: .8rem; }
+.selfcheck-warn strong ~ strong { display: block; margin-top: 12px; }

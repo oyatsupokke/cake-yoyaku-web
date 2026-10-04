@@ -34,7 +34,7 @@ const STATUS = {
 const REVIEW = {requested:"追加希望・確認待ち",quoted:"見積もり・承諾待ち",accepted:"追加希望・承諾済み"};
 const reviewPending = o => ['requested','quoted'].includes(o.review_state);
 
-const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup",
+const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "calendar",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
   mailKind: "customer", mailCh: "mail", formUrl: "", mailTexts: {}, mailLight: null, mailBound: false };
 
@@ -155,7 +155,8 @@ async function showApp() {
   window.Onboarding?.refresh();
   // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
   const requestedTab = new URLSearchParams(location.search).get("tab");
-  if (["pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
+  if (state.tab === "calendar") window.OrderCalendar?.open();
+  if (["calendar", "pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
     // 旧「製造ケーキ一覧」へのリンクも、統合後の「予約・製造」を開く。
     const tab = requestedTab === "kitchen" ? "pickup" : requestedTab;
     document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
@@ -1551,6 +1552,7 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     // 選んだらメニューを閉じる
     $("admin-body").classList.remove("menu-open");
     $("menu-btn").setAttribute("aria-expanded", "false");
+    $("tab-calendar").classList.toggle("hidden", state.tab !== "calendar");
     $("tab-pickup").classList.toggle("hidden", state.tab !== "pickup");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
     $("tab-design").classList.toggle("hidden", state.tab !== "design");
@@ -1560,10 +1562,11 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("tab-billing").classList.toggle("hidden", state.tab !== "billing");
     if (state.tab === "account") openAccount();
     const editing = ["settings", "design", "account"].includes(state.tab);
-    $("date-nav").classList.toggle("hidden", editing || ["reports", "support", "account", "billing"].includes(state.tab));
+    $("date-nav").classList.toggle("hidden", editing || ["calendar", "reports", "support", "account", "billing"].includes(state.tab));
     // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
     $("save-bar").classList.toggle("hidden", !editing);
     if (state.tab === "design") pushThemePreview();
+    if (state.tab === "calendar") window.OrderCalendar?.open();
     if (state.tab === "reports") openReports();
     if (state.tab === "support") openSupport();
     window.Onboarding?.onTab(state.tab);

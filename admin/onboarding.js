@@ -188,9 +188,9 @@
 
   window.Onboarding = {
     refresh,
-    // 予約・製造の画面だけに出す。戻ってきたら設定の変化を読み直す
+    // 最初に開く予約カレンダーと、予約・製造の画面だけに出す。戻ってきたら設定の変化を読み直す
     onTab(tab) {
-      visible = tab === "pickup";
+      visible = tab === "calendar" || tab === "pickup";
       if (visible) refresh(); else box.classList.add("hidden");
     },
   };

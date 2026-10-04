@@ -479,8 +479,8 @@ html.lightbox-open { overflow: hidden; }
 .kcard .knote { white-space: pre-wrap; margin: 6px 0 0; padding: 6px 8px; background: #fff6d6; border-radius: 6px; }
 
 /* はじめにやること（新しく登録した店向け・onboarding.js）。次にやる1つだけ目立たせる */
-/* 準備中（商品も予約もまだ無い）は空の予約・製造を出さない。日付欄は予約・製造でしか出ないので常に隠してよい */
-body.onboarding-setup #date-nav, body.onboarding-setup #tab-pickup { display: none !important; }
+/* 準備中（商品も予約もまだ無い）は空の予約カレンダー・予約・製造を出さない。日付欄は予約・製造でしか出ないので常に隠してよい */
+body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboarding-setup #tab-pickup { display: none !important; }
 .onboarding { background: var(--boxbg); border: 2px solid var(--accent); border-radius: var(--r-lg); padding: 14px 16px; margin: 0 0 16px; }
 .onboarding-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .onboarding-head h2 { font-size: 1.05rem; margin: 0; }
@@ -504,3 +504,51 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-pickup { display: no
 .onboarding-flash { animation: onboarding-flash 2.6s ease-out; }
 @keyframes onboarding-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .onboarding-flash { animation: none; box-shadow: 0 0 0 3px var(--accent); } }
+
+/* ---------- 予約カレンダー（order-calendar.js・2026-10-05） ---------- */
+.oc-head { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
+.oc-head h2 { margin: 0; font-size: 1.15rem; min-width: 8.5em; text-align: center; }
+.oc-head .pill { margin-left: auto; }
+.cal-summary { margin: 0 0 10px; font-size: .95rem; }
+.oc-unconfirmed-total { color: #d0455f; font-weight: bold; }
+.order-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.oc-wd { text-align: center; font-size: .8rem; color: var(--mute); padding: 2px 0; }
+.oc-wd.sun { color: #d0455f; }
+.oc-wd.sat { color: #4a76b8; }
+.oc-day {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  min-height: 84px; padding: 6px 7px; text-align: left; font-family: inherit; color: var(--ink);
+  background: #fff; border: 1.5px solid var(--line); border-radius: 10px; cursor: pointer;
+}
+.oc-day:hover { border-color: var(--accent); }
+.oc-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.oc-num { font-size: .85rem; font-weight: bold; }
+.oc-day.sun .oc-num { color: #d0455f; }
+.oc-day.sat .oc-num { color: #4a76b8; }
+.oc-day.today { border: 2.5px solid var(--accent); }
+.oc-day.past { background: #fbf9f7; }
+.oc-day.past .oc-count { color: var(--mute); }
+.oc-day.closed { background: #f1edea; }
+.oc-day.full { background: #fff3f4; border-color: #e8b7c0; }
+.oc-count { font-size: 1.25rem; font-weight: bold; line-height: 1.1; }
+.oc-count small { font-size: .7rem; font-weight: normal; }
+.oc-count.zero { color: #c9bfbb; font-size: .95rem; font-weight: normal; }
+.oc-tag { position: absolute; top: 6px; right: 6px; font-size: .7rem; color: var(--mute); }
+.oc-tag.oc-full { color: #d0455f; font-weight: bold; }
+.oc-new {
+  align-self: flex-start; margin-top: auto; padding: 1px 6px; border-radius: 999px;
+  background: #ffe9ec; color: #d0455f; font-size: .72rem; font-weight: bold; white-space: nowrap;
+}
+.oc-new .narrow { display: none; }
+.oc-legend { margin-top: 10px; }
+@media (max-width: 520px) {
+  .order-calendar { gap: 3px; }
+  .oc-day { min-height: 64px; padding: 4px 3px; }
+  .oc-num { font-size: .75rem; }
+  .oc-count { font-size: 1rem; }
+  .oc-count small { display: block; font-size: .6rem; }
+  .oc-tag { top: 4px; right: 3px; font-size: .62rem; }
+  .oc-new { padding: 0 4px; font-size: .62rem; }
+  .oc-new .wide { display: none; }
+  .oc-new .narrow { display: inline; }
+}

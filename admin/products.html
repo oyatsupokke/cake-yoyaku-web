@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1791063147">
-<link rel="stylesheet" href="admin.css?v=1791063147">
-<link rel="stylesheet" href="products.css?v=1791063147">
-<link rel="stylesheet" href="admin-layout.css?v=1791063147">
-<link rel="stylesheet" href="help-panel.css?v=1791063147">
+<link rel="stylesheet" href="../styles.css?v=1791074379">
+<link rel="stylesheet" href="admin.css?v=1791074379">
+<link rel="stylesheet" href="products.css?v=1791074379">
+<link rel="stylesheet" href="admin-layout.css?v=1791074379">
+<link rel="stylesheet" href="help-panel.css?v=1791074379">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -62,8 +62,12 @@
     <details class="cat-panel" id="cat-panel">
       <summary>カテゴリを管理</summary>
       <div class="cat-panel-body">
-        <p class="small">カテゴリ名の変更・並べ替え・削除ができます。商品の分類や新しいカテゴリの作成は、各商品の「基本情報」で行います。</p>
+        <p class="small">カテゴリの追加・名前の変更・並べ替え・削除ができます。商品をどのカテゴリに入れるかは、各商品の「基本情報」の「カテゴリ」で選びます。</p>
         <div id="cat-list"></div>
+        <div class="override-add cat-add">
+          <input type="text" id="cat-new-name" placeholder="例: クリスマス" aria-label="新しいカテゴリ名">
+          <button type="button" class="pill" id="btn-cat-add">＋ カテゴリを追加</button>
+        </div>
       </div>
     </details>
 
@@ -89,6 +93,7 @@
             <button type="button" class="pill hidden" id="btn-p-category-create">作成してこの商品に設定</button>
           </div>
           <p class="small">既存のカテゴリを選んだら「保存する」で確定します。新規作成は「作成してこの商品に設定」で、作成と分類をその場で確定します。</p>
+          <button type="button" class="link-btn cat-manage-link" id="btn-p-category-manage">カテゴリの名前の変更・並べ替え・削除はこちら</button>
         </div>
         <div id="p-photo"></div>
         <div class="text-field">
@@ -159,8 +164,8 @@
         <h3>サイズと価格<button type="button" class="tip" data-tip="サイズ名（例：12cm・4号）と税込価格を追加します。お客様が選ぶと金額は自動で計算されます。">？</button></h3>
         <div id="variants-list"></div>
         <div class="override-add">
-          <input type="text" id="v-label" placeholder="サイズ名（例: 12cm）" style="width:140px">
-          <input type="number" id="v-price" placeholder="価格（税込）" min="0" style="width:110px">
+          <input type="text" id="v-label" placeholder="例: 12cm" aria-label="サイズ名" style="width:140px">
+          <input type="number" id="v-price" placeholder="税込価格" aria-label="価格（税込）" min="0" style="width:110px">
           <button type="button" class="pill" id="btn-v-add">追加</button>
         </div>
       </div>
@@ -213,7 +218,7 @@
     <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
   </div>
 
-  <button id="fab" type="button">プレビュー</button>
+  <button id="fab" type="button">この質問の見え方</button>
   <div id="toast" class="toast hidden"></div>
 </div>
 <dialog id="ai-product-dialog" class="ai-product-dialog" aria-labelledby="ai-product-title">
@@ -225,15 +230,15 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1791063147"></script>
-<script src="edit-drafts.js?v=1791063147"></script>
-<script src="products-menu.js?v=1791063147"></script>
-<script src="pickup-schedule.js?v=1791063147"></script>
-<script src="../question-flow.js?v=1791063147"></script>
-<script src="../crop.js?v=1791063147"></script>
-<script src="products.js?v=1791063147"></script>
-<script type="module" src="product-assistant.js?v=1791063147"></script>
-<script src="products-outline.js?v=1791063147"></script>
-<script src="navigation.js?v=1791063147"></script>
+<script src="tips.js?v=1791074379"></script>
+<script src="edit-drafts.js?v=1791074379"></script>
+<script src="products-menu.js?v=1791074379"></script>
+<script src="pickup-schedule.js?v=1791074379"></script>
+<script src="../question-flow.js?v=1791074379"></script>
+<script src="../crop.js?v=1791074379"></script>
+<script src="products.js?v=1791074379"></script>
+<script type="module" src="product-assistant.js?v=1791074379"></script>
+<script src="products-outline.js?v=1791074379"></script>
+<script src="navigation.js?v=1791074379"></script>
 </body>
 </html>

@@ -152,6 +152,7 @@ async function showApp() {
   $("view-app").classList.remove("hidden");
   setDate(new Date());
   loadSettings();
+  window.Onboarding?.refresh();
   // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
   const requestedTab = new URLSearchParams(location.search).get("tab");
   if (["pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
@@ -1565,6 +1566,7 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     if (state.tab === "design") pushThemePreview();
     if (state.tab === "reports") openReports();
     if (state.tab === "support") openSupport();
+    window.Onboarding?.onTab(state.tab);
     window.scrollTo(0, 0);
   };
 });

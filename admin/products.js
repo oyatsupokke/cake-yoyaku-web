@@ -906,6 +906,11 @@ function makeCatSlug(name) {
 }
 
 
+// 途中のカテゴリを消すと表示順に欠番ができるので、件数でなく「いまの最大＋1」にする（同じ順番が2つできると並べ替えが効かない）
+function nextCategoryOrder() {
+  return state.categories.reduce((max, c) => Math.max(max, c.display_order ?? -1), -1) + 1;
+}
+
 function renderCategories() {
   const wrap = $("cat-list");
   wrap.innerHTML = "";
@@ -948,6 +953,41 @@ function renderCategories() {
   });
 }
 $("cat-panel").addEventListener("toggle", () => { $("cat-panel").dataset.touched = "1"; });
+// 「カテゴリを管理」の中でも作れるようにする（まりほ「テストで作ったカテゴリを消そうとして、どこにあるんや？」2026-10-03）
+$("btn-cat-add").onclick = async () => {
+  const input = $("cat-new-name"), name = input.value.trim();
+  if (!name) { toast("カテゴリ名を入れてください"); input.focus(); return; }
+  if (state.categories.some((c) => c.name === name)) { toast(`「${name}」はもうあります`); return; }
+  $("btn-cat-add").disabled = true;
+  let created;
+  try {
+    [created] = await api("POST", "/rest/v1/categories", [{
+      tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: nextCategoryOrder(),
+    }]);
+  } catch {
+    toast("カテゴリを追加できませんでした。もう一度お試しください");
+    $("btn-cat-add").disabled = false;
+    return;
+  }
+  // 読み直しに失敗しても、追加済みのカテゴリを手元に持っておく（同じ名前の再送を「もうあります」で止めるため）
+  if (created) state.categories.push(created);
+  input.value = "";
+  // 追加はできている。画面の読み直しだけ失敗したら、そう伝える（「追加できませんでした」と出さない）
+  try {
+    await reloadAll();
+    toast(`カテゴリ「${name}」を追加しました`);
+  } catch {
+    toast(`カテゴリ「${name}」は追加しました。一覧に出ないときは上の「再読み込み」を押してください`);
+  } finally { $("btn-cat-add").disabled = false; }
+};
+$("cat-new-name").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("btn-cat-add").click(); } });
+// 商品の「カテゴリ」欄から、管理の箱へ移動して開く
+$("btn-p-category-manage").onclick = () => {
+  const panel = $("cat-panel");
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  panel.classList.remove("cat-panel-flash"); void panel.offsetWidth; panel.classList.add("cat-panel-flash");
+};
 $("btn-new-product").onclick = async () => {
   const name = prompt("新しい商品の名前を入力してください");
   if (!name || !name.trim()) return;
@@ -1067,7 +1107,7 @@ function renderEditor() {
     try {
       if (!category) {
         const created = await api("POST", "/rest/v1/categories", [{
-          tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: state.categories.length,
+          tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: nextCategoryOrder(),
         }]);
         category = created[0];
         state.categories.push(category); // 分類に失敗して再試行しても重複作成しない
@@ -2409,10 +2449,11 @@ function buildGroupBox(p, g) {
     const o = g.options.find((x) => x.id === ov.id);
     const row = buildOptionRow(p, g, o, view, ov, i, paint);
     optWrap.appendChild(row);
-    // 印の行（.marks）は入力のたびに描き直されるので、並べ替えボタンは別の置き場所に置く
+    // 並べ替えボタンは選択肢名のすぐ横に置く。印の行の下だと、次の選択肢のボタンに見えた（まりほ 2026-10-03）
+    // （印の行（.marks）は入力のたびに描き直されるので、そこには入れない）
     const holder = document.createElement("div");
     holder.className = "opt-order";
-    row.querySelector(".marks").after(holder);
+    row.querySelector(".opt-line .oname").after(holder);
     return { data: o, row, target: holder };
   });
   // 選択肢の並べ替え（2026-09-30）。↑↓で画面の中だけ動かし、保存バーで表示順を確定する
@@ -2956,7 +2997,8 @@ function openPreview() {
 }
 function syncFab() {
   const on = !!document.querySelector(".cust.peeking");
-  $("fab").textContent = on ? "✕ 閉じる" : "プレビュー";
+  // 「プレビュー」だと上の「公開中の予約ページ」と区別がつかない（まりほ 2026-10-03）＝何が見えるかを名前にする
+  $("fab").textContent = on ? "✕ 閉じる" : "この質問の見え方";
   $("fab").setAttribute("aria-pressed", String(on));
 }
 $("fab").onclick = () => (document.querySelector(".cust.peeking") ? closePreview() : openPreview());

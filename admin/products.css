@@ -529,10 +529,18 @@
 
 /* カテゴリの箱はタブの直下に畳んで置く（一番下では遠い＝まりほ指摘 2026-09-07） */
 .cat-panel { margin: -6px 0 16px; }
+/* 見出しは小さな文字だと見落とす（まりほ 2026-10-03「どこにあるんや？」）＝ボタンの見た目にする */
 .cat-panel > summary {
   list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-  font-size: .85rem; color: var(--primary-deep); font-weight: bold; padding: 4px 2px;
+  font-size: .85rem; color: var(--primary-deep); font-weight: bold; padding: 6px 14px;
+  background: #fff; border: 1.5px solid var(--line); border-radius: 999px;
 }
+.cat-panel { scroll-margin-top: 80px; }
+.cat-panel-flash > summary, .cat-panel-flash > .cat-panel-body { animation: cat-panel-flash 2.4s ease-out; }
+@keyframes cat-panel-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--primary, #c98a94); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.cat-add { margin-top: 10px; }
+.cat-add input { flex: 1; min-width: 160px; font-size: 16px; }
+.cat-manage-link { padding: 0; text-decoration: underline; font-size: .82rem; }
 .cat-panel > summary::-webkit-details-marker { display: none; }
 .cat-panel > summary::before { content: "▸"; font-size: .75rem; }
 .cat-panel[open] > summary::before { content: "▾"; }
@@ -699,7 +707,8 @@
 .g-options { container-type: inline-size; }
 .products-page .opt-line {
   display: grid; grid-template-columns: minmax(0, 1fr) 140px 130px;
-  grid-template-areas: "name price quantity" "status status details";
+  /* PCは状態・詳しい設定と同じ行に↑↓。スマホ（下の @container）は名前の横（まりほ 2026-10-03） */
+  grid-template-areas: "name price quantity" "status order details";
   gap: 10px 12px; align-items: center;
 }
 .products-page .opt-line .oname { grid-area: name; width: 100%; min-width: 0; height: 44px; box-sizing: border-box; }
@@ -713,8 +722,8 @@
 .products-page .opt-line .option-quantity-note { grid-column: 1 / -1; }
 @container (max-width: 480px) {
   .products-page .opt-line {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: "name name" "price quantity" "status details";
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "name name order" "price price quantity" "status status details";
   }
   .option-price-field { justify-content: flex-start; }
   .products-page .opt-line .o-more { width: 100%; max-width: 130px; padding-inline: 8px; }
@@ -726,7 +735,10 @@
 .period-hide { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .88rem; }
 .period-hide input { width: auto; margin: 0; }
 /* 選択肢の並べ替え */
-.products-page .opt .opt-order { display: flex; justify-content: flex-end; margin-top: 4px; }
+.products-page .opt .opt-order { grid-area: order; display: flex; justify-content: center; }
+.products-page .opt .opt-order .question-order { width: auto; margin: 0; flex-wrap: nowrap; }
+/* スマホでは名前の欄を広く残すため、↑↓を少し細くする（押せる高さは保つ） */
+@media (max-width: 640px) { .products-page .opt .opt-order .question-order.compact { gap: 4px; } .products-page .opt .opt-order .question-order.compact button { min-width: 38px; } }
 
 /* サイズ別のイラスト（2026-09-30） */
 .size-layers { margin-top: 8px; }
@@ -785,3 +797,28 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
   .option-detail-section.option-detail-questions { margin-left: 8px; padding: 10px 10px 12px; }
 }
 
+
+/* ---- スマホで崩れていたところ（まりほ実機 2026-10-03）----
+ * 上の操作が1文字だけ次の行に落ちる／サイズの行がくっついて見える／必須が縦書きになる／ボタンがはみ出す */
+.product-header-actions .link-btn { white-space: nowrap; }
+.question-create-fields input[type=checkbox] { width: 16px; min-height: 0; }
+.question-create-fields > label.chk { align-self: center; white-space: nowrap; }
+@media (max-width: 919px) {
+  .product-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 14px; }
+  /* サイズ：1行目に名前と価格、2行目に状態と操作。サイズごとに線で区切る */
+  .products-page #variants-list .opt-row { margin: 0; padding: 10px 0; row-gap: 8px; border-bottom: 1px solid var(--line); }
+  .products-page #variants-list .o-name { flex: 1 1 calc(100% - 150px); width: auto !important; min-width: 0; }
+  .products-page #variants-list .v-price { flex: 0 0 110px; width: 110px !important; }
+  .products-page #variants-list .state-badge { margin-right: auto; }
+  .products-page #variants-list + .override-add { margin-top: 12px; }
+  .products-page #v-label { flex: 1 1 0; width: auto !important; min-width: 0; }
+  .products-page #v-price { flex: 0 0 100px; width: 100px !important; }
+  /* 質問の見出し：質問文を1行まるごと使う */
+  .grp-bar .gname { flex-basis: 100%; }
+  /* 選択肢の追加：入力2つの下にボタンを1行で */
+  .g-add-row .ga-name { flex: 1 1 0; width: auto !important; min-width: 0; }
+  .g-add-row .ga-price { flex: 0 0 90px; }
+  .g-add-row .ga-add { flex-basis: 100%; white-space: normal; }
+  /* AIに質問ボタンを下の操作バーの上に逃がす（追加ボタンなどに重なっていた） */
+  body:has(.products-page) .admin-help-launcher { bottom: calc(var(--product-action-height, 110px) + 12px); }
+}

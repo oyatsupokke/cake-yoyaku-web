@@ -849,11 +849,11 @@ async function ensureQuestionOptions() {
   try {
     const rows = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/common_questions?tenant_id=eq.${tenant}&option_id=not.is.null&select=id,option_id&order=id&limit=1000&offset=${rows.length}`);
+      const page = await api("GET", `/rest/v1/common_questions?tenant_id=eq.${tenant}&option_id=not.is.null&select=id,option_id,input_type&order=id&limit=1000&offset=${rows.length}`);
       rows.push(...page); if (page.length < 1000) break;
     }
     if (tenant !== state.tenantId) return false;
-    questionOptions = {tenant, map: new Map(rows.map((q) => [q.id, q.option_id]))};
+    questionOptions = {tenant, map: new Map(rows.map((q) => [q.id, {option_id: q.option_id, input_type: q.input_type}]))};
     return true;
   } catch { return false; /* 読めなくても台数・選択肢の数は出す（数字の内訳は質問文に選択肢名がある分だけ） */ }
 }

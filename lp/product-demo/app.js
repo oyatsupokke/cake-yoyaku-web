@@ -2417,24 +2417,70 @@ async function selectDate(key) {
   state.sel.slot = null;
   renderCalendar();
   updatePreview();
-  // 枠ごとの満員状況を取得（満員の時間帯はグレーアウト）
-  try {
-    const rows = await rpc("fn_get_slot_availability", {
-      p_tenant: state.tenant.id, p_date: key,
-      p_product: state.sel.product.id, p_variant: state.sel.variant.id,
-    });
-    state.slotFull = Object.fromEntries(rows.map((r) => [r.slot_id, r.is_full]));
-    // 変更モード：いま予約している枠は「満員」でも選べる（自分の分を除けば空くため。最終判定はサーバー）
-    if (EDIT_MODE && EDIT_ORDER && key === EDIT_ORDER.pickup_date) {
-      state.slotFull[EDIT_ORDER.pickup_slot_id] = false;
-    }
-  } catch { state.slotFull = {}; }
+  await loadSlotAvailability(key);
   renderSlots();
   saveState();
   $("slot-area").classList.remove("hidden");
   if (!THEME_PREVIEW && !RESTORING && firstDate) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
+// 枠ごとの満員状況を取得（満員の時間帯はグレーアウト）
+async function loadSlotAvailability(key) {
+  try {
+    const rows = await rpc("fn_get_slot_availability", {
+      p_tenant: state.tenant.id, p_date: key,
+      p_product: state.sel.product.id, p_variant: state.sel.variant.id,
+    });
+    if (state.sel.date !== key) return;   // 待っている間に別の日が選ばれた＝古い日の結果は使わない
+    state.slotFull = Object.fromEntries(rows.map((r) => [r.slot_id, r.is_full]));
+    // 変更モード：いま予約している枠は「満員」でも選べる（自分の分を除けば空くため。最終判定はサーバー）
+    if (EDIT_MODE && EDIT_ORDER && key === EDIT_ORDER.pickup_date) {
+      state.slotFull[EDIT_ORDER.pickup_slot_id] = false;
+    }
+  } catch { if (state.sel.date === key) state.slotFull = {}; }
+}
+/* 送信した瞬間に、ほかのお客様の予約で満員になったとき（2026-10-09 負荷テストで確認）。
+ * 以前は確認画面に「この時間帯は満員です」と出るだけで、時間の一覧には満員の印が付かず、
+ * 選んだ時間もそのまま残っていた＝お客様は空いている時間を当てずっぽうで探すしかなかった。
+ * 空き状況を読み直して満員の時間を灰色にし、入力はそのままで時間（または日付）の欄に戻す。 */
+async function handleCapacityRejection(r) {
+  const s = state.sel, lost = s.slot, date = s.date;
+  await loadSlotAvailability(date);
+  await loadCalendar();
+  if (lost && state.slotFull?.[lost.id]) s.slot = null;
+  const dayFull = state.avail?.[date] === "full" || state.slots.every((x) => state.slotFull?.[x.id]);
+  // 日の上限で断られたときは時間ごとの空きでは分からないので、その日の時間を全部満員にする（別の日を選んでもらう）
+  if (dayFull) {
+    s.slot = null;
+    state.slotFull = { ...state.slotFull, ...Object.fromEntries(state.slots.map((x) => [x.id, true])) };
+  }
+  renderSlots();
+  saveState();
+  $("view-confirm").classList.add("hidden");
+  $("view-form").classList.remove("hidden");
+  $("price-bar").classList.remove("hidden");
+  const [, mm, dd] = date.split("-").map(Number);
+  const msg = dayFull
+    ? `${mm}/${dd}は、ほかのお客様のご予約で満員になりました。別の日を選び直してください（ご入力の内容はそのまま残っています）`
+    : `${lost ? lost.label : "選んだ時間"}は、ほかのお客様のご予約で満員になりました。空いている時間を選び直してください（ご入力の内容はそのまま残っています）`;
+  let note = $("slot-full-note");
+  if (!note) {
+    note = document.createElement("p");
+    note.id = "slot-full-note";
+    note.className = "error";
+    note.setAttribute("role", "alert");
+    $("slot-pills").before(note);
+  }
+  note.textContent = msg;
+  toast(msg, 8000);
+  trackStuck("order_rejected", r.message || "満員", r.code);
+  const box = dayFull ? $("cal-grid") : $("slot-area");
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+  box.classList.remove("error-flash"); void box.offsetWidth; box.classList.add("error-flash");
+  setTimeout(() => box.classList.remove("error-flash"), 4000);
+}
 function renderSlots() {
+  // 選び直したら「満員になりました」の案内は消す
+  if (state.sel.slot) $("slot-full-note")?.remove();
   const wrap = $("slot-pills");
   wrap.innerHTML = "";
   for (const s of state.slots) {
@@ -3238,6 +3284,8 @@ $("btn-submit").onclick = async () => {
     if (!r.ok) {
       // A business rejection is definitive; transport errors remain pending.
       if (RETRY_ENABLED && r.code !== "request_conflict") retryStore().clear();
+      // 満員：時間（日付）を選び直してもらう。代行登録は店が確認して強行できるので従来どおり
+      if (r.code === "capacity" && !STAFF_MODE && state.sel.date) { await handleCapacityRejection(r); return; }
       const why = r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした");
       trackStuck("order_rejected", why, r.code);
       throw new Error(why);

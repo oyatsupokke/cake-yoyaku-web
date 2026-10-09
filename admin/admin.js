@@ -1815,7 +1815,9 @@ $("th-logo-file").addEventListener("change", async () => {
     const name = `${state.tenantId}/logo/${crypto.randomUUID()}.${ext}`;
     const res = await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${name}`, {
       method: "POST",
-      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": file.type, "x-upsert": "true" },
+      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": file.type, "x-upsert": "true",
+        // ファイル名は毎回新しい（UUID）ので1年キャッシュしてよい（2026-10-09）
+        "cache-control": "max-age=31536000" },
       body: file,
     });
     if (!res.ok) throw new Error(`アップロードに失敗しました (${res.status})`);

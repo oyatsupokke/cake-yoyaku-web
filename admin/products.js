@@ -286,6 +286,10 @@ function shrinkImage(file, maxSide = 1200, quality = 0.85) {
   });
 }
 
+// 店の画像は毎回新しいファイル名（UUID）で保存するので、中身が後から変わることはない。
+// ブラウザ・配信側に1年キャッシュさせる（指定しないと no-cache になり、予約ページを開くたびに
+// 写真・イラストを全部取り直していた＝2026-10-09 負荷テストで発見）
+const IMAGE_CACHE = "max-age=31536000";
 async function uploadImage(file, kind /* 'products' | 'options' */) {
   if (!file.type.startsWith("image/")) throw new Error("画像ファイルを選んでください");
   const blob = await shrinkImage(file);
@@ -297,6 +301,7 @@ async function uploadImage(file, kind /* 'products' | 'options' */) {
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "image/jpeg",
       "x-upsert": "true",
+      "cache-control": IMAGE_CACHE,
     },
     body: blob,
   });
@@ -324,6 +329,7 @@ async function uploadLayer(file) {
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "image/png",
       "x-upsert": "true",
+      "cache-control": IMAGE_CACHE,
     },
     body: file,
   });

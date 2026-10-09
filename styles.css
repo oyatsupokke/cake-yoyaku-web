@@ -311,6 +311,8 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .done-box { text-align: center; padding: 48px 0; }
 .done-emoji { font-size: 56px; }
 .error { color: #d0455f; font-size: .9rem; text-align: center; margin-top: 12px; }
+/* 送信の瞬間に満員になったときの案内（時間の欄の上・2026-10-09） */
+#slot-full-note { text-align: left; margin: 4px 0 10px; }
 
 /* 金額バー */
 .price-bar {

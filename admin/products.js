@@ -86,6 +86,10 @@ function validateChange(c) {
   }
   if (c.table === "options" && c.patch.size_prices && Object.values(c.patch.size_prices).some(n =>
       !Number.isInteger(n) || n < 0 || n > 1000000)) throw new Error("サイズ別追加料金は0〜1,000,000円の整数で入力してください");
+  if (c.table === "products" && c.patch.booking_window_days != null &&
+      (!Number.isInteger(c.patch.booking_window_days) || c.patch.booking_window_days < 1 || c.patch.booking_window_days > 90)) {
+    throw new Error("何日先まで予約を受け付けるかは1〜90の整数で入力してください（空欄なら店の設定どおり）");
+  }
   if (c.table === "options" && c.patch.order_deadline_days != null &&
       (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
     throw new Error("選択肢の締切は0〜365の整数で入力してください");
@@ -1028,7 +1032,7 @@ function renderEditor() {
   document.dispatchEvent(new Event("product-editor-rendered"));
   if (!p) return;
   const lite = state.tenant?.reservation_plan === 'lite';
-  for (const id of ['p-deadline','p-cap-daily']) $(id).closest('.field').classList.toggle('hidden',lite);
+  for (const id of ['p-deadline','p-cap-daily','p-window']) $(id).closest('.field').classList.toggle('hidden',lite);
   const saleCard = $('p-sale-start').closest('.confirm-box');
   if (saleCard) saleCard.classList.toggle("hidden",lite);
   $('product-visual-editor').classList.toggle('hidden',lite);
@@ -1041,6 +1045,8 @@ function renderEditor() {
   $("p-note").value = p.note || "";
   $("p-note-accent").checked = !!p.note_accent;
   $("p-deadline").value = p.order_deadline_days ?? "";
+  $("p-window").value = p.booking_window_days ?? "";
+  $("p-window").placeholder = `空欄=店の設定（${state.tenant?.booking_window_days ?? 90}日）`;
   // 状態の表示と、押したらどうなるかのボタンを分ける（兼用は分かりにくいため）
   const stateEl = $("p-publish-state");
   stateEl.textContent = p.is_published ? "公開中" : "非公開";
@@ -1069,6 +1075,10 @@ function renderEditor() {
   regField("products", p.id, "note", $("p-note"));
   regField("products", p.id, "note_accent", $("p-note-accent"));
   regField("products", p.id, "order_deadline_days", $("p-deadline"), { number: true });
+  // Lite は店の設定だけ（欄も出さない）。小数は切り捨てずに保存前のチェックで止める
+  if (state.tenant?.reservation_plan !== "lite") regField("products", p.id, "booking_window_days", $("p-window"), {
+    get: () => { const v = $("p-window").value.trim(); return v === "" ? null : Number(v); },
+  });
   regField("products", p.id, "sale_start_at", $("p-sale-start"),
     { get: () => localToIso($("p-sale-start").value) });
   regField("products", p.id, "sale_end_at", $("p-sale-end"),

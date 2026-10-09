@@ -653,6 +653,13 @@ function onSale(p) {
   if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
   return true;
 }
+/* 何日先の受取まで予約できるか。商品に設定があればそれ、無ければ店の設定（Liteは店の設定のみ）。
+ * サーバーの fn_booking_window_days と同じ決め方（2026-10-09：普段のケーキは30日・クリスマスは45日、など） */
+function windowDays(p = state.sel.product) {
+  const own = state.tenant?.reservation_plan !== "lite" ? p?.booking_window_days : null;
+  return own ?? state.tenant?.booking_window_days ?? 90;
+}
+const windowTenant = (p) => ({ ...state.tenant, booking_window_days: windowDays(p) });
 /* 一覧に出す商品。
  *  ・代行登録（お店の入力）は、受付前・受付終了後も店の判断で登録できるので全部出す
  *  ・すでに選んでいる商品は残す＝変更モードで開いた予約の商品が、受付終了後に
@@ -1991,9 +1998,10 @@ function selectVariant(v) {
   state.sel.slot = null;
   // 受取できる期間が先にある商品（クリスマスなど）は、その最初の月から開く。
   // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
-  const pStart = state.sel.product.pickup_start_date
-    ? new Date(state.sel.product.pickup_start_date + "T00:00:00") : null;
-  const bounds = BookingWindow.bounds(state.tenant);
+  const sp = state.sel.product;
+  const pStartKey = sp.pickup_mode === "dates" ? [...(sp.pickup_dates || [])].sort()[0] : sp.pickup_start_date;
+  const pStart = pStartKey ? new Date(pStartKey + "T00:00:00") : null;
+  const bounds = BookingWindow.bounds(windowTenant());
   const today = new Date(bounds.today + "T00:00:00");
   const end = new Date(bounds.end + "T00:00:00");
   const calBase = pStart && pStart > today ? (STAFF_MODE || pStart <= end ? pStart : end) : today;
@@ -2322,7 +2330,7 @@ async function loadCalendar() {
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
     // 短縮前に成立した予約の同日編集を維持。その他の可否は送信時に再検証する。
-    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(state.tenant).end &&
+    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(windowTenant()).end &&
         Object.hasOwn(state.avail, EDIT_ORDER.pickup_date)) {
       state.avail[EDIT_ORDER.pickup_date] = "few";
     }
@@ -2370,12 +2378,12 @@ function renderCalendar() {
     grid.appendChild(el);
   }
   // 前月ボタンは今月まで
-  const bounds = BookingWindow.update(state.tenant, m, STAFF_MODE);
+  const bounds = BookingWindow.update(windowTenant(), m, STAFF_MODE);
   const product = state.sel.product;
   const start = product.pickup_mode === 'dates' ? [...(product.pickup_dates || [])].sort()[0] : product.pickup_start_date;
   if (!STAFF_MODE && start && start > bounds.end) {
     const opens = new Date(start + 'T00:00:00Z');
-    opens.setUTCDate(opens.getUTCDate() - (state.tenant.booking_window_days ?? 90));
+    opens.setUTCDate(opens.getUTCDate() - windowDays(product));
     $("booking-window-note").textContent += ` この商品の受取期間はまだ先です。最初の受取日の予約は${opens.toISOString().slice(0,10).replaceAll('-','/')}から可能です（商品の受付開始日時も適用されます）。`;
   }
 }
@@ -2530,7 +2538,7 @@ function hiddenOutsidePeriod(item, period = item) {
   // 選んだ受取日では判断しない：受取日によって選べないものは灰色で見せ、日付を変えれば選べると分かるようにする。
   // 隠すのは、予約できる範囲のどの日でも選べないもの（期間が終わった／予約できる範囲より先に始まる）だけ
   const day = (offset) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
-  return (!!until && until < day(0)) || (!!from && from > day(state.tenant?.booking_window_days ?? 90));
+  return (!!until && until < day(0)) || (!!from && from > day(windowDays()));
 }
 const visibleChoices = (cs) => cs.filter((c) => !hiddenOutsidePeriod(c));
 function choicePeriodText(c) {

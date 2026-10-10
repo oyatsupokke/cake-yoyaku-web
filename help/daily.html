@@ -1,24 +1,38 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ケーキ屋さんの予約帳の操作マニュアル。毎日の使い方を画面写真付きで案内します。"><title>毎日の使い方｜ケーキ屋さんの予約帳 ヘルプ</title><link rel="stylesheet" href="help.css?v=1791594105"><script defer src="help.js?v=1791594105"></script></head><body>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ケーキ屋さんの予約帳の操作マニュアル。毎日の使い方を画面写真付きで案内します。"><title>毎日の使い方｜ケーキ屋さんの予約帳 ヘルプ</title><link rel="stylesheet" href="help.css?v=1791594198"><script defer src="help.js?v=1791594198"></script></head><body>
 <a class="skip" href="#content">本文へ移動</a><header class="site-header"><a class="brand" href="index.html">ケーキ屋さんの予約帳<span>導入店舗向けマニュアル</span></a><a class="admin-link" href="../admin/">管理画面へ <span aria-hidden="true">↗</span></a></header>
 <div class="layout"><aside class="sidebar"><details class="mobile-nav"><summary>目次を開く</summary><nav aria-label="マニュアルの目次"><a href="index.html" >使い方を探す</a><a href="start.html" >はじめてガイド</a><a href="staff.html" >毎日の早見表</a><a href="overview.html" >できること</a><a href="products.html" >商品を登録する</a><a href="daily.html" aria-current="page">毎日の使い方</a><a href="settings.html" >受付のルール・設定</a><a href="customer.html" >お客様の操作</a><a href="billing.html" >ご契約とお支払い</a><a href="faq.html" >困ったとき</a></nav></details><nav class="desktop-nav" aria-label="マニュアルの目次"><a href="index.html" >使い方を探す</a><a href="start.html" >はじめてガイド</a><a href="staff.html" >毎日の早見表</a><a href="overview.html" >できること</a><a href="products.html" >商品を登録する</a><a href="daily.html" aria-current="page">毎日の使い方</a><a href="settings.html" >受付のルール・設定</a><a href="customer.html" >お客様の操作</a><a href="billing.html" >ご契約とお支払い</a><a href="faq.html" >困ったとき</a></nav></aside>
 <main id="content" tabindex="-1"><div class="search-area"><label for="help-search">マニュアル内を検索</label><div class="search-row"><input id="help-search" type="search" placeholder="例：締切、写真、キャンセル" autocomplete="off" aria-controls="search-results"><button type="button" id="search-clear" hidden>クリア</button></div><p id="search-status" role="status" aria-live="polite"></p><div id="search-results" hidden></div></div><p class="ai-help-link"><a href="assistant.html">使い方をAIに質問する</a> · ログインした店舗向け</p><article><p class="eyebrow">使い方ガイド <span>更新 2026.09.28</span></p><h1>第3章 毎日の使い方</h1>
 <blockquote>
 <p><strong>この章でできるようになること</strong>
-入った予約の確認、製造数の確認、お渡しまでを「予約・製造」画面で行えるようになります。</p>
+月の予約の入り具合を「予約カレンダー」で見て、入った予約の確認、製造数の確認、お渡しまでを「予約・製造」画面で行えるようになります。</p>
 </blockquote>
 <h2 id="section-1">予約が入ると<a class="anchor" href="#section-1" aria-label="この項目へのリンク">#</a></h2>
 <ul>
 <li>お店の<strong>予約通知メール</strong>（設定ページで決めたアドレス）にメールが届きます。
 件名例）【予約】No.12 山田花子様　12月24日(木) 14:00 …</li>
-<li>管理画面の <strong>「予約・製造」</strong> に予約が並びます。</li>
+<li>管理画面の <strong>「予約カレンダー」</strong> の受取日に台数が増え、<strong>「予約・製造」</strong> に予約が並びます。</li>
 </ul>
-<h2 id="section-2">予約・製造<a class="anchor" href="#section-2" aria-label="この項目へのリンク">#</a></h2>
+<h2 id="section-2">予約カレンダー<a class="anchor" href="#section-2" aria-label="この項目へのリンク">#</a></h2>
+<p>管理画面にログインすると、最初に <strong>「予約カレンダー」</strong> が開きます。1か月分の受取日ごとに、次のことが分かります。</p>
+<ul>
+<li><strong>台数</strong>：その日に受け取るケーキの台数（キャンセルを除く）。予約が無い日は薄い「0」です。</li>
+<li><strong>上限</strong>：設定ページで「1日の上限（全体）」を決めている日は「3／10台」のように出ます。上限に届いた日は赤く「満」と出ます。</li>
+<li><strong>未確認</strong>：まだ確認していない予約（追加希望の確認待ちを含む）がある日は「未確認2」のように出ます。</li>
+<li><strong>休み</strong>：定休日・臨時休業の日は灰色で「休」と出ます。臨時営業の日は普段どおりです。</li>
+</ul>
+<p>上の <strong>「‹」「›」</strong> で前後の月へ、<strong>「今月」</strong> で今月に戻ります。カレンダーの上には、その月の合計台数と未確認の件数が出ます。</p>
+<p><strong>日付を押すと、その日の「予約・製造」が開きます。</strong> カレンダーに戻るときは、メニューの「予約カレンダー」を押します（見ていた月のまま開きます）。</p>
+<p>商品ごとの上限や、時間帯ごとの空きはカレンダーには出ません。日付を押した先の予約・製造で確かめてください。</p>
+<h2 id="section-3">予約・製造<a class="anchor" href="#section-3" aria-label="この項目へのリンク">#</a></h2>
 <p>選んだ日の情報が、1つの画面に2つのまとまりで表示されます。</p>
 <ol>
-<li><strong>この日の製造数</strong>：商品×サイズごとの合計（キャンセル・追加希望の承諾前は含みません）</li>
+<li><strong>この日の製造数</strong>：商品×サイズごとの合計（キャンセル・追加希望の承諾前は含みません）<ul>
+<li>その下の <strong>「飾り・選択肢の数」</strong> に、選ばれた飾りやフルーツなどの数が出ます（ケーキの台数をかけた合計）。ナンバークッキーのように、選択肢の質問の答えが数字だけのときは <strong>数字ごとの枚数</strong>（「1」が3枚、「2」が1枚…）にも分けて出します。枚数と記入された数字の数が合わない予約は ⚠️ で予約番号を出すので、予約内容を確かめてください。</li>
+</ul>
+</li>
 <li><strong>受取時間順の予約</strong>：お客様ごとの予約カード</li>
 </ol>
-<figure><a href="img/pickup.png?v=1791594105" target="_blank" rel="noopener" aria-label="受取リスト：予約カードを開いて内容と状態を確認するを拡大"><img src="img/pickup.png?v=1791594105" alt="受取リスト：予約カードを開いて内容と状態を確認する" loading="lazy" width="780" height="1688"></a><figcaption>受取リスト：予約カードを開いて内容と状態を確認する · タップで拡大</figcaption></figure>
+<figure><a href="img/pickup.png?v=1791594198" target="_blank" rel="noopener" aria-label="受取リスト：予約カードを開いて内容と状態を確認するを拡大"><img src="img/pickup.png?v=1791594198" alt="受取リスト：予約カードを開いて内容と状態を確認する" loading="lazy" width="780" height="1688"></a><figcaption>受取リスト：予約カードを開いて内容と状態を確認する · タップで拡大</figcaption></figure>
 <h3>日付を動かす</h3>
 <p>画面上の <strong>「‹」「›」</strong> で前後の日に移動します。<strong>「今日」</strong> を押すと今日に戻り、<strong>「明日」</strong> で翌日に移動します。カレンダーから日付を選ぶこともできます。</p>
 <h3>数日分の製造数をまとめる</h3>
@@ -96,16 +110,16 @@
 <p>💡 電話で受けた分を入れずにいると、システムは実際より空いていると勘違いして予約を受けすぎてしまいます。電話予約もその場で登録するのがおすすめです。</p>
 <h3>「メール未送信」と出ているとき</h3>
 <p>システム側で確認メールの送信に失敗した印です。この表示がなくても、迷惑メールへの振り分けや宛先側の問題で届かないことがあります。<strong>「確認メールを再送」</strong> を押すと送り直せます。何度も失敗する場合は、アドレスの誤りが考えられるため電話などで確認してください。</p>
-<h2 id="section-3">製造表を印刷する<a class="anchor" href="#section-3" aria-label="この項目へのリンク">#</a></h2>
+<h2 id="section-4">製造表を印刷する<a class="anchor" href="#section-4" aria-label="この項目へのリンク">#</a></h2>
 <p>「予約・製造」の <strong>「🖨 製造表を印刷」</strong> を押すと、その日に作るケーキが2つの形で印刷されます。</p>
 <ol>
 <li><strong>集計表</strong>：商品×サイズごとの台数。仕込み量の計算に使います。</li>
 <li><strong>製造カード</strong>：1台ずつの詳細（選んだ内容・プレートの文字・注意点）。レイヤー商品の<strong>デザインイメージと、お客様が添えた画像も一緒に印刷</strong>されます（画像に添えられたひとことも下に出ます）。</li>
 </ol>
-<figure><a href="img/kitchen.png?v=1791594105" target="_blank" rel="noopener" aria-label="製造ケーキ一覧：集計表と製造カードを拡大"><img src="img/kitchen.png?v=1791594105" alt="製造ケーキ一覧：集計表と製造カード" loading="lazy" width="780" height="1688"></a><figcaption>製造ケーキ一覧：集計表と製造カード · タップで拡大</figcaption></figure>
+<figure><a href="img/kitchen.png?v=1791594198" target="_blank" rel="noopener" aria-label="製造ケーキ一覧：集計表と製造カードを拡大"><img src="img/kitchen.png?v=1791594198" alt="製造ケーキ一覧：集計表と製造カード" loading="lazy" width="780" height="1688"></a><figcaption>製造ケーキ一覧：集計表と製造カード · タップで拡大</figcaption></figure>
 <p>日付とお店の名前が入るので、そのまま厨房に貼れます。</p>
 <p>💡 印刷後の予約・変更は紙には反映されません。最新の「予約・製造」画面とあわせて確認してください。</p>
-<h2 id="section-4">集計・CSV（期間や内容で絞る）<a class="anchor" href="#section-4" aria-label="この項目へのリンク">#</a></h2>
+<h2 id="section-5">集計・CSV（期間や内容で絞る）<a class="anchor" href="#section-5" aria-label="この項目へのリンク">#</a></h2>
 <ol>
 <li>メニューの <strong>「集計・CSV」</strong> を開きます。最初は、「予約・製造」で選んでいた1日分が表示されます。</li>
 <li><strong>受取日（開始・終了）</strong> を選び、<strong>「この期間で集計・更新」</strong> を押します。</li>
@@ -119,8 +133,8 @@
 <li>表は横にスクロールできます。CSVはUTF-8で保存します。電話番号の先頭の0を保持したい場合、表計算ソフトで電話番号列を「文字列」として取り込んでください。</li>
 <li>CSVには個人情報が含まれます。共有先・保存場所にご注意ください。添付画像の実ファイルやURLはCSVには含めません。</li>
 </ul>
-<figure><a href="img/reports.png?v=1791594105" target="_blank" rel="noopener" aria-label="集計・CSV：期間や商品を選んで集計するを拡大"><img src="img/reports.png?v=1791594105" alt="集計・CSV：期間や商品を選んで集計する" loading="lazy" width="780" height="1688"></a><figcaption>集計・CSV：期間や商品を選んで集計する · タップで拡大</figcaption></figure>
-<h2 id="section-5">毎日の流れ（例）<a class="anchor" href="#section-5" aria-label="この項目へのリンク">#</a></h2>
+<figure><a href="img/reports.png?v=1791594198" target="_blank" rel="noopener" aria-label="集計・CSV：期間や商品を選んで集計するを拡大"><img src="img/reports.png?v=1791594198" alt="集計・CSV：期間や商品を選んで集計する" loading="lazy" width="780" height="1688"></a><figcaption>集計・CSV：期間や商品を選んで集計する · タップで拡大</figcaption></figure>
+<h2 id="section-6">毎日の流れ（例）<a class="anchor" href="#section-6" aria-label="この項目へのリンク">#</a></h2>
 <div class="table-wrap" tabindex="0" role="region" aria-label="表（横にスクロールできます）"><table>
 <thead>
 <tr>
@@ -146,4 +160,4 @@
 </tr>
 </tbody></table></div>
 </article><footer class="article-footer"><a href="index.html">目次へ戻る</a><a href="faq.html">困ったとき</a><a href="#content">ページの上へ ↑</a></footer></main>
-<aside class="on-this-page"><p>このページの内容</p><nav aria-label="このページの内容"><a href="#section-1">予約が入ると</a><a href="#section-2">予約・製造</a><a href="#section-3">製造表を印刷する</a><a href="#section-4">集計・CSV（期間や内容で絞る）</a><a href="#section-5">毎日の流れ（例）</a></nav></aside></div><footer class="site-footer">画面写真はサンプル店舗の操作例です。<br><a href="../admin/index.html?tab=support">お問い合わせ</a> · <a href="../terms.html">利用規約</a> · <a href="../privacy.html">プライバシーポリシー</a></footer></body></html>
+<aside class="on-this-page"><p>このページの内容</p><nav aria-label="このページの内容"><a href="#section-1">予約が入ると</a><a href="#section-2">予約カレンダー</a><a href="#section-3">予約・製造</a><a href="#section-4">製造表を印刷する</a><a href="#section-5">集計・CSV（期間や内容で絞る）</a><a href="#section-6">毎日の流れ（例）</a></nav></aside></div><footer class="site-footer">画面写真はサンプル店舗の操作例です。<br><a href="../admin/index.html?tab=support">お問い合わせ</a> · <a href="../terms.html">利用規約</a> · <a href="../privacy.html">プライバシーポリシー</a></footer></body></html>

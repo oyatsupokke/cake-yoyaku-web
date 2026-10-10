@@ -39,10 +39,10 @@
   document.getElementById('btn-logout')?.addEventListener('click', () => setTimeout(clearSignedOutChat, 0));
   window.addEventListener('storage', event => { if (event.key === 'pokke_admin_session') clearSignedOutChat(); });
   const key = 'cake-admin-nav-collapsed';
-  const short = ['予約','集計','設定','商品','表','配色','会員','契約','相談','登録','退出','説明'];
+  const short = ['暦','予約','集計','設定','商品','表','配色','会員','契約','相談','登録','退出','説明'];
   for (const item of nav.querySelectorAll('.tab')) {
     const label = item.textContent.trim();
-    const labels = ['予約・製造','集計・CSV','予約設定','商品','メニュー表','デザイン','アカウント・店舗情報','ご契約・お支払い','サポート','予約の直接登録','ログアウト','使い方マニュアル ↗'];
+    const labels = ['予約カレンダー','予約・製造','集計・CSV','予約設定','商品','メニュー表','デザイン','アカウント・店舗情報','ご契約・お支払い','サポート','予約の直接登録','ログアウト','使い方マニュアル ↗'];
     item.dataset.short = (label === '使い方をAIに質問' ? 'AI' : short[labels.indexOf(label)]) || label.slice(0,2);
     item.title = label;
     item.setAttribute('aria-label', label);

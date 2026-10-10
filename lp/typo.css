@@ -25,3 +25,7 @@
 .cb-assist-grid p{font-size:14.5px;color:var(--sub);line-height:1.8;margin:0}
 .cb-assist-note{margin-top:18px;font-size:13px;color:var(--sub);line-height:1.8}
 @media (max-width:640px){.cb-assist{padding:22px 18px}.cb-assist-grid{grid-template-columns:1fr}.cb-assist-head h3{font-size:18px}}
+/* スマホでもヘッダーに「ログイン」を出す（2026-10-03 まりほ指摘「スマホで見たときにログイン画面がない」。lp-v2 が640px以下で隠していた） */
+@media (max-width:640px){.cb-login{display:inline;font-size:13px;white-space:nowrap}.cb-header-actions{gap:12px}.cb-header .cb-btn-sm{padding:0 14px;font-size:13px;white-space:nowrap}.cb-header .cb-btn-sm wbr{display:none}}
+@media (max-width:400px){.cb-header .cb-logo{height:20px}.cb-header-actions{gap:10px}.cb-header .cb-btn-sm{padding:0 12px}}
+@media (max-width:340px){.cb-header{gap:8px}.cb-header .cb-logo{height:16px}.cb-header-actions{gap:6px}.cb-header .cb-btn-sm{padding:0 8px;font-size:12px}}

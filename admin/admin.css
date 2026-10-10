@@ -602,3 +602,12 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .kb-groups label, .kb-combine { display: flex; align-items: center; gap: 4px; font-size: .9rem; }
 .kb-combine { margin-bottom: 10px; }
 .kb-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* 狭い画面：見出しの横に印刷ボタンと「製造カード」を並べると見出しが1〜2文字幅に潰れる（2026-10-10 まりほ実機）。
+ * 見出しを1行使い、ボタンと選択はその下に横並びで回り込ませる。 */
+@media (max-width: 640px) {
+  .daily-section-heading { flex-wrap: wrap; }
+  .daily-section-heading > div:first-child { flex: 1 1 100%; }
+  .print-actions { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 12px; }
+  .card-size-field select { max-width: 100%; }
+}

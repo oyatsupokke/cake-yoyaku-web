@@ -920,6 +920,7 @@ function renderKitchen() {
       <div class="khead"><span>${rangeMode ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
         <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
+      <p class="kpay">${kitchenPayLine(o)}</p>
       ${o._preview_url || (o._images_signed || []).length ? `<div class="kpreview">` +
         (o._preview_url ? `<figure><img class="design-img" src="${esc(o._preview_url)}" alt="予約時のデザインイメージ"><figcaption>デザインイメージ</figcaption></figure>` : "") +
         (o._images_signed || []).map((x) => `<figure class="kimage"><img src="${esc(x.url)}" alt="お客様の添付画像"><figcaption>${esc(x.note || "添付画像")}</figcaption></figure>`).join("") +
@@ -930,6 +931,89 @@ function renderKitchen() {
       ${(o.staff_note || "").trim() ? `<p class="knote"><strong>お店のメモ：</strong>${esc(o.staff_note.trim())}</p>` : ""}`;
     wrap.appendChild(card);
   }
+  layoutKitchenCards();
+}
+
+/* 製造カードの合計金額と支払い（2026-10-10 まりほ指摘「印刷では合計も支払い済みかも分からない」）。
+ * 予約カードの詳細と同じ判定：Squareの事前払い（差額・返金の要否）／当日店頭払い（店頭で受け取ったかは記録がないので「未払い」とは書かない・まりほ決定）／旧フォームは未照合。 */
+function kitchenPayLine(o) {
+  const total = o.quote?.amount ?? o.total_amount ?? 0;
+  const paid = o.paid_amount || 0;
+  let pay;
+  if (paid > 0) {
+    const due = Math.max(total - paid, 0), over = Math.max(paid - total, 0);
+    pay = `<strong>事前払い済 ${yen(paid)}</strong>・` + (over > 0 ? `<strong>返金 ${yen(over)} が必要</strong>` : due > 0 ? `<strong>当日 ${yen(due)}</strong>（差額）` : "当日のお支払いなし");
+  } else if (legacyOrder(o)) {
+    pay = `旧フォーム（お支払い済みかは未照合）`;
+  } else {
+    pay = `<strong>当日${o.payment_method === "store" || !o.payment_method ? "店頭" : ""}払い ${yen(total)}</strong>`;
+  }
+  return `合計 ${yen(total)}　${pay}`;
+}
+
+/* 製造カードの印刷の大きさ（2026-10-10 まりほ要望「1予約が大きすぎる・A4を6分割に」「紙をまたいで切れるのが嫌」）。
+ * 「A4に6件」＝1ページを2列×3段のマスに分け、1件を1マスに収める（切り取り線つき）。
+ * 入りきらない予約は字を少し小さくし、それでも入らなければ縦2マス→縦3マス→1ページ全部を使う＝どの大きさでも紙をまたがない。
+ * 「1件ずつ大きく」＝従来の横いっぱいのカード（こちらもカードの途中で改ページしない）。選んだ大きさはこの端末に覚える。 */
+const CARD_SIZE_KEY = "cakebook_kitchen_card_size";
+function kitchenCardSize() {
+  try { return localStorage.getItem(CARD_SIZE_KEY) === "wide" ? "wide" : "six"; } catch { return "six"; }
+}
+$("kitchen-card-size").value = kitchenCardSize();
+$("kitchen-card-size").onchange = () => {
+  try { localStorage.setItem(CARD_SIZE_KEY, $("kitchen-card-size").value); } catch { /* 覚えられなくても今回の印刷には効く */ }
+  renderKitchen();
+};
+// マスの大きさ（@page の余白10mm＝A4の内側190×277mm。端数で次の紙へはみ出さないよう高さは1mm余らせる）
+const KCELL = {w: 95, h: 92}, KSCALES = [1, 0.9, 0.8];
+function layoutKitchenCards() {
+  const wrap = $("kitchen-detail");
+  const cards = [...wrap.querySelectorAll(".kcard")];
+  const six = $("kitchen-card-size").value !== "wide";
+  wrap.classList.toggle("kcards-six", six);
+  if (!six || !cards.length) return;
+  // 画面では製造カードを出していないので、見えない場所に同じ大きさで置いて、入りきるかを測る
+  const probe = document.createElement("div");
+  probe.className = "kcard-probe kcards-six";
+  document.body.appendChild(probe);
+  const fits = (card, rows, cols, scale) => {
+    card.style.width = `${KCELL.w * cols}mm`; card.style.height = `${KCELL.h * rows}mm`;
+    card.style.setProperty("--ks", scale);
+    return card.scrollHeight <= card.clientHeight + 1;
+  };
+  const sizes = cards.map((card) => {
+    probe.appendChild(card);
+    for (const [rows, cols] of [[1, 1], [2, 1], [3, 1], [3, 2]]) {
+      for (const scale of KSCALES) if (fits(card, rows, cols, scale)) return {rows, cols, scale};
+    }
+    return {rows: 3, cols: 2, scale: KSCALES[KSCALES.length - 1]}; // 1ページでも入らない予約は字を最小にして1ページに
+  });
+  probe.remove();
+  // 受取順を崩さずに、2列×3段のマスへ前から詰める（空いた前のマスへ後ろの予約を戻さない）
+  const pages = [];
+  let page = null, cursor = 6;
+  const free = (used, r, c, rows, cols) => {
+    if (r + rows > 3 || c + cols > 2) return false;
+    for (let i = r; i < r + rows; i++) for (let j = c; j < c + cols; j++) if (used[i * 2 + j]) return false;
+    return true;
+  };
+  cards.forEach((card, n) => {
+    const {rows, cols, scale} = sizes[n];
+    let at = -1;
+    if (page) for (let k = cursor; k < 6 && at < 0; k++) if (free(page.used, Math.floor(k / 2), k % 2, rows, cols)) at = k;
+    if (at < 0) {
+      page = {el: document.createElement("div"), used: Array(6).fill(false)};
+      page.el.className = "kpage"; pages.push(page.el); at = 0;
+    }
+    const r = Math.floor(at / 2), c = at % 2;
+    for (let i = r; i < r + rows; i++) for (let j = c; j < c + cols; j++) page.used[i * 2 + j] = true;
+    cursor = at + 1;
+    card.style.width = card.style.height = "";
+    card.style.setProperty("--ks", scale);
+    card.style.gridRow = `${r + 1} / span ${rows}`; card.style.gridColumn = `${c + 1} / span ${cols}`;
+    page.el.appendChild(card);
+  });
+  wrap.replaceChildren(...pages);
 }
 $("btn-print").onclick = async () => {
   await Promise.all(kitchenOrders().filter((o) => o.status !== "canceled")

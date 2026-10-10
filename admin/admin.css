@@ -480,6 +480,7 @@ html.lightbox-open { overflow: hidden; }
 .staff-note .order-actions { align-items: center; gap: 10px; }
 .staff-note-state { color: #666; }
 .confirm-row .v.pre { white-space: pre-wrap; }
+.kcard .kpay { margin: 4px 0 0; }
 .kcard .knote { white-space: pre-wrap; margin: 6px 0 0; padding: 6px 8px; background: #fff6d6; border-radius: 6px; }
 
 /* はじめにやること（新しく登録した店向け・onboarding.js）。次にやる1つだけ目立たせる */
@@ -555,4 +556,37 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
   .oc-new { padding: 0 4px; font-size: .62rem; }
   .oc-new .wide { display: none; }
   .oc-new .narrow { display: inline; }
+}
+
+/* 製造カード「A4に6件」（2026-10-10）：2列×3段のマス・切り取り線つき・マスをまたがない（admin.js の layoutKitchenCards） */
+.print-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+.card-size-field { display: flex; align-items: center; gap: 6px; font-size: .82rem; white-space: nowrap; }
+.card-size-field select { padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 8px; font-family: inherit; }
+.kcard { break-inside: avoid; page-break-inside: avoid; }
+.kcards-six .kpage {
+  display: grid; grid-template-columns: repeat(2, 95mm); grid-template-rows: repeat(3, 92mm);
+  width: 190mm; height: 276mm; break-before: page; page-break-before: always; break-inside: avoid;
+}
+.kcards-six .kcard {
+  --ks: 1; box-sizing: border-box; margin: 0; border: 0; border-radius: 0; outline: 1px dashed #999; outline-offset: -.5px;
+  padding: 3mm 3.5mm; overflow: hidden; font-size: calc(10pt * var(--ks)); line-height: 1.35; background: #fff;
+}
+.kcards-six .kcard .khead { flex-wrap: wrap; gap: 0 8px; font-size: 1.05em; border-bottom: 1px solid #ccc; padding-bottom: 1mm; }
+.kcards-six .kcard ul { margin: 1.5mm 0 0; padding-left: 1.3em; }
+.kcards-six .kcard .plate, .kcards-six .kcard .knote { margin-top: 1.5mm; padding: .6mm 1.5mm; }
+.kcards-six .kcard p { margin: 1.5mm 0 0; }
+.kcards-six .kcard .kpay { margin-top: 1mm; }
+.kcards-six .kpreview { margin: 1.5mm 0; gap: 1.5mm; font-size: .75em; }
+.kcards-six .kpreview figure { width: 8.5em; }
+.kcards-six .kpreview img { width: 8.5em; height: 8.5em; }
+.kcards-six .kpreview .kimage, .kcards-six .kpreview .kimage img { width: 6em; }
+.kcards-six .kpreview .kimage img { height: 6em; }
+.kcard-probe { position: absolute; left: -10000px; top: 0; visibility: hidden; }
+.kcard-probe .kcard { display: block; }
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  .kcards-six .kpage:last-child { break-after: auto; }
+  /* マスは用紙の内側190mmちょうど。画面用の左右の余白があると右の列が紙からはみ出す */
+  #app.admin { padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 0 !important; }
+  .kcard, .kpreview img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

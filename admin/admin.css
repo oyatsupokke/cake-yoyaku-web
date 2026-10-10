@@ -598,8 +598,10 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .kitchen-breakdown-setting .pill { font-size: .82rem; padding: 5px 12px; }
 .kb-panel { flex-basis: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; }
 .kb-panel p { margin: 0 0 8px; }
-.kb-groups { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; }
-.kb-groups label, .kb-combine { display: flex; align-items: center; gap: 4px; font-size: .9rem; }
+.kb-groups { margin-bottom: 10px; }
+.kb-groups .kb-head { font-size: .82rem; font-weight: bold; margin: 6px 0 4px; }
+.kb-list { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.kb-list label, .kb-combine { display: flex; align-items: center; gap: 4px; font-size: .9rem; }
 .kb-combine { margin-bottom: 10px; }
 .kb-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 

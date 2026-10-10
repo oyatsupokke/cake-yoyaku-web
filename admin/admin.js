@@ -968,23 +968,42 @@ async function openBreakdownPanel() {
   $("kb-combine").checked = combine;
   $("kb-state").textContent = "";
   $("kb-groups").textContent = "読み込み中…";
-  let names = [];
-  try {
-    const rows = await api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&select=name&order=display_order.asc,created_at.asc`);
-    names = rows.map((r) => String(r.name || "").normalize("NFKC").trim());
-  } catch { /* 読めなくても、いま出ている予約のグループ名で選べる */ }
-  for (const o of kitchenOrders()) for (const it of o.order_items || []) for (const op of it.order_item_options || []) {
-    names.push(String(op.group_name_snapshot || "").normalize("NFKC").trim());
+  // 選択グループと質問（2026-10-10：旧フォームからの予約・ジェンダーリビールは果物が質問の回答にある）
+  const clean = (v) => String(v || "").normalize("NFKC").trim();
+  let groupNames = [], questionNames = [];
+  const [g, q] = await Promise.allSettled([
+    api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&select=name&order=display_order.asc,created_at.asc`),
+    api("GET", `/rest/v1/common_questions?tenant_id=eq.${state.tenantId}&select=label,input_type&order=created_at.asc`),
+  ]); // 読めなくても、いま出ている予約の名前で選べる
+  if (g.status === "fulfilled") groupNames = g.value.map((r) => clean(r.name));
+  if (q.status === "fulfilled") questionNames = q.value.filter((r) => r.input_type !== "image").map((r) => clean(r.label));
+  for (const o of kitchenOrders()) {
+    for (const it of o.order_items || []) for (const op of it.order_item_options || []) groupNames.push(clean(op.group_name_snapshot));
+    for (const a of o.order_answers || []) if (clean(a.choice_label_snapshot || a.answer_text)) questionNames.push(clean(a.label_snapshot));
   }
-  // 選んである順を先に（組み合わせの並び＝この順）。いまは無いグループ名でも、選んであれば残す
-  const list = [...new Set([...groups, ...names.filter(Boolean)])];
-  $("kb-groups").replaceChildren(...(list.length ? list.map((name) => {
+  groupNames = [...new Set(groupNames.filter(Boolean))];
+  questionNames = [...new Set(questionNames.filter((n) => n && !groupNames.includes(n)))];
+  // いまは無い名前でも、選んであれば残す（選択グループの欄に出す）
+  for (const name of groups) if (!groupNames.includes(name) && !questionNames.includes(name)) groupNames.unshift(name);
+  // 並び＝組み合わせの順。選んである順を先に
+  const ordered = (list) => [...groups.filter((n) => list.includes(n)), ...list.filter((n) => !groups.includes(n))];
+  const boxes = (list) => ordered(list).map((name) => {
     const label = document.createElement("label");
     const box = document.createElement("input");
     box.type = "checkbox"; box.value = name; box.checked = groups.includes(name);
     label.append(box, " ", name);
     return label;
-  }) : [Object.assign(document.createElement("p"), {className: "small", textContent: "選択グループがまだありません（商品設定で作ると選べます）"})]));
+  });
+  const section = (title, list) => {
+    if (!list.length) return [];
+    const head = Object.assign(document.createElement("p"), {className: "kb-head", textContent: title});
+    const wrap = Object.assign(document.createElement("div"), {className: "kb-list"});
+    wrap.replaceChildren(...boxes(list));
+    return [head, wrap];
+  };
+  const parts = [...section("選択グループ", groupNames), ...section("質問の回答", questionNames)];
+  $("kb-groups").replaceChildren(...(parts.length ? parts
+    : [Object.assign(document.createElement("p"), {className: "small", textContent: "選択グループ・質問がまだありません（商品設定で作ると選べます）"})]));
 }
 $("kb-toggle").onclick = openBreakdownPanel;
 $("kb-save").onclick = async () => {

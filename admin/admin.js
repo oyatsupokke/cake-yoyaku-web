@@ -148,6 +148,7 @@ async function showApp() {
     $("menu-btn").setAttribute("aria-expanded", "false");
   };
   renderBillingBanner(t[0]);
+  loadKitchenBreakdown();
   // 運営者だけ「運営：店舗一覧」を出す。確かめられなければ出さないだけ（画面は止めない）
   $("operator-link")?.classList.add("hidden");
   api("POST", "/rest/v1/rpc/fn_is_platform_operator", {})
@@ -890,11 +891,15 @@ function renderKitchen() {
     const key = `${it.product_name_snapshot}｜${it.variant_label_snapshot || ""}`;
     agg.set(key, (agg.get(key) || 0) + it.quantity);
   }
-  let sum = `<table class="kitchen-table"><tr><th>商品</th><th>サイズ</th><th style="width:70px">台数</th></tr>`;
+  const breakdown = KitchenBreakdown.build(active, state.kitchenBreakdown);
+  let sum = `<table class="kitchen-table"><tr><th>商品</th><th>サイズ${breakdown.size ? "・内訳" : ""}</th><th style="width:70px">台数</th></tr>`;
   let total = 0;
   for (const [key, qty] of agg) {
     const [name, size] = key.split("｜");
     sum += `<tr><td>${esc(name)}</td><td>${esc(size)}</td><td class="qty-cell">${esc(qty)}</td></tr>`;
+    for (const row of breakdown.get(key) || []) {
+      sum += `<tr class="breakdown-row"><td></td><td>└ ${esc(row.label)}</td><td class="qty-cell">${esc(row.count)}</td></tr>`;
+    }
     total += qty;
   }
   sum += `<tr><td colspan="2"><strong>合計</strong></td><td class="qty-cell">${total}</td></tr></table>`;
@@ -933,6 +938,71 @@ function renderKitchen() {
   }
   layoutKitchenCards();
 }
+
+/* 製造数の内訳の設定（2026-10-10 まりほ要望「12cmで果物ごとに何台か」「店によって知りたいことが違うので設定できるように」）。
+ * 計算は kitchen-breakdown.js。設定は tenants.kitchen_breakdown に店ごとに1つ（スタッフ全員・どの端末でも同じ）。
+ * この欄だけで保存する（まとめて保存バーは使わない）。列がまだ無い・読めないときは内訳なしで動く。 */
+state.kitchenBreakdown = {};
+async function loadKitchenBreakdown() {
+  const tenant = state.tenantId;
+  try {
+    const rows = await api("GET", `/rest/v1/tenants?id=eq.${tenant}&select=kitchen_breakdown`);
+    if (tenant !== state.tenantId) return;
+    state.kitchenBreakdown = rows[0]?.kitchen_breakdown || {};
+  } catch { state.kitchenBreakdown = {}; }
+  showBreakdownCurrent();
+  if (!$("kitchen-range-mode").checked || kitchenRange) renderKitchen();
+}
+function showBreakdownCurrent() {
+  const {groups, combine} = KitchenBreakdown.normalizeSetting(state.kitchenBreakdown);
+  $("kb-current").textContent = groups.length
+    ? `内訳：${groups.join(combine ? " × " : "／")}`
+    : "内訳：なし（商品・サイズごとの台数だけ）";
+}
+async function openBreakdownPanel() {
+  const panel = $("kb-panel"), open = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !open);
+  $("kb-toggle").setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  const {groups, combine} = KitchenBreakdown.normalizeSetting(state.kitchenBreakdown);
+  $("kb-combine").checked = combine;
+  $("kb-state").textContent = "";
+  $("kb-groups").textContent = "読み込み中…";
+  let names = [];
+  try {
+    const rows = await api("GET", `/rest/v1/option_groups?tenant_id=eq.${state.tenantId}&select=name&order=display_order.asc,created_at.asc`);
+    names = rows.map((r) => String(r.name || "").normalize("NFKC").trim());
+  } catch { /* 読めなくても、いま出ている予約のグループ名で選べる */ }
+  for (const o of kitchenOrders()) for (const it of o.order_items || []) for (const op of it.order_item_options || []) {
+    names.push(String(op.group_name_snapshot || "").normalize("NFKC").trim());
+  }
+  // 選んである順を先に（組み合わせの並び＝この順）。いまは無いグループ名でも、選んであれば残す
+  const list = [...new Set([...groups, ...names.filter(Boolean)])];
+  $("kb-groups").replaceChildren(...(list.length ? list.map((name) => {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox"; box.value = name; box.checked = groups.includes(name);
+    label.append(box, " ", name);
+    return label;
+  }) : [Object.assign(document.createElement("p"), {className: "small", textContent: "選択グループがまだありません（商品設定で作ると選べます）"})]));
+}
+$("kb-toggle").onclick = openBreakdownPanel;
+$("kb-save").onclick = async () => {
+  const value = {groups: [...$("kb-groups").querySelectorAll("input:checked")].map((b) => b.value), combine: $("kb-combine").checked};
+  const btn = $("kb-save");
+  btn.disabled = true; $("kb-state").textContent = "保存中…";
+  try {
+    await api("PATCH", `/rest/v1/tenants?id=eq.${state.tenantId}`, {kitchen_breakdown: value});
+    state.kitchenBreakdown = value;
+    showBreakdownCurrent();
+    renderKitchen();
+    $("kb-state").textContent = "保存しました";
+    $("kb-panel").classList.add("hidden"); $("kb-toggle").setAttribute("aria-expanded", "false");
+    toast(value.groups.length ? "製造数の内訳を変えました" : "製造数の内訳をなしにしました");
+  } catch (e) {
+    $("kb-state").textContent = "保存できませんでした：" + e.message;
+  } finally { btn.disabled = false; }
+};
 
 /* 製造カードの合計金額と支払い（2026-10-10 まりほ指摘「印刷では合計も支払い済みかも分からない」）。
  * 予約カードの詳細と同じ判定：Squareの事前払い（差額・返金の要否）／当日店頭払い（店頭で受け取ったかは記録がないので「未払い」とは書かない・まりほ決定）／旧フォームは未照合。 */

@@ -590,3 +590,15 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
   #app.admin { padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 0 !important; }
   .kcard, .kpreview img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* 製造数の内訳（2026-10-10）：商品×サイズの行の下に「└ シャインマスカット 1」 */
+.kitchen-table .breakdown-row td { font-size: .86rem; padding-top: 4px; padding-bottom: 4px; color: #4a4040; }
+.kitchen-table .breakdown-row .qty-cell { font-size: .95rem; }
+.kitchen-breakdown-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 2px; }
+.kitchen-breakdown-setting .pill { font-size: .82rem; padding: 5px 12px; }
+.kb-panel { flex-basis: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; }
+.kb-panel p { margin: 0 0 8px; }
+.kb-groups { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; }
+.kb-groups label, .kb-combine { display: flex; align-items: center; gap: 4px; font-size: .9rem; }
+.kb-combine { margin-bottom: 10px; }
+.kb-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

@@ -34,7 +34,7 @@ const STATUS = {
 const REVIEW = {requested:"追加希望・確認待ち",quoted:"見積もり・承諾待ち",accepted:"追加希望・承諾済み"};
 const reviewPending = o => ['requested','quoted'].includes(o.review_state);
 
-const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "calendar",
+const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "pickup",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
   mailKind: "customer", mailCh: "mail", formUrl: "", mailTexts: {}, mailLight: null, mailBound: false };
 
@@ -152,11 +152,9 @@ async function showApp() {
   $("view-app").classList.remove("hidden");
   setDate(new Date());
   loadSettings();
-  window.Onboarding?.refresh();
   // 独立した商品設定ページからも、選んだ管理画面へ直接戻れる。
   const requestedTab = new URLSearchParams(location.search).get("tab");
-  if (state.tab === "calendar") window.OrderCalendar?.open();
-  if (["calendar", "pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
+  if (["pickup", "kitchen", "reports", "settings", "design", "support", "account", "billing"].includes(requestedTab)) {
     // 旧「製造ケーキ一覧」へのリンクも、統合後の「予約・製造」を開く。
     const tab = requestedTab === "kitchen" ? "pickup" : requestedTab;
     document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
@@ -269,11 +267,6 @@ async function loadOrders() {
     if (page.length < 500) break;
   }
   state.orders = orders;
-  // 質問→選択肢の対応は待たずに一覧を出し、読めたら製造数だけ描き直す。
-  ensureQuestionOptions().then((loaded) => {
-    if (!loaded || generation !== orderLoadGeneration || tenant !== state.tenantId) return;
-    if (!$("kitchen-range-mode").checked || kitchenRange) renderKitchen();
-  });
   renderPickup();
   if ($("kitchen-range-mode").checked) await loadKitchenRange();
   else renderKitchen();
@@ -514,13 +507,7 @@ function fillOrderBody(el, o) {
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
   rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
-  // メールは明示のリンクにする。ただの文字だと iPhone が「メール」の見出しまでアドレスとして拾い、
-  // Gmail で開くと宛先の先頭に「メール」が付いて送れなかった（2026-10-04 まりほ実機）
-  const email = String(o.customer_email ?? "").trim();
-  // 予約ページは「@がある」しか見ないので、?bcc= などを混ぜた値はリンクにしない（文字のまま出す）
-  const linkable = /^[^\s@?#%&<>"',;:/\\]+@[^\s@?#%&<>"',;:/\\]+\.[^\s@?#%&<>"',;:/\\]+$/.test(email);
-  if (linkable) rows.push(`<div class="confirm-row"><span class="k">メール</span><span><a href="mailto:${esc(email)}">${esc(email)}</a></span></div>`);
-  else row("メール", email);
+  row("メール", o.customer_email);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) {
     const p = prepayNumbers(o);
     row("支払い", `事前払い ${yen(o.paid_amount)}（Square）`);
@@ -553,19 +540,6 @@ function fillOrderBody(el, o) {
   if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
-  // 詳細を下まで読んだら、そのまま確認済にできるように一番下にも置く（上に戻らなくてよい・2026-10-04 まりほ要望）
-  if (o.status === "new" && !reviewPending(o)) {
-    const bottom = document.createElement("div");
-    bottom.className = "order-actions order-confirm-bottom";
-    bottom.innerHTML = `<button type="button" class="pill confirm-order-btn">→ 確認済にする</button>`;
-    el.appendChild(bottom);
-    bottom.querySelector("button").addEventListener("click", async (e) => {
-      const button = e.currentTarget;
-      button.disabled = true;
-      try { await updateStatus(o, "confirmed"); }
-      catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); button.disabled = false; }
-    });
-  }
   // 画像を押したら、その予約の画像（デザインイメージ＋添付画像）をその場で大きく見せる
   el.onclick = async (e) => {
     const btn = e.target.closest(".zoom-img");
@@ -840,37 +814,6 @@ $("kitchen-range-load").onclick = loadKitchenRange;
 for (const id of ["kitchen-from", "kitchen-to"]) $(id).onchange = loadKitchenRange;
 
 /* ---------- 厨房ビュー ---------- */
-// 選択肢にぶら下がる質問（ナンバークッキーの数字など）を見分けるため、質問→選択肢の対応を店ごとに1回読む。
-let questionOptions = {tenant: null, map: new Map()};
-// 新しく読めたときだけ true（呼び出し側が描き直す）。
-async function ensureQuestionOptions() {
-  const tenant = state.tenantId;
-  if (questionOptions.tenant === tenant) return false;
-  try {
-    const rows = [];
-    for (;;) {
-      const page = await api("GET", `/rest/v1/common_questions?tenant_id=eq.${tenant}&option_id=not.is.null&select=id,option_id,input_type&order=id&limit=1000&offset=${rows.length}`);
-      rows.push(...page); if (page.length < 1000) break;
-    }
-    if (tenant !== state.tenantId) return false;
-    questionOptions = {tenant, map: new Map(rows.map((q) => [q.id, {option_id: q.option_id, input_type: q.input_type}]))};
-    return true;
-  } catch { return false; /* 読めなくても台数・選択肢の数は出す（数字の内訳は質問文に選択肢名がある分だけ） */ }
-}
-function optionCountsHtml(active) {
-  const rows = OptionCounts.build(active, questionOptions.map);
-  if (!rows.length) return "";
-  let html = `<h3 class="kitchen-sub">飾り・選択肢の数</h3><table class="kitchen-table option-count-table"><tr><th>グループ</th><th>選択肢</th><th style="width:70px">数</th></tr>`;
-  let lastGroup = null;
-  for (const row of rows) {
-    html += `<tr><td>${row.group === lastGroup ? "" : esc(row.group)}</td><td>${esc(row.name)}</td><td class="qty-cell">${esc(row.count)}</td></tr>`;
-    lastGroup = row.group;
-    for (const [digit, n] of row.digits) html += `<tr class="digit-row"><td></td><td>└ 数字「${esc(digit)}」</td><td class="qty-cell">${esc(n)}</td></tr>`;
-    if (row.mismatches.length) html += `<tr class="digit-row"><td></td><td colspan="2" class="digit-warn">⚠️ 枚数と数字の数が合わない予約：${
-      row.mismatches.map((m) => `No.${esc(m.order_number)}（${esc(m.quantity)}枚・「${esc(m.answer)}」）`).join("、")}</td></tr>`;
-  }
-  return html + `</table>`;
-}
 function renderKitchen() {
   const [y, m, d] = state.date.split("-");
   $("kitchen-title").textContent = `${y}年${+m}月${+d}日 製造一覧（${state.tenantName}）`;
@@ -893,7 +836,7 @@ function renderKitchen() {
     total += qty;
   }
   sum += `<tr><td colspan="2"><strong>合計</strong></td><td class="qty-cell">${total}</td></tr></table>`;
-  $("kitchen-summary").innerHTML = active.length ? sum + optionCountsHtml(active) : `<p class="empty-note">${rangeMode ? "この期間" : "この日"}の製造はありません</p>`;
+  $("kitchen-summary").innerHTML = active.length ? sum : `<p class="empty-note">${rangeMode ? "この期間" : "この日"}の製造はありません</p>`;
 
   // 製造カード（1台ごとの作る内容）
   const wrap = $("kitchen-detail");
@@ -1281,7 +1224,6 @@ async function loadTenantForm() {
   $("t-booking-window-help").textContent = `1〜${windowMax}日で設定できます。${windowMax === 90 ? "90日は約3か月です。" : "Liteは最大30日です。"}`;
   const mode = t.deadline_skip_closed_days ? "business" : "calendar";
   [...document.querySelectorAll('input[name="deadline-mode"]')].forEach((r) => { r.checked = r.value === mode; });
-  $("t-page-notice").value = t.page_notice || "";
   $("t-preview-note").value = t.preview_note || "";
   $("t-pickup-note").value = t.pickup_note || "";
   $("t-cancel").value = t.cancel_policy || "";
@@ -1346,8 +1288,6 @@ async function loadTenantForm() {
   regField("tenants", T, "order_cutoff_time", $("t-cutoff"));
   regField("tenants", T, "default_deadline_days", $("t-deadline"), { number: true });
   regField("tenants", T, "booking_window_days", $("t-booking-window"), { number: true });
-  regField("tenants", T, "page_notice", $("t-page-notice"),
-    { get: () => $("t-page-notice").value.trim() || null });   // 空欄=何も出さない
   regField("tenants", T, "preview_note", $("t-preview-note"),
     { get: () => $("t-preview-note").value.trim() });   // 空欄=注意書きを出さない
   regField("tenants", T, "pickup_note", $("t-pickup-note"),
@@ -1607,7 +1547,6 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     // 選んだらメニューを閉じる
     $("admin-body").classList.remove("menu-open");
     $("menu-btn").setAttribute("aria-expanded", "false");
-    $("tab-calendar").classList.toggle("hidden", state.tab !== "calendar");
     $("tab-pickup").classList.toggle("hidden", state.tab !== "pickup");
     $("tab-settings").classList.toggle("hidden", state.tab !== "settings");
     $("tab-design").classList.toggle("hidden", state.tab !== "design");
@@ -1617,14 +1556,12 @@ document.querySelectorAll(".tab[data-tab]").forEach((b) => {
     $("tab-billing").classList.toggle("hidden", state.tab !== "billing");
     if (state.tab === "account") openAccount();
     const editing = ["settings", "design", "account"].includes(state.tab);
-    $("date-nav").classList.toggle("hidden", editing || ["calendar", "reports", "support", "account", "billing"].includes(state.tab));
+    $("date-nav").classList.toggle("hidden", editing || ["reports", "support", "account", "billing"].includes(state.tab));
     // 設定とデザインの下書きは画面を切り替えても保持し、一緒に保存する。
     $("save-bar").classList.toggle("hidden", !editing);
     if (state.tab === "design") pushThemePreview();
-    if (state.tab === "calendar") window.OrderCalendar?.open();
     if (state.tab === "reports") openReports();
     if (state.tab === "support") openSupport();
-    window.Onboarding?.onTab(state.tab);
     window.scrollTo(0, 0);
   };
 });
@@ -1815,9 +1752,7 @@ $("th-logo-file").addEventListener("change", async () => {
     const name = `${state.tenantId}/logo/${crypto.randomUUID()}.${ext}`;
     const res = await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${name}`, {
       method: "POST",
-      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": file.type, "x-upsert": "true",
-        // ファイル名は毎回新しい（UUID）ので1年キャッシュしてよい（2026-10-09）
-        "cache-control": "max-age=31536000" },
+      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": file.type, "x-upsert": "true" },
       body: file,
     });
     if (!res.ok) throw new Error(`アップロードに失敗しました (${res.status})`);

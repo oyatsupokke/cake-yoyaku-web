@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1791557893">
-<link rel="stylesheet" href="admin.css?v=1791557893">
-<link rel="stylesheet" href="admin-layout.css?v=1791557893">
-<link rel="stylesheet" href="support.css?v=1791557893">
-<link rel="stylesheet" href="help-panel.css?v=1791557893">
+<link rel="stylesheet" href="../styles.css?v=1791594105">
+<link rel="stylesheet" href="admin.css?v=1791594105">
+<link rel="stylesheet" href="admin-layout.css?v=1791594105">
+<link rel="stylesheet" href="support.css?v=1791594105">
+<link rel="stylesheet" href="help-panel.css?v=1791594105">
 </head>
 <body>
 <div id="app" class="admin">
@@ -53,8 +53,7 @@
     <nav class="tabs no-print" id="admin-tabs">
       <!-- 狭い画面のドロワーだけに出る閉じるボタン（広い画面ではCSSで非表示） -->
       <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
-      <button type="button" class="tab selected" data-tab="calendar">予約カレンダー</button>
-      <button type="button" class="tab" data-tab="pickup">予約・製造</button>
+      <button type="button" class="tab selected" data-tab="pickup">予約・製造</button>
       <button type="button" class="tab" data-tab="reports">集計・CSV</button>
       <button type="button" class="tab" data-tab="settings">予約設定</button>
       <a class="tab tab-link" href="./products.html">商品</a>
@@ -71,23 +70,7 @@
     </nav>
     <div class="admin-main">
 
-    <!-- 新しく登録した店向け「はじめにやること」。全部済んだら出ない（onboarding.js） -->
-    <section id="onboarding" class="onboarding no-print hidden" aria-label="はじめにやること"></section>
-
-    <!-- 予約カレンダー：ログインして最初に開く画面。日付を押すとその日の「予約・製造」へ（order-calendar.js・2026-10-05 まりほ決定） -->
-    <section id="tab-calendar" class="no-print">
-      <div class="oc-head">
-        <button type="button" class="cal-nav" id="cal-prev" aria-label="前の月">‹</button>
-        <h2 id="cal-title"></h2>
-        <button type="button" class="cal-nav" id="cal-next" aria-label="次の月">›</button>
-        <button type="button" class="pill" id="cal-this-month">今月</button>
-      </div>
-      <p id="cal-summary" class="cal-summary" role="status"></p>
-      <div id="order-calendar" class="order-calendar"></div>
-      <p class="small oc-legend">数字はその日に受け取るケーキの台数です（キャンセルを除く）。1日の上限を決めている日は「台数／上限」で出ます。日付を押すと、その日の予約と製造数を開きます。</p>
-    </section>
-
-    <div class="date-nav no-print hidden" id="date-nav">
+    <div class="date-nav no-print" id="date-nav">
       <button type="button" class="cal-nav" id="date-prev">‹</button>
       <input type="date" id="date-input">
       <button type="button" class="cal-nav" id="date-next">›</button>
@@ -98,11 +81,11 @@
     </div>
 
     <!-- 予約・製造：同じ日の製造数と受取順を1画面で確認する -->
-    <section id="tab-pickup" class="hidden">
+    <section id="tab-pickup">
       <div id="tab-kitchen">
         <h2 class="print-title print-only" id="kitchen-title"></h2>
         <div class="daily-section-heading no-print">
-          <div><h2 id="kitchen-heading">この日の製造数</h2><p class="small">商品・サイズごとの合計と、飾り・選択肢の数です（キャンセル・追加希望の承諾前を除く）。</p></div>
+          <div><h2 id="kitchen-heading">この日の製造数</h2><p class="small">商品・サイズごとの合計です（キャンセル・追加希望の承諾前を除く）。</p></div>
           <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
         </div>
         <div class="kitchen-period no-print">
@@ -277,11 +260,8 @@
           </div>
         </div>
       </div>
-      <div class="confirm-box settings-anchor" id="settings-policy">
+      <div class="confirm-box">
         <h3>お客様への案内・キャンセル操作設定</h3>
-        <label class="field">予約ページの上のお知らせ（表示箇所：予約ページの一番上）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキを選ぶ前に出るお知らせです。&#10;「12/23〜25受取のご予約は11/30で締め切ります」「年末年始は1/5までお休みです」など、いま伝えたいことを書きます。&#10;改行はそのまま表示されます。空欄にすると何も出ません。">？</button>
-          <textarea id="t-page-notice" rows="3" maxlength="1000" placeholder="例: クリスマスケーキ（12/23〜25受取）のご予約は 11/30 で締め切ります。"></textarea>
-        </label>
         <label class="field">予約ページの注意書き（表示箇所：「選択中のケーキ」の下）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキの絵や写真の下に出る一言です。&#10;「写真はイメージです」「果物は季節により異なります」など。空欄にすると何も出ません。">？</button>
           <textarea id="t-preview-note" rows="2" placeholder="例: ※写真はイメージです。季節により果物が変わります。"></textarea>
         </label>
@@ -545,19 +525,16 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1791557893"></script>
-<script src="edit-drafts.js?v=1791557893"></script>
-<script src="report-core.js?v=1791557893"></script>
-<script src="line-settings.js?v=1791557893"></script>
-<script src="billing-upgrade.js?v=1791557893"></script>
-<script src="../crop.js?v=1791557893"></script>
-<script src="order-gallery.js?v=1791557893"></script>
-<script src="option-counts.js?v=1791557893"></script>
-<script src="admin.js?v=1791557893"></script>
-<script src="order-calendar.js?v=1791557893"></script>
-<script src="onboarding.js?v=1791557893"></script>
-<script src="reports.js?v=1791557893"></script>
-<script src="support.js?v=1791557893"></script>
-<script src="navigation.js?v=1791557893"></script>
+<script src="tips.js?v=1791594105"></script>
+<script src="edit-drafts.js?v=1791594105"></script>
+<script src="report-core.js?v=1791594105"></script>
+<script src="line-settings.js?v=1791594105"></script>
+<script src="billing-upgrade.js?v=1791594105"></script>
+<script src="../crop.js?v=1791594105"></script>
+<script src="order-gallery.js?v=1791594105"></script>
+<script src="admin.js?v=1791594105"></script>
+<script src="reports.js?v=1791594105"></script>
+<script src="support.js?v=1791594105"></script>
+<script src="navigation.js?v=1791594105"></script>
 </body>
 </html>

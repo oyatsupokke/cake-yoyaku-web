@@ -49,13 +49,6 @@
  .booking-layer .booking-expand{grid-column:2}
  .booking-image .booking-expand{margin:8px auto 0}
  .booking-layer>.step{scroll-margin-top:calc(var(--booking-preview-height,150px) + 14px)}
- /* スマホ：上の固定エリアの高さはそのまま、イラストを大きく・リセットと拡大を小さく（2026-10-04 まりほ要望） */
- .booking-layer>.preview-box{--pv:min(164px,43vw);grid-template-columns:var(--pv) minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr;column-gap:12px}
- .booking-layer .preview-canvas{grid-column:1;grid-row:1 / -1;width:var(--pv);height:var(--pv)}
- .booking-layer .preview-caption,.booking-layer .preview-note{grid-column:2}
- .booking-layer .preview-caption{margin:0 0 4px}
- .booking-layer .preview-note{font-size:.72rem;line-height:1.5}
- .booking-layer .btn-reset-design,.booking-layer .booking-expand{grid-column:2;width:fit-content;max-width:100%;min-height:32px;margin:6px 0 0;padding:4px 10px;font-size:.72rem;line-height:1.3;letter-spacing:0;border-radius:5px;white-space:normal;text-align:left}
 }
 @media(max-width:540px){
  .cards{display:block}

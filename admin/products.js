@@ -86,10 +86,6 @@ function validateChange(c) {
   }
   if (c.table === "options" && c.patch.size_prices && Object.values(c.patch.size_prices).some(n =>
       !Number.isInteger(n) || n < 0 || n > 1000000)) throw new Error("サイズ別追加料金は0〜1,000,000円の整数で入力してください");
-  if (c.table === "products" && c.patch.booking_window_days != null &&
-      (!Number.isInteger(c.patch.booking_window_days) || c.patch.booking_window_days < 1 || c.patch.booking_window_days > 90)) {
-    throw new Error("何日先まで予約を受け付けるかは1〜90の整数で入力してください（空欄なら店の設定どおり）");
-  }
   if (c.table === "options" && c.patch.order_deadline_days != null &&
       (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
     throw new Error("選択肢の締切は0〜365の整数で入力してください");
@@ -290,10 +286,6 @@ function shrinkImage(file, maxSide = 1200, quality = 0.85) {
   });
 }
 
-// 店の画像は毎回新しいファイル名（UUID）で保存するので、中身が後から変わることはない。
-// ブラウザ・配信側に1年キャッシュさせる（指定しないと no-cache になり、予約ページを開くたびに
-// 写真・イラストを全部取り直していた＝2026-10-09 負荷テストで発見）
-const IMAGE_CACHE = "max-age=31536000";
 async function uploadImage(file, kind /* 'products' | 'options' */) {
   if (!file.type.startsWith("image/")) throw new Error("画像ファイルを選んでください");
   const blob = await shrinkImage(file);
@@ -305,7 +297,6 @@ async function uploadImage(file, kind /* 'products' | 'options' */) {
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "image/jpeg",
       "x-upsert": "true",
-      "cache-control": IMAGE_CACHE,
     },
     body: blob,
   });
@@ -333,7 +324,6 @@ async function uploadLayer(file) {
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "image/png",
       "x-upsert": "true",
-      "cache-control": IMAGE_CACHE,
     },
     body: file,
   });
@@ -742,45 +732,10 @@ async function loadAll(keepCurrent = true) {
   state.fields = []; // 入力欄の登録をやり直す
   renderTabs();
   renderEditor();
-  renderSelfcheck();   // 自動点検の結果（予約できない設定があれば先頭に出す）
   await state.capacityLoading;
   renderCategories();
   $("save-bar").classList.remove("hidden");
   markDirty();
-}
-
-
-/* ---------- 自動点検の結果（2026-10-03） ----------
- * サーバーが毎日、公開中の商品ごとに「必須のものを順に埋めた注文」を条件の分かれ道ごとに組み立てて
- * 本番と同じ検証に通し（保存はしない）、弾かれた分岐を selfcheck_results に残す。
- * 店主には「どの商品の・どの選び方で・何と言われて止まるか」だけを見せる。問題がなければ何も出さない */
-async function renderSelfcheck() {
-  const host = $("admin-body");
-  if (!host) return;
-  host.querySelector(".selfcheck-warn")?.remove();
-  let rows = [];
-  try {
-    rows = await api("GET", `/rest/v1/selfcheck_results?tenant_id=eq.${state.tenantId}&ok=eq.false` +
-      `&select=product_name,branch,message,kind,checked_at&order=product_name,branch&limit=50`);
-  } catch { return; }   // 表が無い・読めないときは何も出さない（点検は補助）
-  if (!rows.length) return;
-  const when = rows[0].checked_at ? new Date(rows[0].checked_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-  const li = (r) => `<li>「${esc(r.product_name)}」で <b>${esc(r.branch)}</b> と進むと：${esc(r.message || "")}</li>`;
-  // 店が画面で直せるもの（setup）と、運営が直すもの（system）を分けて出す。
-  // system は店の操作では直らないので、直し方ではなく「連絡済み・待っていてください」を伝える（2026-10-03）
-  const setup = rows.filter((r) => r.kind === "setup");
-  const system = rows.filter((r) => r.kind !== "setup");
-  const box = document.createElement("div");
-  box.className = "selfcheck-warn";
-  box.innerHTML =
-    (setup.length ? `<strong>⚠️ 自動点検：この設定のままだと、お客様が予約できない選び方があります</strong>` +
-      `<ul>${setup.map(li).join("")}</ul>` +
-      `<span class="small">必須の項目に、選べる選択肢（または回答）を1つ以上登録してください。直すと次の点検（毎朝）で消えます。</span>` : "") +
-    (system.length ? `<strong>⚠️ 自動点検：システムの不具合で、予約できない選び方が見つかりました</strong>` +
-      `<ul>${system.map(li).join("")}</ul>` +
-      `<span class="small">お店の設定の問題ではありません。運営に自動で連絡済みで、こちらで直します。お客様から問い合わせがあれば、お電話などで予約をお受けください（「予約の直接登録」で入れられます）。</span>` : "") +
-    `<span class="small">（${esc(when)} の点検）</span>`;
-  host.prepend(box);
 }
 
 /* ---------- 商品タブ（2026-09-06：カテゴリで畳む＋名前で絞る） ----------
@@ -916,11 +871,6 @@ function makeCatSlug(name) {
 }
 
 
-// 途中のカテゴリを消すと表示順に欠番ができるので、件数でなく「いまの最大＋1」にする（同じ順番が2つできると並べ替えが効かない）
-function nextCategoryOrder() {
-  return state.categories.reduce((max, c) => Math.max(max, c.display_order ?? -1), -1) + 1;
-}
-
 function renderCategories() {
   const wrap = $("cat-list");
   wrap.innerHTML = "";
@@ -963,41 +913,6 @@ function renderCategories() {
   });
 }
 $("cat-panel").addEventListener("toggle", () => { $("cat-panel").dataset.touched = "1"; });
-// 「カテゴリを管理」の中でも作れるようにする（まりほ「テストで作ったカテゴリを消そうとして、どこにあるんや？」2026-10-03）
-$("btn-cat-add").onclick = async () => {
-  const input = $("cat-new-name"), name = input.value.trim();
-  if (!name) { toast("カテゴリ名を入れてください"); input.focus(); return; }
-  if (state.categories.some((c) => c.name === name)) { toast(`「${name}」はもうあります`); return; }
-  $("btn-cat-add").disabled = true;
-  let created;
-  try {
-    [created] = await api("POST", "/rest/v1/categories", [{
-      tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: nextCategoryOrder(),
-    }]);
-  } catch {
-    toast("カテゴリを追加できませんでした。もう一度お試しください");
-    $("btn-cat-add").disabled = false;
-    return;
-  }
-  // 読み直しに失敗しても、追加済みのカテゴリを手元に持っておく（同じ名前の再送を「もうあります」で止めるため）
-  if (created) state.categories.push(created);
-  input.value = "";
-  // 追加はできている。画面の読み直しだけ失敗したら、そう伝える（「追加できませんでした」と出さない）
-  try {
-    await reloadAll();
-    toast(`カテゴリ「${name}」を追加しました`);
-  } catch {
-    toast(`カテゴリ「${name}」は追加しました。一覧に出ないときは上の「再読み込み」を押してください`);
-  } finally { $("btn-cat-add").disabled = false; }
-};
-$("cat-new-name").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("btn-cat-add").click(); } });
-// 商品の「カテゴリ」欄から、管理の箱へ移動して開く
-$("btn-p-category-manage").onclick = () => {
-  const panel = $("cat-panel");
-  panel.open = true;
-  panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  panel.classList.remove("cat-panel-flash"); void panel.offsetWidth; panel.classList.add("cat-panel-flash");
-};
 $("btn-new-product").onclick = async () => {
   const name = prompt("新しい商品の名前を入力してください");
   if (!name || !name.trim()) return;
@@ -1032,7 +947,7 @@ function renderEditor() {
   document.dispatchEvent(new Event("product-editor-rendered"));
   if (!p) return;
   const lite = state.tenant?.reservation_plan === 'lite';
-  for (const id of ['p-deadline','p-cap-daily','p-window']) $(id).closest('.field').classList.toggle('hidden',lite);
+  for (const id of ['p-deadline','p-cap-daily']) $(id).closest('.field').classList.toggle('hidden',lite);
   const saleCard = $('p-sale-start').closest('.confirm-box');
   if (saleCard) saleCard.classList.toggle("hidden",lite);
   $('product-visual-editor').classList.toggle('hidden',lite);
@@ -1045,8 +960,6 @@ function renderEditor() {
   $("p-note").value = p.note || "";
   $("p-note-accent").checked = !!p.note_accent;
   $("p-deadline").value = p.order_deadline_days ?? "";
-  $("p-window").value = p.booking_window_days ?? "";
-  $("p-window").placeholder = `空欄=店の設定（${state.tenant?.booking_window_days ?? 90}日）`;
   // 状態の表示と、押したらどうなるかのボタンを分ける（兼用は分かりにくいため）
   const stateEl = $("p-publish-state");
   stateEl.textContent = p.is_published ? "公開中" : "非公開";
@@ -1075,10 +988,6 @@ function renderEditor() {
   regField("products", p.id, "note", $("p-note"));
   regField("products", p.id, "note_accent", $("p-note-accent"));
   regField("products", p.id, "order_deadline_days", $("p-deadline"), { number: true });
-  // Lite は店の設定だけ（欄も出さない）。小数は切り捨てずに保存前のチェックで止める
-  if (state.tenant?.reservation_plan !== "lite") regField("products", p.id, "booking_window_days", $("p-window"), {
-    get: () => { const v = $("p-window").value.trim(); return v === "" ? null : Number(v); },
-  });
   regField("products", p.id, "sale_start_at", $("p-sale-start"),
     { get: () => localToIso($("p-sale-start").value) });
   regField("products", p.id, "sale_end_at", $("p-sale-end"),
@@ -1123,7 +1032,7 @@ function renderEditor() {
     try {
       if (!category) {
         const created = await api("POST", "/rest/v1/categories", [{
-          tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: nextCategoryOrder(),
+          tenant_id: state.tenantId, name, slug: makeCatSlug(name), display_order: state.categories.length,
         }]);
         category = created[0];
         state.categories.push(category); // 分類に失敗して再試行しても重複作成しない
@@ -2465,11 +2374,10 @@ function buildGroupBox(p, g) {
     const o = g.options.find((x) => x.id === ov.id);
     const row = buildOptionRow(p, g, o, view, ov, i, paint);
     optWrap.appendChild(row);
-    // 並べ替えボタンは選択肢名のすぐ横に置く。印の行の下だと、次の選択肢のボタンに見えた（まりほ 2026-10-03）
-    // （印の行（.marks）は入力のたびに描き直されるので、そこには入れない）
+    // 印の行（.marks）は入力のたびに描き直されるので、並べ替えボタンは別の置き場所に置く
     const holder = document.createElement("div");
     holder.className = "opt-order";
-    row.querySelector(".opt-line .oname").after(holder);
+    row.querySelector(".marks").after(holder);
     return { data: o, row, target: holder };
   });
   // 選択肢の並べ替え（2026-09-30）。↑↓で画面の中だけ動かし、保存バーで表示順を確定する
@@ -3013,8 +2921,7 @@ function openPreview() {
 }
 function syncFab() {
   const on = !!document.querySelector(".cust.peeking");
-  // 「プレビュー」だと上の「公開中の予約ページ」と区別がつかない（まりほ 2026-10-03）＝何が見えるかを名前にする
-  $("fab").textContent = on ? "✕ 閉じる" : "この質問の見え方";
+  $("fab").textContent = on ? "✕ 閉じる" : "プレビュー";
   $("fab").setAttribute("aria-pressed", String(on));
 }
 $("fab").onclick = () => (document.querySelector(".cust.peeking") ? closePreview() : openPreview());

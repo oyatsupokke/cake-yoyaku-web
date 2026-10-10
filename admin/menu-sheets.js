@@ -9,7 +9,7 @@ const C=MenuSheetCore, $=id=>document.getElementById(id), esc=C.escape;
 const state={session:null,tenantId:null,catalog:null,sheets:[],sheet:null,dirty:false,busy:false,renderId:0,timer:null,failedImages:[],layoutErrors:[]};
 const say=text=>{$('status').textContent=text;};
 async function api(method,path,body,retry=true){
- const res=await fetch(CONFIG.url+path,{method,headers:{apikey:CONFIG.anonKey,Authorization:`Bearer ${state.session?.access_token||''}`,'Content-Type':body instanceof Blob?body.type:'application/json',Prefer:'return=representation',...(body instanceof Blob?{'cache-control':'max-age=31536000'}:{})},body:body instanceof Blob?body:body==null?undefined:JSON.stringify(body)});
+ const res=await fetch(CONFIG.url+path,{method,headers:{apikey:CONFIG.anonKey,Authorization:`Bearer ${state.session?.access_token||''}`,'Content-Type':body instanceof Blob?body.type:'application/json',Prefer:'return=representation'},body:body instanceof Blob?body:body==null?undefined:JSON.stringify(body)});
  if(res.status===401 && retry && state.session?.refresh_token){
   const refresh=await fetch(CONFIG.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:CONFIG.anonKey,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:state.session.refresh_token})});
   if(refresh.ok){state.session=await refresh.json();localStorage.setItem('pokke_admin_session',JSON.stringify(state.session));return api(method,path,body,false);}
@@ -192,7 +192,6 @@ $('selected-items').addEventListener('change',e=>{
   if(!file)return;
   say('メニュー用の写真を読み込んでいます…');
   const blob=await photoBlob(file),path=`${state.tenantId}/menus/${crypto.randomUUID()}.jpg`;
-  // ファイル名は毎回新しいので1年キャッシュ（api() が画像のときに cache-control を付ける・2026-10-09）
   await api('POST','/storage/v1/object/shop-images/'+path,blob);
   item.photo_path=path;renderSelected();changed();say('メニュー用の写真に変更しました。「設定を保存」で確定します。');
  });

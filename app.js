@@ -246,21 +246,6 @@ function track(step, detail) {
     keepalive: true,
   }).catch(() => {});   // 計測の失敗が注文の邪魔をしないこと
 }
-// 止まったお客様の記録（2026-10-04・運営日報）。エラー文と code だけを送る（お客様の入力は入れない）。
-// 内容変更で止まった人も知りたいので EDIT_MODE でも送る（mode で区別）。代行・お試し・見本では送らない
-function trackStuck(step, message, code) {
-  if (THEME_PREVIEW || EDITOR_PREVIEW || TRIAL_MODE || STAFF_MODE || RESTORING || !state.tenant || !message) return;
-  fetch(`${CONFIG.url}/rest/v1/rpc/fn_log_form_event`, {
-    method: "POST",
-    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ p: {
-      tenant_id: state.tenant.id, session_id: SESSION_ID, step,
-      product_id: state.sel?.product?.id ?? null,
-      detail: { message: String(message).slice(0, 200), code: code || null, mode: EDIT_MODE ? "edit" : "new" },
-    } }),
-    keepalive: true,
-  }).catch(() => {});
-}
 
 /* ---------- 入力途中の自動保存（更新しても続きから再開できる） ---------- */
 const SAVE_KEY = `cake_form_${CONFIG.shop}`;
@@ -443,10 +428,6 @@ async function load() {
   const pnote = (state.tenant.preview_note || "").trim();
   $("preview-note").textContent = pnote;
   $("preview-note").classList.toggle("hidden", !pnote);
-  // 予約ページの上のお知らせ（店ごとの設定・空欄なら出さない。2026-10-03）
-  const notice = (state.tenant.page_notice || "").trim();
-  $("page-notice").textContent = notice;
-  $("page-notice").classList.toggle("hidden", !notice);
   // 受取時間の注意書き（店ごとの設定・空欄なら出さない。2026-10-03）
   const knote = (state.tenant.pickup_note || "").trim();
   $("pickup-note").textContent = knote;
@@ -658,13 +639,6 @@ function onSale(p) {
   if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
   return true;
 }
-/* 何日先の受取まで予約できるか。商品に設定があればそれ、無ければ店の設定（Liteは店の設定のみ）。
- * サーバーの fn_booking_window_days と同じ決め方（2026-10-09：普段のケーキは30日・クリスマスは45日、など） */
-function windowDays(p = state.sel.product) {
-  const own = state.tenant?.reservation_plan !== "lite" ? p?.booking_window_days : null;
-  return own ?? state.tenant?.booking_window_days ?? 90;
-}
-const windowTenant = (p) => ({ ...state.tenant, booking_window_days: windowDays(p) });
 /* 一覧に出す商品。
  *  ・代行登録（お店の入力）は、受付前・受付終了後も店の判断で登録できるので全部出す
  *  ・すでに選んでいる商品は残す＝変更モードで開いた予約の商品が、受付終了後に
@@ -976,6 +950,7 @@ const OYATSU_DECORATION_LAYER_FILES_BY_SIZE = {
 const OYATSU_CHOCOLATE_LAYER_FILES_BY_SIZE = {
   "12cm": {
     "naked-chocolate.png": "chocolate/12cm/naked-chocolate.png",
+    "chocolate-drip.png": "12cm/chocolate-drip.png",
     "round-piping.png": "chocolate/12cm/round-piping.png",
     "herb-ring.png": "12cm/herb-ring.png",
   },
@@ -2003,10 +1978,9 @@ function selectVariant(v) {
   state.sel.slot = null;
   // 受取できる期間が先にある商品（クリスマスなど）は、その最初の月から開く。
   // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
-  const sp = state.sel.product;
-  const pStartKey = sp.pickup_mode === "dates" ? [...(sp.pickup_dates || [])].sort()[0] : sp.pickup_start_date;
-  const pStart = pStartKey ? new Date(pStartKey + "T00:00:00") : null;
-  const bounds = BookingWindow.bounds(windowTenant());
+  const pStart = state.sel.product.pickup_start_date
+    ? new Date(state.sel.product.pickup_start_date + "T00:00:00") : null;
+  const bounds = BookingWindow.bounds(state.tenant);
   const today = new Date(bounds.today + "T00:00:00");
   const end = new Date(bounds.end + "T00:00:00");
   const calBase = pStart && pStart > today ? (STAFF_MODE || pStart <= end ? pStart : end) : today;
@@ -2335,7 +2309,7 @@ async function loadCalendar() {
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
     // 短縮前に成立した予約の同日編集を維持。その他の可否は送信時に再検証する。
-    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(windowTenant()).end &&
+    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(state.tenant).end &&
         Object.hasOwn(state.avail, EDIT_ORDER.pickup_date)) {
       state.avail[EDIT_ORDER.pickup_date] = "few";
     }
@@ -2383,12 +2357,12 @@ function renderCalendar() {
     grid.appendChild(el);
   }
   // 前月ボタンは今月まで
-  const bounds = BookingWindow.update(windowTenant(), m, STAFF_MODE);
+  const bounds = BookingWindow.update(state.tenant, m, STAFF_MODE);
   const product = state.sel.product;
   const start = product.pickup_mode === 'dates' ? [...(product.pickup_dates || [])].sort()[0] : product.pickup_start_date;
   if (!STAFF_MODE && start && start > bounds.end) {
     const opens = new Date(start + 'T00:00:00Z');
-    opens.setUTCDate(opens.getUTCDate() - windowDays(product));
+    opens.setUTCDate(opens.getUTCDate() - (state.tenant.booking_window_days ?? 90));
     $("booking-window-note").textContent += ` この商品の受取期間はまだ先です。最初の受取日の予約は${opens.toISOString().slice(0,10).replaceAll('-','/')}から可能です（商品の受付開始日時も適用されます）。`;
   }
 }
@@ -2430,70 +2404,24 @@ async function selectDate(key) {
   state.sel.slot = null;
   renderCalendar();
   updatePreview();
-  await loadSlotAvailability(key);
-  renderSlots();
-  saveState();
-  $("slot-area").classList.remove("hidden");
-  if (!THEME_PREVIEW && !RESTORING && firstDate) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-// 枠ごとの満員状況を取得（満員の時間帯はグレーアウト）
-async function loadSlotAvailability(key) {
+  // 枠ごとの満員状況を取得（満員の時間帯はグレーアウト）
   try {
     const rows = await rpc("fn_get_slot_availability", {
       p_tenant: state.tenant.id, p_date: key,
       p_product: state.sel.product.id, p_variant: state.sel.variant.id,
     });
-    if (state.sel.date !== key) return;   // 待っている間に別の日が選ばれた＝古い日の結果は使わない
     state.slotFull = Object.fromEntries(rows.map((r) => [r.slot_id, r.is_full]));
     // 変更モード：いま予約している枠は「満員」でも選べる（自分の分を除けば空くため。最終判定はサーバー）
     if (EDIT_MODE && EDIT_ORDER && key === EDIT_ORDER.pickup_date) {
       state.slotFull[EDIT_ORDER.pickup_slot_id] = false;
     }
-  } catch { if (state.sel.date === key) state.slotFull = {}; }
-}
-/* 送信した瞬間に、ほかのお客様の予約で満員になったとき（2026-10-09 負荷テストで確認）。
- * 以前は確認画面に「この時間帯は満員です」と出るだけで、時間の一覧には満員の印が付かず、
- * 選んだ時間もそのまま残っていた＝お客様は空いている時間を当てずっぽうで探すしかなかった。
- * 空き状況を読み直して満員の時間を灰色にし、入力はそのままで時間（または日付）の欄に戻す。 */
-async function handleCapacityRejection(r) {
-  const s = state.sel, lost = s.slot, date = s.date;
-  await loadSlotAvailability(date);
-  await loadCalendar();
-  if (lost && state.slotFull?.[lost.id]) s.slot = null;
-  const dayFull = state.avail?.[date] === "full" || state.slots.every((x) => state.slotFull?.[x.id]);
-  // 日の上限で断られたときは時間ごとの空きでは分からないので、その日の時間を全部満員にする（別の日を選んでもらう）
-  if (dayFull) {
-    s.slot = null;
-    state.slotFull = { ...state.slotFull, ...Object.fromEntries(state.slots.map((x) => [x.id, true])) };
-  }
+  } catch { state.slotFull = {}; }
   renderSlots();
   saveState();
-  $("view-confirm").classList.add("hidden");
-  $("view-form").classList.remove("hidden");
-  $("price-bar").classList.remove("hidden");
-  const [, mm, dd] = date.split("-").map(Number);
-  const msg = dayFull
-    ? `${mm}/${dd}は、ほかのお客様のご予約で満員になりました。別の日を選び直してください（ご入力の内容はそのまま残っています）`
-    : `${lost ? lost.label : "選んだ時間"}は、ほかのお客様のご予約で満員になりました。空いている時間を選び直してください（ご入力の内容はそのまま残っています）`;
-  let note = $("slot-full-note");
-  if (!note) {
-    note = document.createElement("p");
-    note.id = "slot-full-note";
-    note.className = "error";
-    note.setAttribute("role", "alert");
-    $("slot-pills").before(note);
-  }
-  note.textContent = msg;
-  toast(msg, 8000);
-  trackStuck("order_rejected", r.message || "満員", r.code);
-  const box = dayFull ? $("cal-grid") : $("slot-area");
-  box.scrollIntoView({ behavior: "smooth", block: "center" });
-  box.classList.remove("error-flash"); void box.offsetWidth; box.classList.add("error-flash");
-  setTimeout(() => box.classList.remove("error-flash"), 4000);
+  $("slot-area").classList.remove("hidden");
+  if (!THEME_PREVIEW && !RESTORING && firstDate) $("slot-area").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function renderSlots() {
-  // 選び直したら「満員になりました」の案内は消す
-  if (state.sel.slot) $("slot-full-note")?.remove();
   const wrap = $("slot-pills");
   wrap.innerHTML = "";
   for (const s of state.slots) {
@@ -2543,7 +2471,7 @@ function hiddenOutsidePeriod(item, period = item) {
   // 選んだ受取日では判断しない：受取日によって選べないものは灰色で見せ、日付を変えれば選べると分かるようにする。
   // 隠すのは、予約できる範囲のどの日でも選べないもの（期間が終わった／予約できる範囲より先に始まる）だけ
   const day = (offset) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
-  return (!!until && until < day(0)) || (!!from && from > day(windowDays()));
+  return (!!until && until < day(0)) || (!!from && from > day(state.tenant?.booking_window_days ?? 90));
 }
 const visibleChoices = (cs) => cs.filter((c) => !hiddenOutsidePeriod(c));
 function choicePeriodText(c) {
@@ -3086,58 +3014,9 @@ function validate() {
   return null;
 }
 
-
-/* ---------- エラーの場所まで戻る（2026-10-03 まりほ要望） ----------
- * 入力チェックやサーバーの拒否は、押したボタンの近くに文だけ出ていた。スマホでは該当の欄が画面の
- * ずっと上にあり、「どこを直せばいいか」が分からない（10/10受取のお客様が確認画面で止まった件）。
- * エラー文の「…」の中の名前から、選択グループ・選択肢・質問・お客様情報の欄を探して、そこまで
- * スクロールし、数秒だけ枠を光らせる。見つからないときは従来どおり文だけ出す。 */
-const firstText = (el) => {
-  const n = [...(el?.childNodes || [])].find((x) => x.nodeType === 3 && x.textContent.trim());
-  return (n ? n.textContent : el?.textContent || "").trim();
-};
-function findErrorTarget(msg) {
-  const m = /「([^」]+)」/.exec(msg || "");
-  const name = m ? m[1] : null;
-  const form = $("view-form");
-  if (name) {
-    for (const g of form.querySelectorAll(".group")) if (firstText(g.querySelector("h3")) === name) return g;
-    for (const r of form.querySelectorAll(".opt")) if (firstText(r.querySelector(".opt-name")) === name) return r;
-    for (const f of form.querySelectorAll(".field")) if (firstText(f) === name) return f;
-  }
-  const t = msg || "";
-  if (/ケーキとサイズ/.test(t)) return $("sec-size").classList.contains("hidden") ? $("sec-products") : $("sec-size");
-  if (/受取時間/.test(t)) return $("slot-area");
-  if (/受取日/.test(t)) return $("sec-date");
-  if (/お名前/.test(t)) return $("cust-sei");
-  if (/フリガナ/.test(t)) return $("cust-sei-kana");
-  if (/郵便番号/.test(t)) return $("cust-postal");
-  if (/ご住所/.test(t)) return $("cust-address");
-  if (/電話/.test(t)) return $("cust-phone");
-  if (/メールアドレス/.test(t)) return $("cust-email");
-  return null;
-}
-function showErrorAt(msg) {
-  const el = findErrorTarget(msg);
-  toast(msg, el ? 6000 : 3200);
-  if (!el) return false;
-  // 確認画面にいたら入力画面へ戻す（サーバーに弾かれたとき）
-  if (!$("view-confirm").classList.contains("hidden")) {
-    $("view-confirm").classList.add("hidden");
-    $("view-form").classList.remove("hidden");
-    $("price-bar").classList.remove("hidden");
-  }
-  const box = el.closest(".group, .opt, .field, .step") || el;
-  box.scrollIntoView({ behavior: "smooth", block: "center" });
-  box.classList.remove("error-flash"); void box.offsetWidth; box.classList.add("error-flash");
-  setTimeout(() => box.classList.remove("error-flash"), 4000);
-  if (el.matches("input, textarea, select")) setTimeout(() => el.focus({ preventScroll: true }), 400);
-  return true;
-}
-
 $("btn-confirm").onclick = () => {
   const err = validate();
-  if (err) { trackStuck("confirm_blocked", err); showErrorAt(err); return; }
+  if (err) { toast(err); return; }
   renderConfirm();
   if (STAFF_EDIT) renderStaffNotify();
   track("confirm_viewed", { option_count: state.sel.options.size });
@@ -3160,9 +3039,7 @@ function renderConfirm() {
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
     : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。" : "この内容で注文すると、ご注文が確定します。";
   const rows = [];
-  // 見出しが長い行（質問文など）は上下2段に組む＝スマホで値の列が潰れない（2026-10-03）
-  const rowCls = (k) => `confirm-row${String(k || "").length > 12 ? " stack" : ""}`;
-  const row = (k, v) => rows.push(`<div class="${rowCls(k)}"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
+  const row = (k, v) => rows.push(`<div class="confirm-row"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`);
   row("ケーキ", `${s.product.name} ${s.variant.size_label}`);
   row("価格", basePrice(s.variant) < s.variant.price ? `${yen(basePrice(s.variant))}（ご予約時の価格）` : yen(s.variant.price));
   for (const [id, v] of s.options) {
@@ -3176,7 +3053,7 @@ function renderConfirm() {
     const a = normAnswer(s.answers.get(q.id));
     if (q.input_type === "image") {
       if (a.images.length) {
-        rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span>` +
+        rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span>` +
           `<span class="confirm-thumbs">` +
           a.images.map((x) => `<span class="confirm-thumb"><img src="${esc(slotImageSrc(x))}" alt="">` +
             ((x.note || "").trim() ? `<span class="cap">${esc((x.note || "").trim())}</span>` : "") +
@@ -3198,9 +3075,9 @@ function renderConfirm() {
     } else if (v && q.input_type === "palette") {
       const c = q.common_question_choices.find((x) => x.id === a.choiceIds[0]);
       const hex = /^#[0-9A-Fa-f]{6}$/.test(c?.color_hex || "") ? c.color_hex : null;
-      rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
+      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${hex ? `<i class="answer-swatch" style="background:${hex}" aria-hidden="true"></i>` : ""}${esc(v)}</span></div>`);
     } else if (v && isColorQuestionType(q.input_type)) {
-      rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
+      rows.push(`<div class="confirm-row"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
   }
   const [y, m, d] = s.date.split("-");
@@ -3297,11 +3174,7 @@ $("btn-submit").onclick = async () => {
     if (!r.ok) {
       // A business rejection is definitive; transport errors remain pending.
       if (RETRY_ENABLED && r.code !== "request_conflict") retryStore().clear();
-      // 満員：時間（日付）を選び直してもらう。代行登録は店が確認して強行できるので従来どおり
-      if (r.code === "capacity" && !STAFF_MODE && state.sel.date) { await handleCapacityRejection(r); return; }
-      const why = r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした");
-      trackStuck("order_rejected", why, r.code);
-      throw new Error(why);
+      throw new Error(r.message || (EDIT_MODE ? "ご変更を受け付けられませんでした" : "ご注文を受け付けられませんでした"));
     }
 
     // 確認メールの送信をキック（失敗しても注文は成立済みなので握りつぶす）
@@ -3404,8 +3277,6 @@ $("btn-submit").onclick = async () => {
       ? "送信結果を確認できませんでした。もう一度押すと、前回と同じ申し込みの結果を確認します。入力を変更しても、新しい予約は作りません。"
       : e.message;
     $("submit-error").classList.remove("hidden");
-    // サーバーが「どの欄か」を名指しで弾いたときは、入力画面のその欄まで戻る（文だけ残しても直せないため）
-    if (!uncertain) showErrorAt(e.message);
   } finally {
     btn.disabled = false;
     let pending = false;

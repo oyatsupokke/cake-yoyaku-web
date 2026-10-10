@@ -97,14 +97,14 @@ function logout() {
 }
 
 /* ---------- API（自動リフレッシュ付き） ---------- */
-async function api(method, path, body) {
+async function api(method, path, body, opts = {}) {
   const doFetch = () => fetch(CONFIG.url + path, {
     method,
     headers: {
       apikey: CONFIG.anonKey,
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
+      Prefer: opts.prefer || "return=representation",
     },
     body: body != null ? JSON.stringify(body) : undefined,
   });
@@ -1440,6 +1440,8 @@ for (const id of ["t-registrant-email", "t-registrant-phone", "t-registrant-same
 async function loadTenantForm() {
   const t = (await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=*`))[0];
   $('rules-list').closest('.confirm-box').classList.toggle('hidden',t.reservation_plan==='lite');
+  // 特定の日だけ時間帯の上限を変える＝日ごとの上限と同じくStandard（2026-10-10）
+  $('slot-date-limits').classList.toggle('hidden',t.reservation_plan==='lite');
   initLineSettings(t);
   $("t-name").value = t.name || "";
   $("t-email").value = t.contact_email || "";
@@ -1627,10 +1629,16 @@ async function loadSettings() {
       <button type="button" class="pill danger">やめる</button>`;
     regField("capacity_rules", r.id, "daily_limit", row.querySelector("input"), { number: true });
     row.querySelector("button").onclick = async () => {
-      if (!confirm(`「${r.name}」をやめますか？\n（この上限がなくなり、1日に受ける台数は無制限になります）`)) return;
-      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${r.id}`);
-      toast("上限をやめました");
-      loadSettings();
+      if (!confirm(`「${r.name}」をやめますか？\n（この上限がなくなり、1日に受ける台数は無制限になります。特定の日だけの上限も消えます）`)) return;
+      // 日ごとの上限が rule を参照しているので先に消す（外部キーに cascade が無い）
+      try {
+        await api("DELETE", `/rest/v1/capacity_rule_date_overrides?tenant_id=eq.${state.tenantId}&rule_id=eq.${r.id}`);
+        await api("DELETE", `/rest/v1/capacity_rules?id=eq.${r.id}`);
+        toast("上限をやめました");
+      } catch (e) {
+        toast("やめられませんでした：" + e.message);
+      }
+      loadSettings();  // 途中で失敗しても、DBの今の状態を出し直す
     };
     rw.appendChild(row);
   }
@@ -1642,6 +1650,8 @@ async function loadSettings() {
       `<p class="small">現在は1日の上限がありません。</p>`);
   }
   $("rule-add").classList.toggle("hidden", hasAll);
+  state._allRule = rules.find((r) => r.scope === "all") || null;
+  await loadDateLimits();
 
   // 商品ごとの設定（締切・公開・上限）は商品エディタ（products.html）に集約（まりほ指摘 2026-08-25）
 
@@ -1702,6 +1712,7 @@ async function loadSlots() {
     wrap.appendChild(row);
   }
   state._slots = slots;
+  slotDateLimits.reload();
   markDirty();
 }
 async function addSlots(times) {
@@ -1727,6 +1738,39 @@ $("btn-rule-add").onclick = async () => {
   toast(`1日${n}台までにしました`);
   loadSettings();
 };
+
+/* ---------- 特定の日だけの上限（部品は date-limits.js・2026-10-10） ---------- */
+const dateLimits = window.DateLimits.mount($("date-limits"), {
+  api, toast, esc, label: "特定の日だけ1日の上限（全商品の合計）を変える",
+  note: '商品ごとに変えたいとき（例：クリスマスケーキだけ12/24は100台）は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。',
+  table: "capacity_rule_date_overrides", key: "rule_id", value: "daily_limit",
+  tenantId: () => state.tenantId,
+  targets: () => state._allRule ? [{ id: state._allRule.id, label: "" }] : [],
+  warn: async () => {
+    const d = new Date(), to = new Date(); to.setFullYear(to.getFullYear() + 1);
+    return window.LimitCheck.html(await window.LimitCheck.load(api, state.tenantId, fmt(d), fmt(to)), esc);
+  },
+  ensureTargets: async () => {
+    if (state._allRule) return [state._allRule.id];
+    // 普段の上限が無い店でも使えるように、上限なし（空欄）の全体ルールを作ってそこに付ける
+    const [rule] = await api("POST", "/rest/v1/capacity_rules", {
+      tenant_id: state.tenantId, name: "全体上限", scope: "all", daily_limit: null,
+    });
+    state._allRule = rule;
+    loadSettings();
+    return [rule.id];
+  },
+});
+// 受取時間の枠を、特定の日だけ変える（slot_capacity_date_overrides・20261010120000）
+const slotDateLimits = window.DateLimits.mount($("slot-date-limits"), {
+  api, toast, esc, label: "特定の日だけ時間帯の上限（全商品の合計）を変える", pick: true,
+  note: "その時間にお渡しできる台数（全商品の合計）です。商品ごとの台数は、商品ページで決めます。",
+  table: "slot_capacity_date_overrides", key: "slot_id", value: "capacity",
+  tenantId: () => state.tenantId,
+  targets: () => (state._slots || []).filter((s) => s.is_active).map((s) => ({ id: s.id, label: hm(s.start_time) })),
+  ensureTargets: async (id) => id ? [id] : (state._slots || []).filter((s) => s.is_active).map((s) => s.id),
+});
+async function loadDateLimits() { await dateLimits.reload(); }
 
 $("btn-slot-bulk").onclick = () => {
   const start = $("slot-start").value, end = $("slot-end").value;

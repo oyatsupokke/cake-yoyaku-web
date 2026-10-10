@@ -1,0 +1,112 @@
+/* Approved admin appearance. Existing labels, controls and business logic stay intact. */
+:root{--bg:#f7f8f6;--ink:#30372e;--mute:#646d5e;--boxbg:#fff;--box:#d7ddd1;--line:#dce1d7;--r:5px;--r-lg:7px}
+.admin-header{padding:26px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;gap:16px}
+.admin-header h1{font-weight:500;font-size:1.25rem}
+.link-btn,.back-link{color:var(--mute)}
+.admin .confirm-box{border:0;border-radius:7px;padding:24px;margin-bottom:26px;box-shadow:none;background:#fff}
+.admin .confirm-box>h3{font-size:1rem;font-weight:500;color:var(--ink);padding-bottom:14px;margin:0 0 20px;border-bottom:1px solid var(--line)}
+.admin .field{margin:18px 0;font-size:.9rem}
+.admin input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.admin textarea,.admin select{border-width:1px;border-radius:5px;font-family:inherit;color:var(--ink)}
+.admin input[type=text],.admin input[type=email],.admin input[type=password],.admin textarea{font-size:1rem}
+.admin .small,.admin .help{font-size:.82rem;color:var(--mute)}
+.admin .pill,.admin .btn-primary,.admin .btn-secondary,.admin .prod-tab,.admin .menu-btn{border-width:1px;border-radius:5px;font-family:inherit;box-shadow:none}
+.admin .pill{padding:9px 14px}
+.admin .tab{border:0;border-left:2px solid transparent;border-radius:0;background:transparent;color:var(--mute);font-weight:400}
+.admin .tab.selected{border-left-color:var(--accent);background:#fff;color:var(--ink);font-weight:500}
+.admin .tab-action{border-top:1px solid var(--line);padding-top:14px}
+.admin .tab-action+.tab-action{border-top:0}
+.admin .date-nav{justify-content:flex-start;margin-bottom:22px}
+.admin .save-bar,.save-bar{border-top:1px solid var(--line);box-shadow:none;background:#fff}
+.admin .order-card{border:0;border-bottom:1px solid var(--line);border-radius:4px;padding:18px 16px}
+.admin .order-time{font-size:1.15rem;font-weight:500;font-variant-numeric:tabular-nums}
+.admin .order-product{color:var(--mute);font-size:.86rem}
+.admin .status-badge{border-radius:4px;font-weight:500}
+.admin .kitchen-table th{background:#f1f3ed;font-weight:500}
+.admin .kitchen-table th,.admin .kitchen-table td{border-width:0 0 1px;padding:12px 10px}
+.admin .report-section{border:0;border-radius:7px;padding:22px}
+.admin .settings-jumps{background:#fff;border:1px solid var(--line);border-radius:5px;box-shadow:none}
+.admin .settings-jumps a{border-radius:4px}
+.products-page .prod-tabs{gap:6px;margin:0 0 10px}
+.products-page .prod-tab{padding:10px 14px;font-weight:400}
+.products-page .prod-tab.selected{background:var(--accent-soft);color:var(--ink);border-color:var(--primary-deep);font-weight:500}
+.products-page .prod-tab.unpublished{border-style:dashed}
+.products-page .grp,.products-page .q{border:1px solid var(--line);border-radius:7px;margin-bottom:26px}
+.products-page .grp-bar,.products-page .q-bar{background:#f1f3ee;border-left-width:2px;padding:14px 16px}
+.products-page .grp-body,.products-page .q-body{padding:18px}
+.products-page .inplace{border-bottom:1px solid var(--line);border-radius:0;font-size:.95rem}
+.products-page .opt{background:#fff;border-left:1px solid var(--line);border-radius:0;padding:12px;margin-bottom:12px}
+.products-page .opt.open{border-left:2px solid var(--primary-deep);box-shadow:none;background:#fafbf8}
+.products-page .opt:hover{background:#f5f7f1}
+.products-page .mk,.products-page .tag{border-radius:4px;background:#f0f3ea;color:#59634f}
+.products-page .fb .k,.products-page .meta,.products-page .opt-line .lbl{font-size:.83rem;color:var(--mute)}
+.products-page .cust{border:1px solid var(--line);border-radius:5px;background:#f7f8f5}
+.products-page .cust .card{border-width:1px;border-radius:5px;box-shadow:none}
+.products-page .cat-panel{border-radius:5px;border-color:var(--line)}
+.admin .th-type{border-width:1px;border-radius:5px;padding:14px 8px}
+.admin .th-type:has(input:checked){background:var(--accent-soft);border-color:var(--primary-deep)}
+.admin .th-type:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:3px}
+.admin .th-nm{font-weight:500}.admin .th-ds,.admin .th-hex,.admin .th-prev-cap,.admin .th-auto{color:var(--mute);font-size:.8rem}
+.admin .th-sw{gap:12px;margin:10px 0 18px}
+.admin .th-swatch{width:34px;height:34px}
+.admin .th-adv{border-radius:5px;margin:18px 0 24px}
+.admin .th-adv summary{font-weight:500;padding:12px}
+.admin .th-row{padding:9px 0}
+.admin #th-frame{border-radius:5px;border:1px solid var(--line);background:#fff}
+@media(min-width:1200px){#app.admin:not(.products-page){max-width:1280px}.admin .th-cols{grid-template-columns:minmax(0,1fr) 370px;gap:28px}}
+@media(max-width:540px){.admin .confirm-box{padding:18px 14px}.admin .th-types{gap:5px}.admin .th-type{padding:12px 4px}.admin .th-row{grid-template-columns:minmax(100px,1fr) 36px auto;gap:6px}.admin-header{flex-wrap:wrap}.admin .grp-body,.admin .q-body{padding:14px 10px}.admin .date-nav{flex-wrap:wrap}.admin .order-head{flex-wrap:wrap}}
+@media print{.admin .confirm-box{border:0}.admin .kitchen-table th,.admin .kitchen-table td{border-bottom:1px solid #999}}
+
+/* 操作ボタンと白い記入欄を、静止時にも見分けられるようにする。 */
+.admin .pill:not(.selected):not(.full){background:#e8efeb;border-color:#93aa9d;color:#294b3c;font-weight:600;box-shadow:0 2px 0 #b8c8bf;cursor:pointer}
+.admin .pill:not(.selected):not(.full):hover:not(:disabled){background:#d8e5dd;border-color:#537660}
+.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill{background:#3e604e;border-color:#3e604e;color:#fff;box-shadow:0 2px 0 #243f31}
+.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill:hover:not(:disabled){background:#2e4c3c;border-color:#2e4c3c}
+.admin .pill.danger:not(.selected):not(.full){background:#fbe9e8;border-color:#c9908c;color:#923b36;box-shadow:0 2px 0 #dfb5b1}
+.admin .pill.danger:not(.selected):not(.full):hover:not(:disabled){background:#f4d8d6;border-color:#ae625d}
+.admin .pill:not(.selected):not(.full):active:not(:disabled){transform:translateY(2px);box-shadow:none}
+.admin :is(.pill,.btn-primary,.btn-secondary):focus-visible{outline:3px solid #3e604e;outline-offset:3px}
+.admin .pill:disabled{opacity:.45;box-shadow:none;cursor:not-allowed;transform:none}
+
+/* Shared navigation stays visible while editing a product. */
+.nav-collapse{display:none}
+@media screen and (min-width:920px){
+  body{--admin-nav-width:196px}
+  body.nav-collapsed{--admin-nav-width:64px}
+  body #app.admin:has(#view-app:not(.hidden)){max-width:none;width:calc(100% - var(--admin-nav-width));margin-left:var(--admin-nav-width);margin-right:0;padding-left:24px;padding-right:24px;box-sizing:border-box}
+  #app.admin .admin-body{display:block}
+  #app.admin #admin-tabs{position:fixed;inset:0 auto 0 0;top:0;width:var(--admin-nav-width);height:100dvh;box-sizing:border-box;padding:76px 10px 16px;overflow-y:auto;display:flex;gap:5px;background:#eef2ed;border-right:1px solid var(--line);z-index:65}
+  .admin .nav-collapse{display:flex;align-items:center;justify-content:center;position:fixed;left:calc(var(--admin-nav-width) - 52px);top:18px;width:44px;height:44px;min-height:44px;padding:8px;margin:0;z-index:66;border:1px solid var(--line);border-radius:0 7px 7px 0;background:#f7faf6;color:#3e604e;box-shadow:2px 2px 5px #0001;cursor:pointer}
+  .admin .nav-collapse:hover{background:#dce9de}
+  .admin .nav-collapse:focus-visible{outline:3px solid #3e604e;outline-offset:2px}
+  #app.admin #admin-tabs .tab{min-height:44px;padding:10px 8px;font-size:.85rem;line-height:1.4;text-decoration:none;box-sizing:border-box}
+  #app.admin #admin-tabs .tab.selected{background:#dce9de;border-left-color:#3e604e;font-weight:700;color:#294b3c}
+  body.nav-collapsed #admin-tabs .nav-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  body.nav-collapsed #admin-tabs .tab::before{content:attr(data-short);font-size:.75rem;font-weight:600}
+  body.nav-collapsed #app.admin #admin-tabs .tab{text-align:center;padding:11px 2px}
+  #app.admin #save-bar{left:var(--admin-nav-width)}
+  #app.products-page .product-navigation{display:block}
+  body #app.products-page:has(#view-app:not(.hidden)){--outline-space:0px;width:calc(100% - var(--admin-nav-width) - var(--outline-space));margin-left:calc(var(--admin-nav-width) + var(--outline-space));max-width:none}
+  body .question-outline{display:none!important}
+  body #question-outline-open,body.outline-collapsed #question-outline-open{display:block;position:sticky;top:calc(var(--admin-head-h,0px) + 12px);left:auto;bottom:auto;width:max-content;margin:0 0 18px;border-radius:6px;z-index:21}
+}
+@media screen and (min-width:1600px){
+  body:not(.outline-collapsed) #app.products-page:has(#view-app:not(.hidden)){--outline-space:230px}
+  body:not(.outline-collapsed) .question-outline{display:block!important;left:calc(var(--admin-nav-width) + 12px);top:24px;width:206px;bottom:100px}
+  body:not(.outline-collapsed) #question-outline-open{display:none}
+}
+@media screen and (max-width:919px){
+  #admin-tabs{overflow-y:auto;z-index:80}
+  .admin-body.menu-open::before{z-index:75}
+}
+@media print{.nav-collapse{display:none!important}}
+@media screen and (min-width:920px) and (max-width:1599px){
+  body:not(.outline-collapsed) #question-outline-open{display:block}
+}
+/* 左メニューの「商品」の下の商品名（2026-10-02） */
+#admin-tabs .nav-products{display:flex;flex-direction:column;gap:2px;margin:0 0 6px 10px;padding-left:8px;border-left:2px solid var(--line)}
+#admin-tabs .nav-products-cat{font-size:.72rem;color:var(--mute,#8a7f80);margin:6px 0 2px 4px}
+#admin-tabs .nav-product{display:block;width:100%;text-align:left;font:inherit;font-size:.82rem;line-height:1.35;padding:7px 8px;border:0;border-radius:6px;background:transparent;color:inherit;cursor:pointer;overflow-wrap:anywhere}
+#admin-tabs .nav-product:hover{background:rgba(0,0,0,.05)}
+#admin-tabs .nav-product.selected{background:#dce9de;color:#294b3c;font-weight:700}
+#admin-tabs .nav-product.unpublished{color:var(--mute,#8a7f80)}
+body.nav-collapsed #admin-tabs .nav-products{display:none}

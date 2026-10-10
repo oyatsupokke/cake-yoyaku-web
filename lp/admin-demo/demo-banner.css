@@ -1,0 +1,47 @@
+/* 管理画面の操作デモの帯（手で編集してよい） */
+.admin-demo-banner{position:relative;z-index:1000;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 20px;background:#fff4d9;color:#574020;border-bottom:1px solid #dfc886;font:13px/1.7 sans-serif}
+.admin-demo-banner strong{white-space:nowrap}
+.admin-demo-banner nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-left:auto}
+.admin-demo-banner a{color:#694626;text-decoration:underline}
+.admin-demo-banner a.admin-demo-signup{background:#b93f4a;color:#fff;text-decoration:none;padding:5px 12px;border-radius:999px;font-weight:700}
+.admin-demo-banner button{border:1px solid #cab283;background:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font:inherit}
+/* デモでは動かないもの：AIへの質問・はじめにやること */
+.admin-help-panel,a.tab-link[href*="assistant"],#onboarding{display:none!important}
+@media print{.admin-demo-banner{display:none}}
+/* 帯の下に、左のメニュー（画面に固定）が潜らないようにずらす。--demo-off は帯の見えている高さ（demo-runtime.js がスクロールに合わせて入れる） */
+@media screen and (min-width:920px){
+  #app.admin #admin-tabs{top:var(--demo-off,0px)!important;height:auto!important;bottom:0}
+  .admin .nav-collapse{top:calc(18px + var(--demo-off,0px))!important}
+}
+@media screen and (max-width:919px){
+  .admin .tabs{top:var(--demo-off,0px)!important}
+}
+/* 商品の設定：広い画面で左に出る「質問の目次」も帯の下に（admin-layout.css の 1600px 以上の指定と同じ条件） */
+@media screen and (min-width:1600px){
+  body:not(.outline-collapsed) .question-outline{top:calc(24px + var(--demo-off,0px))!important}
+}
+/* 左のメニュー：デモで見せるのは毎日の仕事と商品の設定まで。デザイン以下（デザイン・アカウント・契約・サポート・直接登録・ログアウト・マニュアル）は出さない（まりほ 2026-10-10） */
+#admin-tabs [data-tab="design"],#admin-tabs [data-tab="account"],#admin-tabs [data-tab="billing"],#admin-tabs [data-tab="support"],
+#admin-tabs a[href*="tab=design"],#admin-tabs a[href*="tab=account"],#admin-tabs a[href*="tab=billing"],#admin-tabs a[href*="tab=support"],
+#admin-tabs #btn-staff-order,#admin-tabs #btn-logout,#admin-tabs a[href*="/help/"]{display:none!important}
+
+/* AIの機能の見本（押したときに出す・demo-runtime.js の showFeature） */
+.demo-feature{width:min(560px,calc(100% - 32px));max-height:85dvh;overflow:auto;padding:20px 22px;border:1px solid #e3d7c4;border-radius:14px;background:#fff;color:#2a211e;font:15px/1.8 sans-serif}
+.demo-feature::backdrop{background:#0006}
+.demo-feature .fd-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.demo-feature .fd-head strong{font-size:1.05rem}
+.demo-feature .fd-tag{font-size:11px;font-weight:700;color:#b93f4a;background:#fbeceb;border-radius:999px;padding:1px 8px}
+.demo-feature .fd-close{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:#6e605a}
+.demo-feature .fd-lead{margin:0 0 12px;color:#4a3f3a}
+.demo-feature .fd-label{margin:10px 0 4px;font-size:13px;font-weight:700;color:#6e605a}
+.demo-feature .fd-input{margin:0;padding:10px 12px;border:1px solid #e6ddd3;border-radius:8px;background:#faf7f3}
+.demo-feature .fd-result{margin:0;padding:10px 12px 10px 1.6em;border:1px solid #d9e3d6;border-radius:8px;background:#f4f8f2}
+.demo-feature .fd-result b{display:inline-block;min-width:7em;margin-right:6px;font-size:13px;color:#3e604e}
+.demo-feature .fd-chat{display:flex;flex-direction:column;gap:8px}
+.demo-feature .fd-q{align-self:flex-end;max-width:85%;margin:0;padding:8px 12px;border-radius:12px 12px 2px 12px;background:#3e604e;color:#fff}
+.demo-feature .fd-a{align-self:flex-start;max-width:90%;margin:0;padding:8px 12px;border-radius:12px 12px 12px 2px;background:#f1efe9}
+.demo-feature .fd-note{margin:10px 0 0;font-size:12px;color:#6e605a}
+.demo-feature .fd-demo{margin:12px 0 0;padding:8px 10px;border-radius:8px;background:#fff4d9;color:#574020;font-size:13px}
+.demo-feature .fd-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:14px 0 0}
+.demo-feature .fd-actions a{background:#b93f4a;color:#fff;text-decoration:none;padding:7px 16px;border-radius:999px;font-weight:700}
+.demo-feature .fd-actions button{border:1px solid #cab283;background:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font:inherit}

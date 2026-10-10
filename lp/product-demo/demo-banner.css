@@ -2,3 +2,8 @@
 .demo-signup{display:inline-block;background:var(--accent,#574020);color:white!important;text-decoration:none;padding:15px 22px;border-radius:8px;margin:18px 0 10px;font-weight:700}.demo-trial-note{display:block;max-width:460px;margin:0 auto 20px;line-height:1.8;color:#695e52;font-size:12px}
 #view-done .done-box p:has(.demo-signup){display:flex;flex-direction:column;align-items:center;gap:6px}
 #view-done .done-box p:has(.demo-signup) a:not(.demo-signup){color:#6b4b3e;text-decoration:underline;font-size:14px}
+
+/* 写真で選ぶお店／イラストを重ねるお店の切り替え（2026-10-10） */
+.actual-demo-banner .demo-type{display:inline-flex;border:1px solid #cab283;border-radius:999px;overflow:hidden;background:#fff}
+.actual-demo-banner .demo-type a{padding:3px 12px;text-decoration:none;color:#694626}
+.actual-demo-banner .demo-type a[aria-current="page"]{background:#694626;color:#fff;font-weight:700}

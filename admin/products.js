@@ -229,14 +229,14 @@ async function refreshSession() {
   localStorage.setItem("pokke_admin_session", JSON.stringify(state.session));
   return true;
 }
-async function api(method, path, body) {
+async function api(method, path, body, opts = {}) {
   const doFetch = () => fetch(CONFIG.url + path, {
     method,
     headers: {
       apikey: CONFIG.anonKey,
       Authorization: `Bearer ${state.session.access_token}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
+      Prefer: opts.prefer || "return=representation",
     },
     body: body != null ? JSON.stringify(body) : undefined,
   });
@@ -1033,6 +1033,7 @@ function renderEditor() {
   if (!p) return;
   const lite = state.tenant?.reservation_plan === 'lite';
   for (const id of ['p-deadline','p-cap-daily','p-window']) $(id).closest('.field').classList.toggle('hidden',lite);
+  $('p-date-limits').classList.toggle('hidden', lite);  // 特定の日だけの上限もStandard（設定ページと同じ）
   const saleCard = $('p-sale-start').closest('.confirm-box');
   if (saleCard) saleCard.classList.toggle("hidden",lite);
   $('product-visual-editor').classList.toggle('hidden',lite);
@@ -1162,6 +1163,7 @@ function renderEditor() {
 /* ---------- この商品の上限（ほかの入力欄と同じ保存ボタンで確定） ---------- */
 const capacityRules = new Map();
 async function loadCapacityRule(p) {
+  productDateLimits.clear();  // 前の商品の日別上限を、読み込みを待たずに消す
   const dailyEl = $("p-cap-daily"), slotEl = $("p-cap-slot");
   dailyEl.disabled = slotEl.disabled = true;
   dailyEl.value = slotEl.value = "";
@@ -1173,6 +1175,7 @@ async function loadCapacityRule(p) {
     if (rules.length > 1) throw new Error("複数の上限ルールがあります。個別の確認が必要です");
     const rule = rules[0] || null;
     capacityRules.set(p.id, rule);
+    productDateLimits.reload();
     for (const [column, el] of [["daily_limit", dailyEl], ["slot_limit", slotEl]]) {
       el.value = drafts.value("_product_capacity", p.id, column, rule?.[column] ?? null) ?? "";
       el.disabled = false;
@@ -1210,6 +1213,42 @@ async function saveCapacityRule(c) {
     capacityRules.set(c.id, created[0]);
   }
 }
+
+/* この商品の上限を特定の日だけ変える（部品は date-limits.js・2026-10-10）。
+ * 上限のルールがまだ無い商品は、上限なし（空欄）のルールを作ってから付ける＝普段は無制限で、その日だけ止められる。 */
+const productDateLimits = window.DateLimits.mount($("p-date-limits"), {
+  api, toast, esc, label: "特定の日だけこの商品の1日の上限を変える",
+  note: "例：12/24〜12/25 だけ100台。商品ごとに決められます。",
+  table: "capacity_rule_date_overrides", key: "rule_id", value: "daily_limit",
+  tenantId: () => state.tenantId,
+  targets: () => { const r = state.current && capacityRules.get(state.current.id); return r ? [{ id: r.id, label: "" }] : []; },
+  // この商品が入っている食い違いだけ出す（全部は設定ページと予約カレンダーで）
+  warn: async () => {
+    const p = state.current;
+    if (!p) return "";
+    const pad = (n) => String(n).padStart(2, "0"), ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const d = new Date(), to = new Date(); to.setFullYear(to.getFullYear() + 1);
+    const list = await window.LimitCheck.load(api, state.tenantId, ymd(d), ymd(to));
+    return window.LimitCheck.html(list.filter((x) => x.items.some((i) => (i.ids || []).includes(p.id))), esc);  // 同じ名前の別商品と取り違えない
+  },
+  ensureTargets: async () => {
+    const p = state.current;
+    if (!capacityRules.has(p.id)) throw new Error("商品の上限を読み直してください");
+    const rule = capacityRules.get(p.id);
+    if (rule) return [rule.id];
+    const created = await api("POST", "/rest/v1/capacity_rules", [{
+      tenant_id: state.tenantId, name: p.name || "商品上限", scope: "products", daily_limit: null, slot_limit: null,
+    }]);
+    try {
+      await api("POST", "/rest/v1/capacity_rule_products", [{ rule_id: created[0].id, product_id: p.id, tenant_id: state.tenantId }]);
+    } catch (e) {
+      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${created[0].id}`);
+      throw e;
+    }
+    capacityRules.set(p.id, created[0]);
+    return [created[0].id];
+  },
+});
 
 /* ---------- 基本情報 ---------- */
 $("btn-save-all").onclick = saveAll;

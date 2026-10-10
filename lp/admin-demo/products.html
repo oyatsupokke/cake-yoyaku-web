@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品の設定の操作デモ｜CakeBook</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="styles.css?v=1791643779">
+<link rel="stylesheet" href="admin.css?v=1791643779">
+<link rel="stylesheet" href="products.css?v=1791643779">
+<link rel="stylesheet" href="admin-layout.css?v=1791643779">
+<link rel="stylesheet" href="help-panel.css?v=1791643779">
+<link rel="stylesheet" href="demo-banner.css?v=1791643779">
+</head>
+<body>
+<div id="app" class="admin products-page">
+
+  <main id="view-login" class="hidden">
+    <div class="login-box">
+      <h1>🎂 管理画面</h1>
+      <p class="small">ログインが必要です。<a href="./index.html">ログイン画面へ</a></p>
+    </div>
+  </main>
+
+  <main id="view-app" class="hidden">
+    <header class="admin-header">
+      <h1><a href="./index.html" class="back-link">←</a> 商品の設定</h1>
+      <button type="button" class="menu-btn" id="menu-btn" aria-label="メニュー" aria-expanded="false" aria-controls="admin-tabs">☰</button>
+      <span class="product-header-actions">
+        <button type="button" class="link-btn" id="draft-preview-open">編集内容で予約画面を確認</button>
+        <a class="link-btn" id="preview-link" href="/lp/product-demo/" target="_blank">お客様画面を見る</a>
+        <button type="button" class="link-btn" id="btn-reload">再読み込み</button>
+      </span>
+    </header>
+
+    <div class="admin-body product-navigation" id="admin-body">
+      <nav class="tabs no-print" id="admin-tabs" aria-label="管理画面">
+        <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
+        <a class="tab tab-link" href="./index.html?tab=pickup">予約・製造</a>
+        <a class="tab tab-link" href="./index.html?tab=reports">集計・CSV</a>
+        <a class="tab tab-link" href="./index.html?tab=settings">予約設定</a>
+        <a class="tab tab-link selected" href="./products.html" aria-current="page">商品</a>
+        <a class="tab tab-link" href="./menu-sheets.html">メニュー表</a>
+        <a class="tab tab-link" href="./index.html?tab=design">デザイン</a>
+        <a class="tab tab-link" href="./index.html?tab=account">アカウント・店舗情報</a>
+        <a class="tab tab-link" href="./index.html?tab=billing">ご契約・お支払い</a>
+        <a class="tab tab-link" href="./index.html?tab=support">サポート</a>
+      <a class="tab tab-link" href="/help/" target="_blank" rel="noopener">使い方マニュアル ↗</a>
+      </nav>
+    </div>
+
+    <div class="prod-filter hidden" id="prod-filter-row">
+      <input type="search" id="prod-filter" placeholder="商品名で絞る" aria-label="商品名で絞る">
+      <span class="prod-hits" id="prod-hits"></span>
+    </div>
+    <div class="prod-tabs" id="prod-tabs"></div>
+    <div style="margin: 6px 0 16px;">
+      <button type="button" class="pill" id="btn-new-product">＋ 新しい商品を追加</button>
+      <button type="button" class="pill" id="btn-ai-product" hidden>商品設定アシスト</button>
+    </div>
+
+    <!-- カテゴリ＝商品タブのまとめ方。タブのすぐ下に置く（まりほ指摘 2026-09-07：一番下は遠い） -->
+    <details class="cat-panel" id="cat-panel">
+      <summary>カテゴリを管理</summary>
+      <div class="cat-panel-body">
+        <p class="small">カテゴリの追加・名前の変更・並べ替え・削除ができます。商品をどのカテゴリに入れるかは、各商品の「基本情報」の「カテゴリ」で選びます。</p>
+        <div id="cat-list"></div>
+        <div class="override-add cat-add">
+          <input type="text" id="cat-new-name" placeholder="例: クリスマス" aria-label="新しいカテゴリ名">
+          <button type="button" class="pill" id="btn-cat-add">＋ カテゴリを追加</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 商品エディタ -->
+    <div id="editor" class="hidden">
+
+      <div class="confirm-box product-compact-card">
+        <h3>基本情報</h3>
+        <label class="field">商品名<input type="text" id="p-name"></label>
+        <div class="status-line product-publish-section">
+          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
+          <span id="p-publish-state" class="state-badge"></span>
+          <button type="button" class="pill" id="btn-p-publish"></button>
+        </div>
+        <p id="p-publish-error" class="small warn hidden" role="alert"></p>
+        <div class="product-copy-action">
+          <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・質問・選択肢・この商品だけの上限・質問の表示設定をコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
+        </div>
+        <div class="field" id="p-category-field">カテゴリ<button type="button" class="tip" data-tip="上の商品タブのまとめ方です。商品が増えてタブが探しにくくなったら使ってください。お客様の画面には出ません。">？</button>
+          <div class="override-add" style="margin:4px 0 0">
+            <select id="p-category" style="width:230px"></select>
+            <input type="text" id="p-category-new" class="hidden" placeholder="新しいカテゴリ名（例: クリスマス）" style="width:220px">
+            <button type="button" class="pill hidden" id="btn-p-category-create">作成してこの商品に設定</button>
+          </div>
+          <p class="small">既存のカテゴリを選んだら「保存する」で確定します。新規作成は「作成してこの商品に設定」で、作成と分類をその場で確定します。</p>
+          <button type="button" class="link-btn cat-manage-link" id="btn-p-category-manage">カテゴリの名前の変更・並べ替え・削除はこちら</button>
+        </div>
+        <div id="p-photo"></div>
+        <div class="text-field">
+          <span class="text-field-label">説明（お客様に表示されます）</span>
+          <textarea id="p-desc" rows="3"></textarea>
+        </div>
+        <div class="text-field">
+          <div class="text-field-heading"><span class="text-field-label">注意書き</span><button type="button" class="tip" data-tip="アレルギーの案内などに。お客様の画面で商品説明の下に表示されます。「目立たせる」にチェックすると赤・太字になります。">？</button></div>
+          <textarea id="p-note" rows="3"></textarea>
+          <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" id="p-note-accent">目立たせる（赤・太字）</label>
+        </div>
+        <div class="field product-limit-field">
+          <label for="p-deadline">締切（受取日の何日前まで受け付けるか）</label>
+          <div class="product-unit-row"><input type="number" id="p-deadline" min="0" placeholder="空欄=店の基本" aria-describedby="p-deadline-help"><span>日前</span></div>
+          <p class="help" id="p-deadline-help">※空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</p>
+        </div>
+        <div class="field product-limit-field">
+          <label for="p-window">何日先の受取まで予約を受け付けるか</label>
+          <div class="product-unit-row"><input type="number" id="p-window" min="1" max="90" step="1" placeholder="空欄=店の設定" aria-describedby="p-window-help"><span>日先まで</span></div>
+          <p class="help" id="p-window-help">※空欄にすると、店舗情報の「予約できる期間」に従います。クリスマスケーキだけ早めに受け付けたいときなどに入力してください（最大90日）。</p>
+        </div>
+        <div class="field product-limit-field">
+          <div>この商品の上限（何台まで受けるか）</div>
+          <div class="product-unit-row"><label for="p-cap-daily">1日</label><input type="number" id="p-cap-daily" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
+          <div class="product-unit-row"><label for="p-cap-slot">同じ時間帯</label><input type="number" id="p-cap-slot" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
+          <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限台数設定」だけが適用されます）。<br>例えば、全体は1日10台、このケーキは1日3台・同じ時間帯2台まで、という設定が可能です。<br>画面下の「保存する」で確定します。</p>
+        </div>
+        <!-- この商品の上限を特定の日だけ変える（2026-10-10・部品は date-limits.js） -->
+        <div id="p-date-limits"></div>
+      </div>
+
+      <div class="confirm-box product-compact-card">
+        <h3>販売期間・受取可能日</h3>
+        <p class="small">クリスマスなどの季節限定の商品の場合は、ここで期間を設定します。</p>
+        <div class="season-grid">
+          <label class="field">受付開始日時（この日時に自動で表示されます）<input type="datetime-local" id="p-sale-start">
+          </label>
+          <label class="field">受付終了日時（この日時に自動で締め切ります）<input type="datetime-local" id="p-sale-end">
+          </label>
+        </div>
+        <label class="field">受取日の指定方法
+          <select id="p-pickup-mode"><option value="normal">通常どおり（お店の営業日）</option><option value="period">期間で指定</option><option value="dates">日付で指定</option></select>
+        </label>
+        <div id="p-pickup-period">
+        <div class="season-grid">
+          <label class="field">受取できる期間（開始）
+            <input type="date" id="p-pickup-start">
+          </label>
+          <label class="field">受取できる期間（終了）
+            <input type="date" id="p-pickup-end">
+          </label>
+        </div>
+        <div class="field">期間内で受け付ける曜日（選ばなければ営業日すべて）
+          <div class="weekday-row" id="p-weekdays"></div>
+        </div>
+        <p class="small">定休日は除きます。この商品だけ定休日に受け付けたいときは「日付で指定」を選んでください。</p>
+        </div>
+        <div id="p-pickup-dates" class="hidden">
+          <p class="small">追加した日だけ受け付けます。休業日の場合は追加時に確認が入ります。他の商品には影響しません。</p>
+          <div class="override-add"><input type="date" id="p-pickup-date" aria-label="受け付ける日"><button type="button" class="pill" id="btn-pickup-date-add">日付を追加</button></div>
+          <div id="p-pickup-date-list"></div>
+        </div>
+        <p class="small">日付指定では、定休日・臨時休業日も、確認後にこの商品だけ受け付けられます。この商品の受付停止日は選べません。</p>
+        <div class="field" style="margin-top:8px">この商品だけ受け付けない日
+          <p class="small">お店は営業する日でも、この商品だけ予約を止めたい日を追加します。</p>
+          <div class="override-add">
+            <input type="date" id="p-stop-date">
+            <button type="button" class="pill" id="btn-p-stop-add">日付を追加</button>
+          </div>
+          <div id="p-stops-list"></div>
+        </div>
+      </div>
+
+      <div class="confirm-box product-compact-card">
+        <h3>サイズと価格<button type="button" class="tip" data-tip="サイズ名（例：12cm・4号）と税込価格を追加します。お客様が選ぶと金額は自動で計算されます。">？</button></h3>
+        <div id="variants-list"></div>
+        <div class="override-add">
+          <input type="text" id="v-label" placeholder="例: 12cm" aria-label="サイズ名" style="width:140px">
+          <input type="number" id="v-price" placeholder="税込価格" aria-label="価格（税込）" min="0" style="width:110px">
+          <button type="button" class="pill" id="btn-v-add">追加</button>
+        </div>
+      </div>
+
+      <section class="confirm-box unified-questions">
+        <h3>質問</h3>
+        <p class="small">このケーキで聞く順番に並べます。共通の質問も、表示順はケーキごとに変えられます。</p>
+        <div id="groups-list"></div>
+        <div class="group-add-box">
+          <strong>新しい質問をつくる</strong>
+          <div class="question-create-fields">
+            <label>質問文<input type="text" id="g-name" placeholder="例：果物を選んでください"></label>
+            <label>回答方法<select id="g-type">
+              <option value="single">選択式（1つ選ぶ）</option><option value="multiple">選択式（複数選ぶ）</option>
+              <option value="text">文字入力（1行）</option><option value="textarea">文字入力（複数行）</option>
+              <option value="date">日付</option><option value="image">画像</option><option value="select">プルダウン</option>
+              <option value="color">カラー＋補足</option><option value="pastel_color">パステルカラー＋補足</option>
+            </select></label>
+            <label class="chk"><input type="checkbox" id="g-required">必須</label>
+            <button type="button" class="pill" id="btn-g-add">＋ 新しい質問をつくる</button>
+          </div>
+          <p class="small">追加した質問は、まずこのケーキだけに表示します。</p>
+        </div>
+        <details id="other-questions"><summary>ほかのケーキで使っている質問</summary>
+          <p class="small">同じ質問を使う場合は「表示するケーキ」にこのケーキを追加してください。内容は共通になります。</p>
+          <div id="questions-list"></div>
+        </details>
+      </section>
+    </div>
+
+    <div id="product-visual-editor" class="hidden">
+      <div class="confirm-box preview-illustration-card">
+        <h3>プレビュー用イラスト<button type="button" class="tip" data-tip="お客様が選んだ内容をケーキ画像へ重ねて表示するための透過PNGです。商品写真や見本画像とは別の設定です。プレビュー合成を使わないお店は設定不要です。">？</button></h3>
+        <p class="small">予約画面のケーキ合成に使うイラストだけを、ここでまとめて設定します。商品写真・見本画像には影響しません。</p>
+        <div id="p-layer"></div>
+        <div id="p-layer-fields"></div>
+        <div id="p-layer-order"></div>
+      </div>
+
+      <div class="product-delete-action">
+        <button type="button" class="pill danger" id="btn-p-delete">この商品を削除</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 画面下に固定される保存バー -->
+  <div id="save-bar" class="save-bar hidden">
+    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・公開／停止・画像の変更はその場で反映します。</small></div>
+    <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
+  </div>
+
+  <button id="fab" type="button">この質問の見え方</button>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<dialog id="ai-product-dialog" class="ai-product-dialog" aria-labelledby="ai-product-title">
+  <div class="ai-product-head"><h2 id="ai-product-title">商品設定アシスト</h2><button type="button" class="pill" id="ai-product-close">閉じる</button></div>
+  <p class="small">受け付けたいケーキ・サイズと税込価格・お客様に選んでもらうものを書いてください。書かれていない料金は空欄で提案します。追加料金の空欄は0円で保存されます。</p>
+  <label class="field" for="ai-product-description">どんなケーキを予約で受けますか</label>
+  <textarea id="ai-product-description" rows="7" maxlength="6000" placeholder="例：生クリームのデコレーションケーキ。12cmは3,500円、15cmは4,200円。フルーツは苺かマスカットから必ず1つ。ナンバークッキーは追加300円で、数字を聞く。プレートの文字も聞く。"></textarea>
+  <p class="small">入力した文章をOpenAIに送信して設定案を作成します。お客様のお名前や連絡先は書かないでください。1回につき1商品を入力してください。</p>
+  <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
+  <div id="ai-product-review" class="hidden"></div>
+</dialog>
+<script src="demo-runtime.js?v=1791643779"></script>
+<script src="tips.js?v=1791643779"></script>
+<script src="edit-drafts.js?v=1791643779"></script>
+<script src="products-menu.js?v=1791643779"></script>
+<script src="pickup-schedule.js?v=1791643779"></script>
+<script src="question-flow.js?v=1791643779"></script>
+<script src="limit-check.js?v=1791643779"></script>
+<script src="date-limits.js?v=1791643779"></script>
+<script src="products.js?v=1791643779"></script>
+<script type="module" src="product-assistant.js?v=1791643779"></script>
+<script src="products-outline.js?v=1791643779"></script>
+<script src="navigation.js?v=1791643779"></script>
+</body>
+</html>

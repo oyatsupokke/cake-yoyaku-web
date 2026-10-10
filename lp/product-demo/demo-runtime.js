@@ -1,6 +1,9 @@
 /* Demo transport only. Original customer/admin DOM, styles and renderers are retained. */
 (()=>{
 const C=window.DEMO_CATALOG, KEY='cake_actual_demo_v1', clone=x=>JSON.parse(JSON.stringify(x));
+// 2つの見本（2026-10-10 まりほ「2パターン作るのはどう？」）：既定＝写真で選ぶお店（重ねイラストを外し、商品写真を出す）／?type=illust＝イラストを重ねるお店（pokkeそのまま）
+const ILLUST=new URLSearchParams(location.search).get('type')==='illust';
+if(!ILLUST)for(const p of C.products)if(p.photo_url){p.layer_url=null;p.size_layer_urls=null;}
 const today=()=>new Date(Date.now()+9*3600000).toISOString().slice(0,10);
 function order(p,n){
  const product=C.products.find(x=>x.id===p.product_id),variant=product?.product_variants.find(x=>x.id===p.variant_id);
@@ -43,7 +46,7 @@ window.fetch=async(input,init={})=>{try{
  }catch(e){return response({message:e.message},400);}};
 // Customer-only demo; no admin session is created.
 window.addEventListener('DOMContentLoaded',()=>{
- const banner=document.createElement('div');banner.className='actual-demo-banner';banner.innerHTML='<strong>操作デモ</strong><span>実製品の画面です。予約・お客様情報はサンプル／送信・決済なし</span><nav><a href="/lp/product-demo/">お客様の予約画面</a><a href="/lp/">サービス紹介ページに戻る</a><button type="button" id="demo-reset">最初から</button></nav>';document.body.prepend(banner);
+ const banner=document.createElement('div');banner.className='actual-demo-banner';banner.innerHTML='<strong>操作デモ</strong><span>実製品の画面です。予約・お客様情報はサンプル／送信・決済なし</span><span class="demo-type" role="group" aria-label="見本の種類"><a href="/lp/product-demo/"'+(ILLUST?'':' aria-current="page"')+'>写真で選ぶお店</a><a href="/lp/product-demo/?type=illust"'+(ILLUST?' aria-current="page"':'')+'>イラストを重ねるお店</a></span><nav><a href="/lp/admin-demo/">管理画面のデモ</a><a href="/lp/">サービス紹介ページに戻る</a><button type="button" id="demo-reset">最初から</button></nav>';document.body.prepend(banner);
  document.getElementById('demo-reset').onclick=()=>{sessionStorage.removeItem(KEY);sessionStorage.removeItem('cake_demo_last_date');localStorage.removeItem('cake_form_pokke');location.reload();};
  const samples={'cust-sei':'体験','cust-mei':'サンプル','cust-sei-kana':'タイケン','cust-mei-kana':'サンプル','cust-phone':'00000000000','cust-email':'demo@example.invalid','cust-postal':'000-0000','cust-address':'サンプル県サンプル市1-2-3'};for(const [id,v]of Object.entries(samples)){const el=document.getElementById(id);if(el)el.value=v;}
  document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&(/products\.html|reset\.html|manage\.html/.test(a.getAttribute('href')||'')||(a.origin!==location.origin && !a.href.startsWith('https://cakebook.jp/')))){e.preventDefault();alert('このデモでは、お客様の予約操作を体験できます。管理機能は、お店の登録後にお試しください。');}},true);

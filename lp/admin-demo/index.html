@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理画面の操作デモ｜CakeBook</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="styles.css?v=1791643779">
+<link rel="stylesheet" href="admin.css?v=1791643779">
+<link rel="stylesheet" href="admin-layout.css?v=1791643779">
+<link rel="stylesheet" href="support.css?v=1791643779">
+<link rel="stylesheet" href="help-panel.css?v=1791643779">
+<link rel="stylesheet" href="demo-banner.css?v=1791643779">
+</head>
+<body>
+<div id="app" class="admin">
+
+  <!-- ログイン -->
+  <main id="view-login" class="hidden">
+    <div class="login-box">
+      <h1>🎂 管理画面</h1>
+      <label class="field">メールアドレス
+        <input type="email" id="login-email" autocomplete="username">
+      </label>
+      <label class="field">パスワード
+        <input type="password" id="login-password" autocomplete="current-password">
+      </label>
+      <button type="button" class="btn-primary" id="btn-login">ログイン</button>
+      <p id="login-error" class="error hidden"></p>
+      <p class="small" style="margin-top:14px">
+        <a href="#" id="link-forgot">パスワードを忘れた方はこちら</a>
+      </p>
+      <p class="small">
+        <a href="/signup.html">はじめての方はこちら（新規登録・14日間無料）</a>
+      </p>
+      <p class="small"><a href="/help/">使い方マニュアル</a></p>
+      <p id="forgot-sent" class="small hidden">再設定メールを送りました。メール内のリンクから新しいパスワードを設定してください。</p>
+    </div>
+  </main>
+
+  <!-- 本体 -->
+  <main id="view-app" class="hidden">
+    <header class="admin-header no-print">
+      <h1 id="admin-shop-name"></h1>
+      <!-- 狭い画面だけ出る：押すとメニューが開く。三本線だけ（ページ名を添えるとボタンに見えない＝まりほ指摘 2026-09-03） -->
+      <button type="button" class="menu-btn" id="menu-btn" aria-label="メニュー" aria-expanded="false" aria-controls="admin-tabs">☰</button>
+    </header>
+
+    <!-- 課金状態（トライアル残・支払い未登録などがあるときだけ表示） -->
+    <div id="billing-banner" class="billing-banner no-print hidden"></div>
+
+    <!-- 広い画面ではこのメニューが左の縦並び。狭い画面では畳んでおき、上の ☰ で開く（まりほ判断 2026-09-03） -->
+    <div class="admin-body" id="admin-body">
+    <nav class="tabs no-print" id="admin-tabs">
+      <!-- 狭い画面のドロワーだけに出る閉じるボタン（広い画面ではCSSで非表示） -->
+      <button type="button" class="menu-close" id="menu-close">✕ 閉じる</button>
+      <button type="button" class="tab selected" data-tab="calendar">予約カレンダー</button>
+      <button type="button" class="tab" data-tab="pickup">予約・製造</button>
+      <button type="button" class="tab" data-tab="reports">集計・CSV</button>
+      <button type="button" class="tab" data-tab="settings">予約設定</button>
+      <a class="tab tab-link" href="./products.html">商品</a>
+      <a class="tab tab-link" href="./menu-sheets.html">メニュー表</a>
+      <button type="button" class="tab" data-tab="design">デザイン</button>
+      <button type="button" class="tab" data-tab="account">アカウント・店舗情報</button>
+      <button type="button" class="tab" data-tab="billing">ご契約・お支払い</button>
+      <button type="button" class="tab" data-tab="support">サポート</button>
+      <!-- 画面切替ではなく操作：お客様フォームを代行モードで開く（旧「📞 電話予約を登録」。まりほ指示 2026-09-03でメニューへ移動・改名） -->
+      <button type="button" class="tab tab-action" id="btn-staff-order">予約の直接登録</button>
+      <!-- ログアウトもメニューの中（店名の行に単独で置くと位置が浮く＝まりほ指摘 2026-09-03） -->
+      <button type="button" class="tab tab-action tab-muted" id="btn-logout">ログアウト</button>
+      <a class="tab tab-link" href="/help/" target="_blank" rel="noopener">使い方マニュアル ↗</a>
+      <!-- 運営者（platform_operators）にだけ出す。店のメンバーには出ない（admin.js の showApp） -->
+      <a class="tab tab-link hidden" id="operator-link" href="./operator.html">運営：店舗一覧</a>
+    </nav>
+    <div class="admin-main">
+
+    <!-- 新しく登録した店向け「はじめにやること」。全部済んだら出ない（onboarding.js） -->
+    <section id="onboarding" class="onboarding no-print hidden" aria-label="はじめにやること"></section>
+
+    <!-- 予約カレンダー：ログインして最初に開く画面。日付を押すとその日の「予約・製造」へ（order-calendar.js・2026-10-05 まりほ決定） -->
+    <section id="tab-calendar" class="no-print">
+      <div class="oc-head">
+        <button type="button" class="cal-nav" id="cal-prev" aria-label="前の月">‹</button>
+        <h2 id="cal-title"></h2>
+        <button type="button" class="cal-nav" id="cal-next" aria-label="次の月">›</button>
+        <button type="button" class="pill" id="cal-this-month">今月</button>
+      </div>
+      <p id="cal-summary" class="cal-summary" role="status"></p>
+      <div id="cal-limit-warn"></div>
+      <div id="order-calendar" class="order-calendar"></div>
+      <p class="small oc-legend">数字はその日に受け取るケーキの台数です（キャンセルを除く）。1日の上限を決めている日は「台数／上限」で出ます。日付を押すと、その日の予約と製造数を開きます。</p>
+    </section>
+
+    <div class="date-nav no-print hidden" id="date-nav">
+      <button type="button" class="cal-nav" id="date-prev">‹</button>
+      <input type="date" id="date-input">
+      <button type="button" class="cal-nav" id="date-next">›</button>
+      <div class="date-shortcuts">
+        <button type="button" class="pill" id="date-today">今日</button>
+        <button type="button" class="pill" id="date-tomorrow">明日</button>
+      </div>
+    </div>
+
+    <!-- 予約・製造：同じ日の製造数と受取順を1画面で確認する -->
+    <section id="tab-pickup" class="hidden">
+      <div id="tab-kitchen">
+        <h2 class="print-title print-only" id="kitchen-title"></h2>
+        <div class="daily-section-heading no-print">
+          <div><h2 id="kitchen-heading">この日の製造数</h2><p class="small">商品・サイズごとの合計と、飾り・選択肢の数です（キャンセル・追加希望の承諾前を除く）。</p></div>
+          <div class="print-actions">
+            <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
+            <label class="card-size-field">製造カード<select id="kitchen-card-size"><option value="six">A4に6件（切り分け用）</option><option value="wide">1件ずつ大きく</option></select></label>
+          </div>
+        </div>
+        <div class="kitchen-period no-print">
+          <label><input type="checkbox" id="kitchen-range-mode"> 期間を指定してまとめる</label>
+          <div id="kitchen-range-fields" class="hidden">
+            <div class="report-filters">
+              <label class="field">受取日（開始）<input type="date" id="kitchen-from" required></label>
+              <label class="field">受取日（終了）<input type="date" id="kitchen-to" required></label>
+              <button type="button" class="pill" id="kitchen-range-load">この期間の製造数を見る</button>
+            </div>
+            <p class="small">開始日・終了日を含む合計です。下の予約一覧は、上で選んだ1日分を表示します。</p>
+          </div>
+          <p id="kitchen-scope" role="status"></p>
+        </div>
+        <div class="kitchen-breakdown-setting no-print">
+          <span id="kb-current" class="small"></span>
+          <button type="button" class="pill" id="kb-toggle" aria-expanded="false" aria-controls="kb-panel">内訳の出し方を変える</button>
+          <div id="kb-panel" class="kb-panel hidden">
+            <p class="small">台数をどの項目で分けて見るかを選んでください（例：中に挟む果物）。選択グループのほか、質問の回答でも分けられます。選んだ項目ごとに「12cm シャインマスカット 1台」のように出ます。</p>
+            <div id="kb-groups" class="kb-groups"></div>
+            <label class="kb-combine"><input type="checkbox" id="kb-combine" checked> 2つ以上選んだときは組み合わせて数える（例：フルーツ：シャインマスカット × フルーツの飾り方：フルーツ1周）</label>
+            <div class="kb-actions"><button type="button" class="pill" id="kb-save">この内訳にする</button><span id="kb-state" class="small" role="status"></span></div>
+          </div>
+        </div>
+        <div id="kitchen-summary"></div>
+        <div id="kitchen-detail" class="print-only"></div>
+      </div>
+      <h2 class="daily-pickup-heading no-print">受取時間順の予約</h2>
+      <label class="field no-print">表示する予約<select id="review-filter"><option value="">選んだ日のすべて</option><option value="new">全日の未確認</option><option value="requested">全日の追加希望・確認待ち</option><option value="quoted">全日の見積もり・承諾待ち</option></select></label>
+      <div id="bulk-confirm" class="bulk-confirm no-print hidden"><span id="bulk-confirm-note"></span><button type="button" class="pill" id="bulk-confirm-btn">→ 表示中の未確認をまとめて確認済にする</button></div>
+      <div id="pickup-list"></div>
+    </section>
+
+    <section id="tab-reports" class="hidden">
+      <h2>集計・CSV</h2>
+      <p class="small">受取日を基準に、製造数と受取リストを同じ条件で確認できます。</p>
+      <div class="confirm-box no-print">
+        <div class="report-filters">
+          <label class="field">受取日（開始）<input type="date" id="report-from"></label>
+          <label class="field">受取日（終了）<input type="date" id="report-to"></label>
+          <button type="button" class="pill" id="report-load">この期間で集計・更新</button>
+        </div>
+        <div class="report-filters">
+          <label class="field">商品<select id="report-product"><option value="">すべての商品</option></select></label>
+          <label class="field">サイズ<select id="report-size"><option value="">すべてのサイズ</option></select></label>
+          <label class="field">予約状況<select id="report-status"><option value="active">キャンセル以外</option><option value="new">未確認</option><option value="confirmed">確認済</option><option value="requested">追加希望・確認待ち</option><option value="quoted">追加希望・承諾待ち</option><option value="accepted">追加希望・承諾済み</option><option value="canceled">キャンセルのみ</option><option value="all">すべて（キャンセル含む）</option></select></label>
+          <label class="field">注文内容で絞る<input type="search" id="report-query" placeholder="例：いちご、ピンク、プレートの言葉"></label>
+        </div>
+        <p class="small">注文内容は商品・サイズ・オプション・質問への回答を検索します。商品や回答は予約時の名前で表示します。</p>
+      </div>
+      <p id="report-message" role="status" aria-live="polite"></p>
+      <div id="report-results" class="hidden">
+        <p id="report-scope"></p>
+        <div class="report-section">
+          <div class="report-heading"><h3>商品・サイズごとの製造数</h3><button type="button" class="pill no-print" id="report-summary-csv">製造数CSV</button></div>
+          <p class="small">受取日ごとに集計します。キャンセル・追加希望の承諾前は製造数には含めません。表が収まらないときは横にスクロールできます。</p>
+          <div class="report-table-wrap" id="report-summary"></div>
+        </div>
+        <div class="report-section">
+          <div class="report-heading"><h3>受取時間順のリスト</h3><button type="button" class="pill no-print" id="report-detail-csv">受取リストCSV</button></div>
+          <p class="small">表を横にスクロールすると、お客様名や注文内容を確認できます。1行＝予約内の商品明細。CSVにはお客様名・電話番号・注文内容が含まれます。取り扱いにご注意ください。</p>
+          <div class="report-table-wrap" id="report-detail"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 設定（並びの考え方：前半=お店の受け方のルール／後半=お客様に見えるもの。
+         商品ごとのこと（締切・公開・上限）はここに置かず商品ページに集約 -->
+    <section id="tab-settings" class="hidden">
+      <h2>予約設定</h2>
+      <nav class="settings-jumps" aria-label="設定項目へ移動">
+        <span class="settings-jumps-label">どこを設定しますか？</span>
+        <div class="settings-jumps-links">
+          <a href="#settings-shop">予約通知・定休日</a>
+          <a href="#settings-deadline">締切・上限</a>
+          <a href="#settings-pickup">受取日時</a>
+          <a href="#settings-customer">お客様設定</a>
+          <a href="#settings-notifications">通知文面</a>
+          <a href="#settings-line">LINE連携</a>
+        </div>
+      </nav>
+      <div class="confirm-box settings-anchor" id="settings-shop">
+        <h3>予約通知・定休日</h3>
+        <label class="field">予約通知先メールアドレス<button type="button" class="tip" data-tip="予約・変更・キャンセルのお知らせが届くメールアドレスです。">？</button>
+          <input type="email" id="t-email">
+        </label>
+        <div class="field">定休日<button type="button" class="tip" data-tip="選んだ曜日は、お客様が受取日に選べなくなります。">？</button>
+          <div class="weekday-row" id="t-weekdays"></div>
+        </div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-deadline">
+        <h3>予約できる期間・受付の締切</h3>
+        <label class="field">何日先の受取まで予約を受け付けるか
+          <input type="number" id="t-booking-window" min="1" max="90" step="1" required style="width:90px"> 日先まで
+          <span class="help" id="t-booking-window-help"></span>
+          <span class="help">毎日、自動で受付範囲が進みます。短くしても予約済みの分は残ります。商品ごとの受取期間・締切・定休日も適用されます。</span>
+        </label>
+        <label class="field">基本の締切（受取日の何日前まで受け付けるか）
+          <input type="number" id="t-deadline" min="0" style="width:90px"> 日前
+          <span class="help">※商品ごとに変えたい場合は、商品ページで設定できます。</span>
+        </label>
+        <label class="field">締切日の受付時刻（締切日の何時まで受けるか）<button type="button" class="tip" data-tip="設定した日時に自動で予約が締め切られます。">？</button>
+          <input type="time" id="t-cutoff">
+        </label>
+        <div class="field">締切日数の数え方
+          <label class="radio-line"><input type="radio" name="deadline-mode" value="calendar">暦日どおり数える（定休日も1日と数える）</label>
+          <label class="radio-line"><input type="radio" name="deadline-mode" value="business">定休日は数えない（仕込みできる日だけで数える）</label>
+          <span class="help">例：3日前締切・定休日が日月・受取が水曜のとき、「定休日は数えない」だと前の週の金曜が締切になります。</span>
+        </div>
+      </div>
+      <div class="confirm-box">
+        <h3>1日の上限台数設定</h3>
+        <p class="small">お店全体で「1日に何台まで受けるか」の設定です。<br>空欄にすると上限なしになります。<br>商品ごとの上限は、<a href="./products.html">商品の設定</a>の各商品ページで決めます。</p>
+        <div id="rules-list"></div>
+        <div class="override-add hidden" id="rule-add">
+          <span>1日</span>
+          <input type="number" id="rule-daily" min="0" style="width:90px" placeholder="10">
+          <span>台まで</span>
+          <button type="button" class="pill" id="btn-rule-add">この上限にする</button>
+        </div>
+        <!-- 日ごとの上限（2026-10-10 まりほ要望）。部品は date-limits.js（商品ページと共用） -->
+        <div id="date-limits"></div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-pickup">
+        <h3>受取時間設定</h3>
+        <p class="small">枠は自由に追加できます。上限が空欄の枠は台数無制限です。</p>
+        <div class="override-add">
+          <input type="time" id="slot-start" value="11:00">
+          <span>〜</span>
+          <input type="time" id="slot-end" value="17:00">
+          <select id="slot-interval">
+            <option value="60">1時間ごと</option>
+            <option value="30">30分ごと</option>
+            <option value="15">15分ごと</option>
+          </select>
+          <button type="button" class="pill" id="btn-slot-bulk">まとめて追加</button>
+        </div>
+        <div class="override-add">
+          <input type="time" id="slot-one">
+          <button type="button" class="pill" id="btn-slot-add">1枠だけ追加</button>
+        </div>
+        <div id="slots-list"></div>
+        <div id="slot-date-limits"></div>
+      </div>
+      <div class="confirm-box">
+        <h3>臨時休業・臨時営業<button type="button" class="tip" data-tip="臨時休業＝設定した日は予約を受けません。&#10;臨時営業＝イベントとかぶっている定休日など、臨時受取が可能な日などに使用します。">？</button></h3>
+        <div class="override-add">
+          <input type="date" id="ov-date">
+          <select id="ov-kind">
+            <option value="closed">臨時休業</option>
+            <option value="open">定休日だけど営業</option>
+          </select>
+          <button type="button" class="pill" id="btn-ov-add">追加</button>
+        </div>
+        <div id="overrides-list"></div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-customer">
+        <h3>お客様情報の入力項目</h3>
+        <p class="small">予約フォームでお客様に入力してもらう項目です。</p>
+        <div class="field">
+          <div class="cf-row">
+            <strong>お名前（姓・名）</strong>
+            <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
+            <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
+          </div>
+          <div class="cf-row">
+            <strong>フリガナ（セイ・メイ）</strong>
+            <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
+            <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
+          </div>
+          <div class="cf-row">
+            <strong>お電話番号</strong>
+            <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
+            <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
+          </div>
+          <div class="cf-row">
+            <strong>メールアドレス</strong>
+            <label class="cf-check"><input type="checkbox" checked disabled>表示する</label>
+            <label class="cf-check"><input type="checkbox" checked disabled>回答必須</label>
+          </div>
+          <div class="cf-row">
+            <strong>ご住所</strong><button type="button" class="tip" data-tip="「表示する」にすると予約フォームに郵便番号と住所の欄が出ます。郵便番号を入れると住所は自動で入ります。">？</button>
+            <label class="cf-check"><input type="checkbox" id="t-addr-enabled">表示する</label>
+            <label class="cf-check"><input type="checkbox" id="t-addr-required">回答必須</label>
+          </div>
+        </div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-policy">
+        <h3>お客様への案内・キャンセル操作設定</h3>
+        <label class="field">予約ページの上のお知らせ（表示箇所：予約ページの一番上）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキを選ぶ前に出るお知らせです。&#10;「12/23〜25受取のご予約は11/30で締め切ります」「年末年始は1/5までお休みです」など、いま伝えたいことを書きます。&#10;改行はそのまま表示されます。空欄にすると何も出ません。">？</button>
+          <textarea id="t-page-notice" rows="3" maxlength="1000" placeholder="例: クリスマスケーキ（12/23〜25受取）のご予約は 11/30 で締め切ります。"></textarea>
+        </label>
+        <label class="field">予約ページの注意書き（表示箇所：「選択中のケーキ」の下）<button type="button" class="tip" data-tip="お客様の予約ページの一番上、ケーキの絵や写真の下に出る一言です。&#10;「写真はイメージです」「果物は季節により異なります」など。空欄にすると何も出ません。">？</button>
+          <textarea id="t-preview-note" rows="2" placeholder="例: ※写真はイメージです。季節により果物が変わります。"></textarea>
+        </label>
+        <label class="field">受取時間の注意書き（表示箇所：予約ページの受取時間の下・予約確認画面）<button type="button" class="tip" data-tip="受取時間を選ぶところに出る一言です。&#10;「ご予約のお時間より前のお受け取りはできません」など。空欄にすると何も出ません。&#10;確認メールにも入れたいときは、下の「お客様へのメール」の「おわりに足す文」に書いてください。">？</button>
+          <textarea id="t-pickup-note" rows="2" maxlength="500" placeholder="例: ご予約のお時間より前のお受け取りはできません。"></textarea>
+        </label>
+        <label class="field">キャンセルポリシー（表示箇所：予約確認画面・確認メール・お客様の管理ページ）<button type="button" class="tip" data-tip="「何日前からキャンセル料がかかるか」「連絡方法」を書いておくとトラブルを防げます。">？</button>
+          <textarea id="t-cancel" rows="3"></textarea>
+        </label>
+        <div class="field">特定商取引法に基づく表記<button type="button" class="tip" data-tip="ネットで予約を受けるときに必要な表記です。項目ごとに入力すると、お客様の注文確認画面では1つの文章にまとめて表示されます。">？</button>
+          <p class="help">空欄を上から埋めてください。販売価格の案内は自動で付きます。電話番号は、公開する場合だけ入力してください。</p>
+          <div class="tokushoho-fields">
+            <label>販売業者<input id="t-toku-seller" autocomplete="organization" placeholder="例：山田洋菓子店"></label>
+            <label>運営責任者<input id="t-toku-manager" autocomplete="name" placeholder="例：山田 花子"></label>
+            <label>所在地<input id="t-toku-address" autocomplete="street-address" placeholder="店舗の所在地"></label>
+            <label>電話番号（任意）<input type="tel" id="t-toku-phone" autocomplete="tel" placeholder="公開する場合のみ入力"></label>
+            <label>メールアドレス<input type="email" id="t-toku-email" autocomplete="email" placeholder="お問い合わせ先"></label>
+            <label>商品代金以外の必要料金<input id="t-toku-extra-fees" placeholder="例：ありません（店頭受取のため送料なし）"></label>
+            <label>お支払い方法<input id="t-toku-payment-method" placeholder="例：店頭で現金・各種キャッシュレス決済"></label>
+            <label>お支払い時期<input id="t-toku-payment-timing" placeholder="例：商品お受け取り時"></label>
+            <label>お引き渡し時期<input id="t-toku-delivery" placeholder="例：予約した受取日時に店頭でお引き渡し"></label>
+            <label>返品・交換について<textarea id="t-toku-returns" rows="3" placeholder="返品・交換を受ける条件をご記入ください"></textarea></label>
+            <label>キャンセルについて<textarea id="t-toku-cancellation" rows="3" placeholder="期限や手続き方法をご記入ください"></textarea></label>
+          </div>
+        </div>
+        <p class="small warn hidden" id="tokushoho-warn">⚠️ 未入力の項目があります。すべて入力すると、お客様のご注文確認画面に表示できます。</p>
+        <div class="field">お客様ご自身での変更・キャンセル
+          <p class="small">確認メールに専用リンクが載り、お客様がご自身で手続きできます。期限を過ぎるとボタンは消えて「お店へご連絡ください」の案内になります。</p>
+          <p class="small warn hidden" id="self-url-warn">⚠️ 予約フォームの公開URLが設定されていないため、有効にしてもメールとLINEにリンクが出ません。お手数ですがサポートへご連絡ください。</p>
+          <div class="cf-row">
+            <label class="cf-check"><input type="checkbox" id="t-self-enabled">有効にする</label>
+          </div>
+          <div class="cf-row">
+            <strong>受取日時の変更</strong>
+            <span>受取日の <input type="number" id="t-self-slot-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-slot-time" style="width:100px"> まで</span>
+          </div>
+          <div class="cf-row">
+            <strong>ご注文内容の変更</strong>
+            <span>受取日の <input type="number" id="t-self-content-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-content-time" style="width:100px"> まで</span>
+          </div>
+          <div class="cf-row">
+            <strong>キャンセル</strong>
+            <span>受取日の <input type="number" id="t-self-cancel-days" min="0" max="30" style="width:56px"> 日前の
+            <input type="time" id="t-self-cancel-time" style="width:100px"> まで</span>
+          </div>
+        </div>
+        <div class="field">受取前日のリマインド<button type="button" class="tip" data-tip="お受け取り日の前日に「明日はお受け取り日です」というお知らせを自動で送ります。&#10;メールで送られ、LINE連携をされたお客様にはLINEにも届きます。受け取り忘れを減らすための機能です。">？</button>
+          <p class="small">お受け取り日の前日に、ご予約内容のお知らせを自動で送ります（メール／LINE連携済みのお客様にはLINEにも）。</p>
+          <div class="cf-row">
+            <label class="cf-check"><input type="checkbox" id="t-reminder-enabled">有効にする</label>
+          </div>
+          <div class="cf-row">
+            <strong>リマインド送信時刻</strong>
+            <span>受取日の前日 <input type="time" id="t-reminder-time" style="width:100px"> ごろ</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="confirm-box settings-anchor" id="settings-line">
+        <h3>LINE連携</h3>
+        <p class="small">お店のLINE公式アカウントから、希望するお客様に予約のお知らせを送れます。メールも引き続き届きます。</p>
+        <p id="line-config-status" role="status">設定を読み込み中…</p>
+        <button type="button" class="pill" id="line-refresh">状態を更新</button>
+        <details id="line-setup-fields"><summary>1. LINEの準備・接続情報の入力</summary>
+          <ol>
+            <li><a href="https://manager.line.biz/" target="_blank" rel="noopener">LINE Official Account Manager</a>でお店のアカウントを開き、Messaging APIを有効にします。</li>
+            <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers</a>で、Messaging APIと<strong>同じプロバイダー</strong>にLINEログインチャネルを作成します。アプリタイプは「ウェブアプリ」を選びます。</li>
+            <li>LINEログイン設定のコールバックURLに、下のURLを登録します。「リンクされたボット」にお店の公式アカウントを指定し、チャネルを「公開済み」にします。</li>
+          </ol>
+          <label class="field">コールバックURL<input id="line-callback" type="text" readonly></label>
+          <button type="button" class="pill" id="line-copy-callback">URLをコピー</button>
+          <label class="field">LINEログインのチャネルID<input id="line-channel" type="text" inputmode="numeric" autocomplete="off"></label>
+          <label class="field">LINEログインのチャネルシークレット<input id="line-secret" type="password" autocomplete="new-password"><span class="help">LINEログインチャネルの「チャネル基本設定」からコピーします。</span></label>
+          <label class="field">Messaging APIのチャネルアクセストークン（長期）<input id="line-token" type="password" autocomplete="new-password"><span class="help">Messaging APIチャネルの「Messaging API設定」で発行します。秘密情報は保存後に表示しません。</span></label>
+          <p class="small">LINEの接続情報を変更して保存すると、通知は一度停止します。接続確認とテスト通知を行ってから、再度ONにしてください。利用中のLINE公式アカウント自体を変更する場合は、サポートへご相談ください。</p>
+          <button type="button" class="pill" id="line-credentials-save">接続情報を確認して保存</button>
+        </details>
+        <h4>2. 自分のLINEで接続を確認</h4>
+        <p class="small">先にお店の公式アカウントを友だち追加してください。LINEログイン画面で許可したら、ここへ戻って「状態を更新」を押します。予約は作成されません。</p>
+        <button type="button" class="pill" id="line-test-login" disabled>自分のLINEで接続を確認する</button>
+        <h4>3. テスト通知を受け取る</h4>
+        <button type="button" class="pill" id="line-test-send" disabled>自分へテスト通知を送る</button>
+        <p class="small">直前にログインした自分のLINEへ1通送ります。LINE公式アカウントの配信通数に含まれます。届かない場合は、友だち追加・ブロック・配信可能な通数をご確認ください。</p>
+        <h4>4. 利用開始・停止</h4>
+        <label class="radio-line"><input type="checkbox" id="line-enabled" disabled>お客様にLINE通知の利用を案内する</label>
+        <button type="button" class="pill" id="line-save" disabled>LINEの設定を保存する</button>
+        <p class="small">テスト通知が届いたことを確認してからONにしてください。OFFにすると通知を停止します。すでに送信処理が始まった通知は届く場合があります。</p>
+        <p id="line-result" class="small" role="status"></p>
+      </div>
+
+      <div class="confirm-box settings-anchor" id="settings-notifications">
+        <h3>お客様へのメール・LINEの文面<button type="button" class="tip" data-tip="ご予約確認などのお知らせに書く、はじめの文と、おわりに足すご案内です。&#10;予約番号・受取日時・ご注文内容・合計金額はご注文から自動で作られるので、ここでは変更できません。&#10;空欄の場合は、下の見本に出ている文がそのまま送られます。">？</button></h3>
+        <p class="small">下の見本で、<strong>色の付いていない行は自動で作られる部分</strong>です。変更できるのは前後の文章だけで、予約番号や受取日時が消えることはありません。</p>
+        <label class="field">お支払いのご案内<button type="button" class="tip" data-tip="「■ お支払い」の行に出ます。振込のみのお店や、前払いのお店はここを書き換えてください。&#10;メールにもLINEにも同じ文が出ます。">？</button>
+          <input type="text" id="t-mail-payment" placeholder="店頭でのお支払いをお願いします">
+        </label>
+        <div class="field"><div class="mail-chips" id="mail-kinds"></div>
+        </div>
+        <label class="field">はじめの文（お名前のすぐ下に表示されます）<textarea id="t-mail-intro" rows="2"></textarea>
+        </label>
+        <label class="field">おわりに足す文（お店からのご案内等）<button type="button" class="tip" data-tip="署名の少し上に足されます。駐車場のご案内や、お受け取りのお願いなど、毎回お客様に伝えていることを記載する欄です。&#10;メールにもLINEにも同じ文が出ます。「※このメールは送信専用です。」などの締めの文は、この下に自動で付くので書かなくて大丈夫です。">？</button>
+          <textarea id="t-mail-outro" rows="3"></textarea>
+        </label>
+        <div class="field">送付文見本<div class="mail-chips mail-ch" id="mail-ch"></div>
+          <pre class="mail-preview" id="mail-preview"></pre>
+        </div>
+      </div>
+
+    </section>
+
+    <section id="tab-account" class="hidden">
+      <h2>アカウント・店舗情報</h2>
+      <div class="confirm-box">
+        <h3>店舗情報</h3>
+        <label class="field">店名
+          <input type="text" id="t-name">
+        </label>
+        <p class="small">店名はお客様の予約画面に表示されます。</p>
+        <label class="field">店舗の電話番号<input type="tel" id="t-shop-phone" autocomplete="tel" maxlength="40"></label>
+        <label class="field">店舗の所在地<textarea id="t-shop-address" autocomplete="street-address" maxlength="500" rows="2"></textarea></label>
+        <p class="small">ここに登録した電話番号・所在地は自動では公開されません。お客様への公開内容は「予約設定」の「特定商取引法に基づく表記」で設定できます。</p>
+      </div>
+      <div class="confirm-box">
+        <h3>ご登録者情報 <small>（お客様には非公開）</small></h3>
+        <p class="small">このサービスの運営から、ご利用について連絡するときの情報です。予約のお知らせの送信先は「予約設定」で設定できます。</p>
+        <label class="field">担当者名<input type="text" id="t-registrant-name" autocomplete="name" maxlength="100"></label>
+        <label class="field">運営からの連絡先メールアドレス<input type="email" id="t-registrant-email" autocomplete="email" maxlength="254"></label>
+        <label class="field">電話番号</label>
+        <label class="radio-line"><input type="checkbox" id="t-registrant-same">店舗と同じ電話番号を使う</label>
+        <input type="tel" id="t-registrant-phone" aria-label="ご登録者の電話番号" autocomplete="tel" maxlength="40">
+      </div>
+      <div class="confirm-box">
+        <h3>ログイン情報</h3>
+        <p class="small">ログインに使うメールアドレスです。お客様への連絡先とは別に管理されます。</p>
+        <p id="account-email">読み込み中…</p>
+        <p id="account-message" class="small" role="status" aria-live="polite"></p>
+        <button type="button" class="pill" id="btn-account-reset" disabled>パスワード再設定メールを送る</button>
+        <p class="small">メールのリンクから新しいパスワードを設定できます。</p>
+      </div>
+    </section>
+
+    <section id="tab-billing" class="hidden">
+      <h2>ご契約・お支払い</h2>
+      <div class="confirm-box">
+        <h3>ご契約状況</h3>
+        <p id="billing-page-status"></p>
+        <p id="billing-page-trial" class="small"></p>
+        <p id="billing-page-help" class="small"></p>
+        <button type="button" class="pill hidden" id="btn-billing-page-checkout">有料契約へ進む（月額4,980円）</button>
+        <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
+      </div>
+      <div class="confirm-box hidden" id="billing-upgrade">
+        <h3>Standardへアップグレード</h3>
+        <p>月額4,980円（税込）。月間受付台数の上限がなくなり、最大90日先までの予約や、有料オプション・条件付き質問を利用できます。</p>
+        <p class="small">商品・予約・予約ページのURLは引き継ぎます。受付日数は現在の設定を維持し、切り替え後に変更できます。</p>
+        <p class="small">残りの契約期間の差額を決済したあと、すぐに切り替わります。次回の請求日は変わりません。Liteの初回割引は切り替え時に終了します。</p>
+        <button type="button" class="pill" id="upgrade-preview">変更料金を確認する</button>
+        <div id="upgrade-quote" class="hidden" style="margin-top:16px">
+          <p>今回のお支払い：<strong id="upgrade-amount"></strong>（税込）</p>
+          <p id="upgrade-next"></p>
+          <p id="upgrade-expiry" class="small"></p>
+          <button type="button" class="btn-primary" id="upgrade-confirm"></button>
+        </div>
+        <p id="upgrade-status" role="status" aria-live="polite"></p>
+        <a class="pill hidden" id="upgrade-payment">お支払いを完了する</a>
+        <button type="button" class="pill hidden" id="upgrade-retry">前回の切り替えを再確認する</button>
+        <button type="button" class="pill" id="upgrade-refresh">変更状況を確認する</button>
+      </div>
+    </section>
+
+    <section id="tab-design" class="hidden" aria-label="デザイン">
+      <!-- 見た目（tenants.theme）。右の見本は保存前の状態をそのまま映す（2026-09-03 まりほ合意） -->
+      <div class="confirm-box" id="theme-box">
+        <h3>予約フォームのデザイン<button type="button" class="tip" data-tip="お客様のフォームの色と字体の設定です。">？</button></h3>
+        <div class="th-cols">
+          <div class="th-ctl">
+            <div class="field">基調色<span class="help">ボタンと選んだ印に使います</span>
+              <div class="th-sw"><button type="button" class="th-swatch" data-c="#4a4a4a" style="background:#4a4a4a" aria-label="墨"></button><button type="button" class="th-swatch" data-c="#e89aa8" style="background:#e89aa8" aria-label="桜"></button><button type="button" class="th-swatch" data-c="#d98c5f" style="background:#d98c5f" aria-label="杏"></button><button type="button" class="th-swatch" data-c="#b8a24a" style="background:#b8a24a" aria-label="芥子"></button><button type="button" class="th-swatch" data-c="#6f9a6b" style="background:#6f9a6b" aria-label="若葉"></button><button type="button" class="th-swatch" data-c="#5b7ba6" style="background:#5b7ba6" aria-label="藍"></button><button type="button" class="th-swatch" data-c="#8a6aa0" style="background:#8a6aa0" aria-label="藤"></button><input type="color" id="th-accent" aria-label="自分で色を選ぶ"><span class="th-hex" id="th-accent-hex"></span></div>
+            </div>
+            <details class="th-adv" id="th-adv">
+              <summary>こだわり（色を細かく決める）</summary>
+              <div class="th-advbody">
+            <div class="th-row"><label for="th-bg">背景</label><input type="color" id="th-bg" data-key="bg"><label class="th-auto"><input type="checkbox" id="th-bg-auto" data-key="bg" checked> 自動</label></div>
+            <div class="th-row"><label for="th-ink">文字</label><input type="color" id="th-ink" data-key="ink"><label class="th-auto"><input type="checkbox" id="th-ink-auto" data-key="ink" checked> 自動</label></div>
+            <div class="th-row"><label for="th-boxbg">項目の背景</label><input type="color" id="th-boxbg" data-key="boxbg"><label class="th-auto"><input type="checkbox" id="th-boxbg-auto" data-key="boxbg" checked> 自動</label></div>
+            <div class="th-row"><label for="th-box">項目の枠</label><input type="color" id="th-box" data-key="box"><label class="th-auto"><input type="checkbox" id="th-box-auto" data-key="box" checked> 自動</label></div>
+            <div class="th-row"><label for="th-line">区切り線</label><input type="color" id="th-line" data-key="line"><label class="th-auto"><input type="checkbox" id="th-line-auto" data-key="line" checked> 自動</label></div>
+            <div class="th-row"><label for="th-on">ボタンの文字</label><input type="color" id="th-on" data-key="on"><label class="th-auto"><input type="checkbox" id="th-on-auto" data-key="on" checked> 自動</label></div>
+            <div class="th-row"><label for="th-sel">選んだ項目の背景</label><input type="color" id="th-sel" data-key="sel"><label class="th-auto"><input type="checkbox" id="th-sel-auto" data-key="sel" checked> 自動</label></div>
+            <div class="th-row"><label for="th-selbox">選んだ項目の枠</label><input type="color" id="th-selbox" data-key="selbox"><label class="th-auto"><input type="checkbox" id="th-selbox-auto" data-key="selbox" checked> 自動</label></div>
+            <div class="th-row"><label for="th-selink">選んだ項目の文字</label><input type="color" id="th-selink" data-key="selink"><label class="th-auto"><input type="checkbox" id="th-selink-auto" data-key="selink" checked> 自動</label></div>
+                <div class="small warn hidden" id="th-warn">文字と背景の差が小さく、読みにくくなっています</div>
+                <div class="help">「自動」のままの色は、基調色と背景から計算されます。</div>
+              </div>
+            </details>
+            <div class="field">雰囲気<span class="help">字体と角の丸さをまとめて変えます</span>
+              <div class="th-types">
+                <label class="th-type t-maru"><input type="radio" name="th-type" value="maru"><span class="th-sample">あ</span><span class="th-nm">やわらか</span><span class="th-ds">丸い字・丸い角</span></label>
+                <label class="th-type t-kaku"><input type="radio" name="th-type" value="kaku" checked><span class="th-sample">あ</span><span class="th-nm">すっきり</span><span class="th-ds">太めの字・直線</span></label>
+                <label class="th-type t-min"><input type="radio" name="th-type" value="min"><span class="th-sample">あ</span><span class="th-nm">しっとり</span><span class="th-ds">明朝・角なし</span></label>
+              </div>
+            </div>
+            <div class="field">ロゴ画像<span class="help">無いときは店名の文字が出ます。横長・背景透過のPNGが向いています</span>
+              <div class="th-logo-row">
+                <img id="th-logo-img" class="th-logo-img hidden" alt="">
+                <label class="pill photo-pick">画像を選ぶ<input type="file" id="th-logo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+                <button type="button" class="pill hidden" id="th-logo-clear">ロゴを外す</button>
+                <input type="hidden" id="th-logo-url">
+              </div>
+            </div>
+            <label class="field">店名の下の一言
+              <input type="text" id="th-sub" maxlength="30" placeholder="オーダーケーキのご予約">
+            </label>
+            <div class="th-actions"><button type="button" class="pill" id="th-reset">初期値に戻す</button></div>
+          </div>
+          <div class="th-prev">
+            <div class="th-prev-cap">お客様フォームの見本（保存前の状態）</div>
+            <iframe id="th-frame" title="お客様フォームの見本" loading="lazy"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="tab-support" class="hidden no-print" aria-labelledby="support-title">
+      <h2 id="support-title">初期設定・イラスト作成・お問い合わせ</h2>
+      <p class="support-intro">お店の予約受付を始めるための設定をお手伝いします。<br>ご自身で設定する場合、初期費用はかかりません。</p>
+      <div class="support-offers">
+        <article class="support-offer"><h3>一緒に設定する</h3><strong>5,500円（税込）</strong><p>オンライン・1回60分</p><ul><li>画面を共有し、操作をご案内</li><li>商品登録・締切・受取設定を一緒に確認</li></ul><p>時間内で対応できる範囲を事前にご相談します。</p></article>
+        <article class="support-offer"><h3>設定をおまかせする</h3><strong>12,000円（税込）</strong><p>1店舗の初期設定代行</p><ul><li>店舗情報・商品10点まで・受取設定</li><li>所定の形式でいただいた情報を入力</li></ul><p>写真加工・イラスト制作・商品企画は含みません。選択肢の量などに応じ、範囲外は作業前にお見積もりします。</p></article>
+        <article class="support-offer"><h3>イラストを作ってほしい</h3><strong>個別お見積もり</strong><p>予約ページのデザインイメージに使うイラストを作成します。</p><ul><li>対象の商品点数・飾りや色などの種類を確認</li><li>必要なイラストの内容に合わせてお見積もり</li></ul><p>制作範囲・料金・納期にご同意いただいてから制作を始めます。</p></article>
+      </div>
+      <aside class="support-free"><strong>通常のお問い合わせ・不具合報告はこちらから</strong><p>下の「通常のお問い合わせ・不具合報告」をお選びください。お問い合わせの送信に料金はかかりません。</p></aside>
+      <form id="support-form" class="support-form">
+        <label class="support-field">店舗名<input id="support-shop" readonly required></label>
+        <label class="support-field">返信先メールアドレス<input id="support-email" type="email" maxlength="254" autocomplete="email" required><small>登録情報から入力しています。別の連絡先に変更できます。</small></label>
+        <label class="support-field">ご希望の内容<select id="support-kind"><option value="guided">初期設定サポート（60分）</option><option value="setup">初期設定代行</option><option value="illustration">イラスト作成のご相談</option><option value="question">通常のお問い合わせ・不具合報告</option></select></label>
+        <p id="support-price"></p>
+        <label class="support-field hidden" id="support-illustration-field">イラストを作りたい商品点数<input id="support-product-count" type="number" min="1" max="1000" step="1" placeholder="例：3"><small>おおよその点数で大丈夫です。下の相談欄に、商品名・飾りや色の種類・希望の雰囲気をお書きください。参考画像はメール送信時に添付できます。</small></label>
+        <label class="support-field">困っていること・依頼したいこと<textarea id="support-details" maxlength="1500" required placeholder="例：サイズごとの価格と、受取日の締切を設定したいです。"></textarea><small>パスワードやお客様の個人情報は記載しないでください。（1,500文字まで）</small></label>
+        <label class="support-field" id="support-dates-field">希望日時（日本時間）<textarea id="support-dates" maxlength="300" required placeholder="第1希望：○月○日 14〜16時
+第2希望：○月○日 午前中"></textarea><small>候補を2〜3つご記入ください。日程は返信で確定します。</small></label>
+        <p class="support-terms">ご相談 → 内容・日程・料金の確認 → 有料の場合はお支払い → サポート実施の順で進めます。このフォームでは予約確定・課金は行いません。</p>
+        <button type="submit" class="btn-primary">依頼内容を確認する</button>
+      </form>
+      <div class="support-preview hidden" id="support-preview"><h3 id="support-preview-title" tabindex="-1">メールで依頼する</h3><p>送信先：support@cakebook.jp<br>以下の内容でメールアプリを開きます。メールアプリで送信すると依頼が届きます。</p><textarea id="support-mail-text" readonly aria-label="依頼メールの本文"></textarea><div class="support-actions"><a id="support-mail-link" class="btn-primary">メールアプリを開く</a><button type="button" id="support-copy">本文をコピー</button></div><p>メールアプリが開かない場合は、本文をコピーして上記の宛先へお送りください。</p></div>
+      <p id="support-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+    </section>
+
+    </div><!-- /.admin-main -->
+    </div><!-- /.admin-body -->
+  </main>
+
+  <!-- 画面下に固定される保存バー（設定・デザインで表示） -->
+  <div id="save-bar" class="save-bar hidden no-print">
+    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・公開／停止・画像の変更はその場で反映します。</small></div>
+    <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="demo-runtime.js?v=1791643779"></script>
+<script src="tips.js?v=1791643779"></script>
+<script src="edit-drafts.js?v=1791643779"></script>
+<script src="report-core.js?v=1791643779"></script>
+<script src="line-settings.js?v=1791643779"></script>
+<script src="billing-upgrade.js?v=1791643779"></script>
+<script src="order-gallery.js?v=1791643779"></script>
+<script src="option-counts.js?v=1791643779"></script>
+<script src="kitchen-breakdown.js?v=1791643779"></script>
+<script src="limit-check.js?v=1791643779"></script>
+<script src="date-limits.js?v=1791643779"></script>
+<script src="admin.js?v=1791643779"></script>
+<script src="order-calendar.js?v=1791643779"></script>
+<script src="onboarding.js?v=1791643779"></script>
+<script src="reports.js?v=1791643779"></script>
+<script src="support.js?v=1791643779"></script>
+<script src="navigation.js?v=1791643779"></script>
+</body>
+</html>

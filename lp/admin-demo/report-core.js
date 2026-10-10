@@ -1,0 +1,70 @@
+/* 表示とCSVは同じ行・同じ集計を使う。予約時のスナップショットが正本。 */
+globalThis.BookingReport = (() => {
+  const norm = value => String(value ?? "").normalize("NFKC").toLowerCase()
+    .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+  const productKey = item => JSON.stringify([item.product_id, item.product_name_snapshot || ""]);
+  const displayAnswer = value => String(value || "").replace("／連動：同色", "／連動する装飾も同色");
+  const answers = order => (order.order_answers || []).map(a =>
+    `${a.label_snapshot || ""}: ${displayAnswer(a.answer_text || a.choice_label_snapshot || "")}`).join("\n");
+  const options = item => (item.order_item_options || []).map(o =>
+    `${o.group_name_snapshot || ""}: ${o.option_name_snapshot || ""} ×${o.quantity ?? 1}${o.option_text ? `「${o.option_text}」` : ""}`).join("\n");
+  function rows(orders, filters = {}) {
+    const query = norm(filters.query).trim();
+    return orders.flatMap(order => (order.order_items || []).map(item => ({order, item})))
+      .filter(({order, item}) => {
+        const status = filters.status || "active";
+        const shownStatus = ['in_production', 'completed'].includes(order.status) ? 'confirmed' : order.status;
+        return (status === "all" || (status === "active" ? order.status !== "canceled" : ['requested','quoted','accepted'].includes(status) ? order.status !== 'canceled' && order.review_state === status : shownStatus === status)) &&
+          (!filters.product || productKey(item) === filters.product) &&
+          (!filters.size || item.variant_label_snapshot === filters.size) &&
+          (!query || norm([item.product_name_snapshot, item.variant_label_snapshot, options(item), answers(order), order.quote?.description].join("\n")).includes(query));
+      }).sort((a, b) => {
+        const time = o => (o.pickup_slot_label || "").replace(/\d+/g, n => n.padStart(3, "0"));
+        return String(a.order.pickup_date).localeCompare(String(b.order.pickup_date)) ||
+          time(a.order).localeCompare(time(b.order)) || Number(a.order.order_number) - Number(b.order.order_number) ||
+          String(a.item.id).localeCompare(String(b.item.id));
+      });
+  }
+  function summary(rows) {
+    const groups = new Map();
+    for (const {order, item} of rows) {
+      if (order.status === "canceled" || ['requested','quoted'].includes(order.review_state)) continue;
+      const key = JSON.stringify([order.pickup_date, item.product_id, item.variant_id, item.product_name_snapshot, item.variant_label_snapshot]);
+      if (!groups.has(key)) groups.set(key, {date: order.pickup_date, product: item.product_name_snapshot || "", size: item.variant_label_snapshot || "", quantity: 0});
+      groups.get(key).quantity += Number(item.quantity || 0);
+    }
+    return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date) || a.product.localeCompare(b.product, "ja") || a.size.localeCompare(b.size, "ja", {numeric:true}));
+  }
+  // Excelで開けるUTF-8 BOM。顧客入力を数式として実行させない。
+  function csv(table) {
+    return "\uFEFF" + table.map(row => row.map(value => {
+      let s = String(value ?? "");
+      if (/^[\s\u0000-\u001f]*[=+@-]/.test(s) || /^[\t\r\n]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    }).join(",")).join("\r\n") + "\r\n";
+  }
+  async function fetchOrders(get, tenant, from, to) {
+    const orders = [];
+    // 500件ずつ、変わらない id の順に「前回の最後の id より後」を読む（カーソル方式）。
+    // 件数で飛ばす方式（offset）だと、読んでいる間に予約が増減したとき同じ予約を二重に数えたり取りこぼしたりする。
+    // 応答の件数がサーバーの上限で切られても、空ページまで読み進める。
+    let after = null;
+    for (;;) {
+      const page = await get(`/rest/v1/orders?tenant_id=eq.${encodeURIComponent(tenant)}` +
+        `&pickup_date=gte.${from}&pickup_date=lte.${to}&order=id.asc` +
+        (after === null ? "" : `&id=gt.${encodeURIComponent(after)}`) +
+        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500`);
+      if (!Array.isArray(page)) throw new Error("予約データを取得できませんでした");
+      if (!page.length) break;
+      const last = String(page[page.length - 1].id);
+      // id が進まない応答は読み続けると止まらないので打ち切る（通常は起きない）
+      if (after !== null && !(last > after)) throw new Error("予約データを取得できませんでした");
+      orders.push(...page);
+      after = last;
+    }
+    // 画面・CSVはこれまでどおり「受取日 → id」の順で受け取る
+    return orders.sort((a, b) => String(a.pickup_date).localeCompare(String(b.pickup_date)) ||
+      (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
+  }
+  return {norm, productKey, answers, options, rows, summary, csv, fetchOrders};
+})();

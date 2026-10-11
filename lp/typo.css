@@ -29,3 +29,10 @@
 @media (max-width:640px){.cb-login{display:inline;font-size:13px;white-space:nowrap}.cb-header-actions{gap:12px}.cb-header .cb-btn-sm{padding:0 14px;font-size:13px;white-space:nowrap}.cb-header .cb-btn-sm wbr{display:none}}
 @media (max-width:400px){.cb-header .cb-logo{height:20px}.cb-header-actions{gap:10px}.cb-header .cb-btn-sm{padding:0 12px}}
 @media (max-width:340px){.cb-header{gap:8px}.cb-header .cb-logo{height:16px}.cb-header-actions{gap:6px}.cb-header .cb-btn-sm{padding:0 8px;font-size:12px}}
+/* 料金表（Lite／Standard）はスマホでは1列にする（2026-10-11 まりほ指摘「横スクロールもできないし切れて見えない」。
+   lp-v2 の書き出しが340px以下でしか1列にせず、390px前後のiPhoneでは2列のままはみ出して .cb の overflow:clip で切れていた） */
+@media (max-width:760px){.cb-plans{grid-template-columns:1fr}}
+/* 「こんな毎日、ありませんか？」の4枚も、スマホでは左右の幅がそろわず右へはみ出していた（同日発見）。2列は幅を均等に、600px以下は1列 */
+.cb-worry-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:960px){.cb-worry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.cb-worry-grid{grid-template-columns:1fr}}

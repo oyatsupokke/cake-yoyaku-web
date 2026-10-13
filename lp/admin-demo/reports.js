@@ -60,14 +60,18 @@ async function loadReport() {
   }
 }
 const reportSummaryTable = () => [["受取日", "商品", "サイズ", "製造数"], ...reportState.summary.map(s => [s.date, s.product, s.size, s.quantity])];
-const reportDetailTable = () => [["受取日", "受取時間", "予約番号", "予約状況", "お客様名", "電話番号", "商品", "サイズ", "数量", "オプション", "質問への回答", "追加希望の状況", "対応内容（見積・合意）", "注文総額（税込・承諾前は未確定）"], ...reportState.rows.map(({order:o, item:it}) =>
+// 予約が入った順のときは、予約番号の次に「予約受付日時」を足す（受取時間順のCSVの列はこれまでどおり）
+const reportDetailTable = () => receivedFirst() ? reportDetailRows().map((row, i) =>
+  [...row.slice(0, 3), i ? BookingReport.receivedLabel(reportState.rows[i - 1].order, true) : "予約受付日時", ...row.slice(3)]) : reportDetailRows();
+const reportDetailRows = () => [["受取日", "受取時間", "予約番号", "予約状況", "お客様名", "電話番号", "商品", "サイズ", "数量", "オプション", "質問への回答", "追加希望の状況", "対応内容（見積・合意）", "注文総額（税込・承諾前は未確定）"], ...reportState.rows.map(({order:o, item:it}) =>
   [o.pickup_date, o.pickup_slot_label, o.order_number, STATUS[o.status] || o.status, o.customer_name, o.customer_phone, it.product_name_snapshot, it.variant_label_snapshot, it.quantity, BookingReport.options(it), BookingReport.answers(o), o.status==='canceled'?'キャンセル':({requested:'確認待ち・製造保留',quoted:'承諾待ち・製造保留',accepted:'承諾済み'}[o.review_state]||''),o.quote?.description||'',o.quote?.amount??o.total_amount??''])];
 function reportTable(table) {
   return `<table class="kitchen-table"><thead><tr>${table[0].map(s => `<th scope="col">${esc(s)}</th>`).join("")}</tr></thead><tbody>${table.slice(1).map(row => `<tr>${row.map(s => `<td>${esc(s)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 function renderReport() {
   if (!reportState.ready) return;
-  reportState.rows = BookingReport.rows(reportState.orders, {product: $("report-product").value, size: $("report-size").value, status: $("report-status").value, query: $("report-query").value});
+  reportState.rows = BookingReport.rows(reportState.orders, {product: $("report-product").value, size: $("report-size").value, status: $("report-status").value, query: $("report-query").value, sort: orderSortMode()});
+  $("report-detail-heading").textContent = receivedFirst() ? "予約が入った順のリスト" : "受取時間順のリスト";
   reportState.summary = BookingReport.summary(reportState.rows);
   const count = new Set(reportState.rows.map(r => r.order.id)).size;
   const total = reportState.summary.reduce((sum, s) => sum + s.quantity, 0);
@@ -95,5 +99,6 @@ $("report-product").onchange = () => { reportSizes(); renderReport(); };
 $("report-size").onchange = renderReport;
 $("report-status").onchange = renderReport;
 $("report-query").oninput = renderReport;
+$("report-sort").onchange = () => { setOrderSortMode($("report-sort").value); renderReport(); };
 $("report-summary-csv").onclick = () => downloadReport("製造数");
 $("report-detail-csv").onclick = () => downloadReport("受取リスト");

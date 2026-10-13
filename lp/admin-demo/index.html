@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1791864721">
-<link rel="stylesheet" href="admin.css?v=1791864721">
-<link rel="stylesheet" href="admin-layout.css?v=1791864721">
-<link rel="stylesheet" href="support.css?v=1791864721">
-<link rel="stylesheet" href="help-panel.css?v=1791864721">
-<link rel="stylesheet" href="demo-banner.css?v=1791864721">
+<link rel="stylesheet" href="styles.css?v=1791890765">
+<link rel="stylesheet" href="admin.css?v=1791890765">
+<link rel="stylesheet" href="admin-layout.css?v=1791890765">
+<link rel="stylesheet" href="support.css?v=1791890765">
+<link rel="stylesheet" href="help-panel.css?v=1791890765">
+<link rel="stylesheet" href="demo-banner.css?v=1791890765">
 </head>
 <body>
 <div id="app" class="admin">
@@ -138,7 +138,8 @@
         <div id="kitchen-summary"></div>
         <div id="kitchen-detail" class="print-only"></div>
       </div>
-      <h2 class="daily-pickup-heading no-print">受取時間順の予約</h2>
+      <h2 class="daily-pickup-heading no-print" id="pickup-heading">受取時間順の予約</h2>
+      <label class="field no-print">並び順<select id="order-sort" class="order-sort"><option value="pickup">受取時間順</option><option value="received">予約が入った順</option></select></label>
       <label class="field no-print">表示する予約<select id="review-filter"><option value="">選んだ日のすべて</option><option value="new">全日の未確認</option><option value="requested">全日の追加希望・確認待ち</option><option value="quoted">全日の見積もり・承諾待ち</option></select></label>
       <div id="bulk-confirm" class="bulk-confirm no-print hidden"><span id="bulk-confirm-note"></span><button type="button" class="pill" id="bulk-confirm-btn">→ 表示中の未確認をまとめて確認済にする</button></div>
       <div id="pickup-list"></div>
@@ -158,6 +159,7 @@
           <label class="field">サイズ<select id="report-size"><option value="">すべてのサイズ</option></select></label>
           <label class="field">予約状況<select id="report-status"><option value="active">キャンセル以外</option><option value="new">未確認</option><option value="confirmed">確認済</option><option value="requested">追加希望・確認待ち</option><option value="quoted">追加希望・承諾待ち</option><option value="accepted">追加希望・承諾済み</option><option value="canceled">キャンセルのみ</option><option value="all">すべて（キャンセル含む）</option></select></label>
           <label class="field">注文内容で絞る<input type="search" id="report-query" placeholder="例：いちご、ピンク、プレートの言葉"></label>
+          <label class="field">リストの並び順<select id="report-sort" class="order-sort"><option value="pickup">受取時間順</option><option value="received">予約が入った順</option></select></label>
         </div>
         <p class="small">注文内容は商品・サイズ・オプション・質問への回答を検索します。商品や回答は予約時の名前で表示します。</p>
       </div>
@@ -170,7 +172,7 @@
           <div class="report-table-wrap" id="report-summary"></div>
         </div>
         <div class="report-section">
-          <div class="report-heading"><h3>受取時間順のリスト</h3><button type="button" class="pill no-print" id="report-detail-csv">受取リストCSV</button></div>
+          <div class="report-heading"><h3 id="report-detail-heading">受取時間順のリスト</h3><button type="button" class="pill no-print" id="report-detail-csv">受取リストCSV</button></div>
           <p class="small">表を横にスクロールすると、お客様名や注文内容を確認できます。1行＝予約内の商品明細。CSVにはお客様名・電話番号・注文内容が含まれます。取り扱いにご注意ください。</p>
           <div class="report-table-wrap" id="report-detail"></div>
         </div>
@@ -566,22 +568,22 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="demo-runtime.js?v=1791864721"></script>
-<script src="tips.js?v=1791864721"></script>
-<script src="edit-drafts.js?v=1791864721"></script>
-<script src="report-core.js?v=1791864721"></script>
-<script src="line-settings.js?v=1791864721"></script>
-<script src="billing-upgrade.js?v=1791864721"></script>
-<script src="order-gallery.js?v=1791864721"></script>
-<script src="option-counts.js?v=1791864721"></script>
-<script src="kitchen-breakdown.js?v=1791864721"></script>
-<script src="limit-check.js?v=1791864721"></script>
-<script src="date-limits.js?v=1791864721"></script>
-<script src="admin.js?v=1791864721"></script>
-<script src="order-calendar.js?v=1791864721"></script>
-<script src="onboarding.js?v=1791864721"></script>
-<script src="reports.js?v=1791864721"></script>
-<script src="support.js?v=1791864721"></script>
-<script src="navigation.js?v=1791864721"></script>
+<script src="demo-runtime.js?v=1791890765"></script>
+<script src="tips.js?v=1791890765"></script>
+<script src="edit-drafts.js?v=1791890765"></script>
+<script src="report-core.js?v=1791890765"></script>
+<script src="line-settings.js?v=1791890765"></script>
+<script src="billing-upgrade.js?v=1791890765"></script>
+<script src="order-gallery.js?v=1791890765"></script>
+<script src="option-counts.js?v=1791890765"></script>
+<script src="kitchen-breakdown.js?v=1791890765"></script>
+<script src="limit-check.js?v=1791890765"></script>
+<script src="date-limits.js?v=1791890765"></script>
+<script src="admin.js?v=1791890765"></script>
+<script src="order-calendar.js?v=1791890765"></script>
+<script src="onboarding.js?v=1791890765"></script>
+<script src="reports.js?v=1791890765"></script>
+<script src="support.js?v=1791890765"></script>
+<script src="navigation.js?v=1791890765"></script>
 </body>
 </html>

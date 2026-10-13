@@ -8,6 +8,17 @@ globalThis.BookingReport = (() => {
     `${a.label_snapshot || ""}: ${displayAnswer(a.answer_text || a.choice_label_snapshot || "")}`).join("\n");
   const options = item => (item.order_item_options || []).map(o =>
     `${o.group_name_snapshot || ""}: ${o.option_name_snapshot || ""} ×${o.quantity ?? 1}${o.option_text ? `「${o.option_text}」` : ""}`).join("\n");
+  // 予約が入った順（2026-10-13 まりほ要望「どこまで仕込んだか分かるように」）。受付日時 → 予約番号の順
+  const compareReceived = (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) ||
+    Number(a.order_number) - Number(b.order_number);
+  // 受付日時を日本時間で（一覧は「12/3 14:05」、CSVは年つき）
+  function receivedLabel(order, withYear = false) {
+    const d = new Date(order.created_at || "");
+    if (Number.isNaN(d.getTime())) return "";
+    const p = Object.fromEntries(new Intl.DateTimeFormat("ja-JP", {timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23"})
+      .formatToParts(d).map(x => [x.type, x.value]));
+    return `${withYear ? `${p.year}/` : ""}${p.month}/${p.day} ${p.hour}:${p.minute}`;
+  }
   function rows(orders, filters = {}) {
     const query = norm(filters.query).trim();
     return orders.flatMap(order => (order.order_items || []).map(item => ({order, item})))
@@ -19,6 +30,7 @@ globalThis.BookingReport = (() => {
           (!filters.size || item.variant_label_snapshot === filters.size) &&
           (!query || norm([item.product_name_snapshot, item.variant_label_snapshot, options(item), answers(order), order.quote?.description].join("\n")).includes(query));
       }).sort((a, b) => {
+        if (filters.sort === "received") return compareReceived(a.order, b.order) || String(a.item.id).localeCompare(String(b.item.id));
         const time = o => (o.pickup_slot_label || "").replace(/\d+/g, n => n.padStart(3, "0"));
         return String(a.order.pickup_date).localeCompare(String(b.order.pickup_date)) ||
           time(a.order).localeCompare(time(b.order)) || Number(a.order.order_number) - Number(b.order.order_number) ||
@@ -53,7 +65,7 @@ globalThis.BookingReport = (() => {
       const page = await get(`/rest/v1/orders?tenant_id=eq.${encodeURIComponent(tenant)}` +
         `&pickup_date=gte.${from}&pickup_date=lte.${to}&order=id.asc` +
         (after === null ? "" : `&id=gt.${encodeURIComponent(after)}`) +
-        `&select=id,order_number,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500`);
+        `&select=id,order_number,created_at,pickup_date,pickup_slot_label,status,review_state,total_amount,quote:order_quotes!orders_current_quote_id_fkey(description,amount),customer_name,customer_phone,order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*)&limit=500`);
       if (!Array.isArray(page)) throw new Error("予約データを取得できませんでした");
       if (!page.length) break;
       const last = String(page[page.length - 1].id);
@@ -66,5 +78,5 @@ globalThis.BookingReport = (() => {
     return orders.sort((a, b) => String(a.pickup_date).localeCompare(String(b.pickup_date)) ||
       (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
   }
-  return {norm, productKey, answers, options, rows, summary, csv, fetchOrders};
+  return {norm, productKey, answers, options, rows, summary, csv, fetchOrders, compareReceived, receivedLabel};
 })();

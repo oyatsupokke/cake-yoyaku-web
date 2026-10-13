@@ -338,13 +338,35 @@ $("bulk-confirm-btn").onclick = async () => {
 const staffNoteBadge = (o) => (o.staff_note || "").trim()
   ? `<span class="status-badge st-note" title="${esc((o.staff_note || "").trim().slice(0, 80))}">📝 メモ</span>` : "";
 
+/* ---------- 並び順（2026-10-13 まりほ要望「予約が入った順に並べたい。どこまで仕込んだか分からなくなる」） ----------
+ * 「受取時間順」（従来）か「予約が入った順」（受付日時→予約番号）。予約・製造の一覧と製造カードの印刷、
+ * 集計・CSVの受取リストに効く。製造数の表（台数）は並び順に関係しない。選んだ順はこの端末に覚え、両方の画面でそろえる。 */
+const ORDER_SORT_KEY = "cakebook_order_sort";
+function orderSortMode() {
+  try { return localStorage.getItem(ORDER_SORT_KEY) === "received" ? "received" : "pickup"; } catch { return "pickup"; }
+}
+function setOrderSortMode(mode) {
+  try { localStorage.setItem(ORDER_SORT_KEY, mode); } catch { /* 覚えられなくても今の画面には効く */ }
+  for (const el of document.querySelectorAll("select.order-sort")) el.value = mode;
+  $("pickup-heading").textContent = mode === "received" ? "予約が入った順の予約" : "受取時間順の予約";
+}
+const receivedFirst = () => orderSortMode() === "received";
+// 読み込みは受取時間順。予約が入った順のときだけ並べ替えた写しを返す
+const sortForView = (orders) => receivedFirst() ? [...orders].sort(BookingReport.compareReceived) : orders;
+setOrderSortMode(orderSortMode());
+$("order-sort").onchange = () => {
+  setOrderSortMode($("order-sort").value);
+  renderPickup();
+  if (!$("kitchen-range-mode").checked || kitchenRange) renderKitchen();
+};
+
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
 const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE");
 function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
-  const active = state.orders;
+  const active = sortForView(state.orders);
   renderBulkConfirm();
   if (!active.length) {
     const filter = $("review-filter")?.value;
@@ -355,9 +377,11 @@ function renderPickup() {
     const item = o.order_items[0] || {};
     const card = document.createElement("div");
     card.className = "order-card" + (o.status === "canceled" ? " canceled" : "");
+    card.dataset.orderId = o.id;
     card.innerHTML = `
       <div class="order-head">
-        <span class="order-time">${$("review-filter")?.value ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
+        <span class="order-time">${$("review-filter")?.value ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
+          receivedFirst() && BookingReport.receivedLabel(o) ? `<span class="order-received">受付 ${esc(BookingReport.receivedLabel(o))}</span>` : ""}</span>
         <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>
@@ -404,9 +428,10 @@ async function paintPickupThumbs(orders) {
   const need = orders.filter((o) => (o.order_previews || [])[0]?.path && !o._preview_url);
   const urls = await signOrderPaths(need.map((o) => o.order_previews[0].path));
   for (const o of need) o._preview_url ||= urls.get(o.order_previews[0].path) || null;
-  const cards = $("pickup-list").querySelectorAll(".order-card");
-  orders.forEach((o, i) => {
-    const thumb = cards[i]?.querySelector(".order-thumb");
+  // 画像を取っている間に並び順・日付が変わることがあるので、位置でなく予約IDでカードを探す
+  const cards = new Map([...$("pickup-list").querySelectorAll(".order-card")].map((c) => [c.dataset.orderId, c]));
+  orders.forEach((o) => {
+    const thumb = cards.get(String(o.id))?.querySelector(".order-thumb");
     if (!thumb) return;
     if (o._preview_url) thumb.innerHTML = `<img src="${esc(o._preview_url)}" alt="">`;
     else thumb.remove();
@@ -885,6 +910,7 @@ function renderKitchen() {
   $("kitchen-heading").textContent = rangeMode ? "期間の製造数" : "この日の製造数";
   $("kitchen-scope").textContent = rangeMode && kitchenRange ? `受取日 ${kitchenRange.from} 〜 ${kitchenRange.to} の合計` : "";
   if (rangeMode && kitchenRange) $("kitchen-title").textContent = `${kitchenRange.from} 〜 ${kitchenRange.to} 製造一覧（${state.tenantName}）`;
+  if (receivedFirst()) $("kitchen-title").textContent += "　予約が入った順";
   const active = kitchenOrders().filter((o) => o.status !== "canceled" && !reviewPending(o));
   // 集計: 商品×サイズ
   const agg = new Map();
@@ -909,7 +935,7 @@ function renderKitchen() {
   // 製造カード（1台ごとの作る内容）
   const wrap = $("kitchen-detail");
   wrap.innerHTML = "";
-  for (const o of active) {
+  for (const o of sortForView(active)) {
     const it = o.order_items[0] || {};
     const opts = (it.order_item_options || [])
       .map((op) => `<li>${esc(op.group_name_snapshot)}: ${esc(op.option_name_snapshot)}` +
@@ -924,7 +950,8 @@ function renderKitchen() {
     card.className = "kcard";
     card.innerHTML = `
       <div class="khead"><span>${rangeMode ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}</span>
-        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}</span>
+        <span>No.${esc(o.order_number)} ${esc(o.customer_name)}様${(o.order_images || []).length ? ` 📷${esc(o.order_images.length)}` : ""}${(o.order_previews || []).length ? " 🎨" : ""}${
+          receivedFirst() && BookingReport.receivedLabel(o) ? `（受付 ${esc(BookingReport.receivedLabel(o))}）` : ""}</span>
         <span>${esc(it.product_name_snapshot)} ${esc(it.variant_label_snapshot)}</span></div>
       <p class="kpay">${kitchenPayLine(o)}</p>
       ${o._preview_url || (o._images_signed || []).length ? `<div class="kpreview">` +

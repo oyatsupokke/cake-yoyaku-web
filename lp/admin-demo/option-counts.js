@@ -32,11 +32,24 @@ globalThis.OptionCounts = (() => {
     if (orderOptions.filter(o => baseName(o.option_name_snapshot) === base).length !== 1) return [];
     return free.filter(a => label(a).includes(base));
   }
+  // 同じケーキの同じ選択肢が複数の行に分かれていたら1行にまとめる（個数は足す）。
+  // SELECTTYPEからの移行予約は、ナンバークッキー2枚が「1枚×2行」で入っていて、
+  // 行ごとに数えると「大か小か分からない」扱いになり数字の内訳から抜けていた（2026-10-13 まりほ指摘）。
+  function mergedOptions(item) {
+    const merged = new Map();
+    for (const op of item.order_item_options || []) {
+      const key = [op.option_id || "", op.group_name_snapshot || "", op.option_name_snapshot || ""].join("\u0000");
+      const each = Math.max(1, Number(op.quantity) || 1);
+      if (merged.has(key)) merged.get(key).quantity += each;
+      else merged.set(key, {...op, quantity: each});
+    }
+    return [...merged.values()];
+  }
   function build(orders, questionOptions = new Map()) {
     const groups = new Map();
     for (const order of orders) for (const item of order.order_items || []) {
       const cakes = Math.max(1, Number(item.quantity) || 1);
-      for (const op of item.order_item_options || []) {
+      for (const op of mergedOptions(item)) {
         const group = op.group_name_snapshot || "", name = op.option_name_snapshot || "";
         const each = Math.max(1, Number(op.quantity) || 1);
         if (!groups.has(group)) groups.set(group, new Map());
@@ -46,7 +59,7 @@ globalThis.OptionCounts = (() => {
         row.count += each * cakes;
         // 数字の内訳は、答えが1つに決まり、数字だけのときに限る（文章の答えは数えない）。
         // 答えは予約ごとなので、同じ予約のほかのケーキの選択肢も含めて1つに決まるかを見る。
-        const found = answerFor(order, op, questionOptions, (order.order_items || []).flatMap(i => i.order_item_options || []));
+        const found = answerFor(order, op, questionOptions, (order.order_items || []).flatMap(mergedOptions));
         const digits = found.length === 1 ? digitsOnly(found[0].answer_text) : null;
         if (!digits) continue;
         for (const d of digits) row.digits.set(d, (row.digits.get(d) || 0) + cakes);

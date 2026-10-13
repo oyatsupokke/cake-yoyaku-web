@@ -7,8 +7,8 @@
 <title>オーダーケーキのご予約</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1791686980">
-<link rel="stylesheet" href="form-layout.css?v=1791686980">
+<link rel="stylesheet" href="styles.css?v=1791862252">
+<link rel="stylesheet" href="form-layout.css?v=1791862252">
 </head>
 <body>
 <div id="app">
@@ -117,6 +117,8 @@
   <!-- 確認画面 -->
   <main id="view-confirm" class="hidden">
     <h2 class="confirm-title">ご注文内容の確認</h2>
+    <!-- 確認画面で止めてしまう人のための注意（2026-10-13・まりほ要望） -->
+    <p id="confirm-not-done" class="confirm-not-done">まだご予約は完了していません。<br>ページの一番下の「この内容で注文する」を押すと、ご予約が確定します。</p>
     <div class="confirm-box" id="confirm-detail"></div>
     <div class="confirm-box">
       <h3>キャンセルについて</h3>
@@ -158,12 +160,12 @@
   <div id="toast" class="toast hidden"></div>
 
 </div>
-<script src="safe-display.js?v=1791686980"></script>
-<script src="booking-retry.js?v=1791686980"></script>
-<script src="booking-window.js?v=1791686980"></script>
-<script src="question-flow.js?v=1791686980"></script>
-<script src="crop.js?v=1791686980"></script>
-  <script src="app.js?v=1791686980"></script>
-<script src="form-layout.js?v=1791686980"></script>
+<script src="safe-display.js?v=1791862252"></script>
+<script src="booking-retry.js?v=1791862252"></script>
+<script src="booking-window.js?v=1791862252"></script>
+<script src="question-flow.js?v=1791862252"></script>
+<script src="crop.js?v=1791862252"></script>
+  <script src="app.js?v=1791862252"></script>
+<script src="form-layout.js?v=1791862252"></script>
 </body>
 </html>

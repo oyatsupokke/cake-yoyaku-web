@@ -3160,6 +3160,12 @@ function renderConfirm() {
   document.querySelector("#view-confirm .preview-note").textContent = review
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
     : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。" : "この内容で注文すると、ご注文が確定します。";
+  // 確認画面で止めて「予約したつもり」になる人がいるので、まだ終わっていないことを赤字で出す
+  const doneWord = TRIAL_MODE ? "これはお試しのテスト予約です（予約は保存されません）。"
+    : review ? "まだお見積もりの依頼は送信されていません。" : STAFF_MODE ? "まだ登録されていません。"
+    : EDIT_MODE ? "まだご予約の変更は完了していません。" : "まだご予約は完了していません。";
+  const doneVerb = TRIAL_MODE ? "テスト予約の流れを最後まで確認できます" : review ? "送信されます" : STAFF_MODE ? "登録されます" : EDIT_MODE ? "変更が確定します" : "ご予約が確定します";
+  $("confirm-not-done").innerHTML = `${esc(doneWord)}<br>ページの一番下の「${esc($("btn-submit").textContent)}」を押すと、${esc(doneVerb)}。`;
   const rows = [];
   // 見出しが長い行（質問文など）は上下2段に組む＝スマホで値の列が潰れない（2026-10-03）
   const rowCls = (k) => `confirm-row${String(k || "").length > 12 ? " stack" : ""}`;

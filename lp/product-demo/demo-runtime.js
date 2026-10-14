@@ -59,7 +59,12 @@ window.addEventListener('DOMContentLoaded',()=>{
 // LPに埋め込まれたとき（2026-10-14）：自動スクロールで外側のLPまで動かさない。
 // scrollIntoView はデモの枠の中だけをスクロールし、focus でもページが飛ばないようにする
 if(window.top!==window.self){
+ // LPでは毎回まっさらな状態から始める（前回の入力を復元すると、途中の手順までスクロールした状態で開いてしまう）
+ try{for(const k of Object.keys(localStorage))if(k.startsWith('cake_form_'))localStorage.removeItem(k);}catch{}
+ // 見ている人がデモに触るまでは、自動スクロールしない（開いた直後に中身が動かないように）
+ let touched=false;for(const ev of ['pointerdown','touchstart','keydown','wheel'])addEventListener(ev,()=>{touched=true;},{capture:true,passive:true});
  Element.prototype.scrollIntoView=function(opt){
+  if(!touched)return;
   const o=opt&&typeof opt==='object'?opt:{block:opt===false?'end':'start'},b=o.block||'start',beh=o.behavior==='smooth'?'smooth':'auto';
   // デモの中のスクロールする箱（一覧・ダイアログなど）は、先にその箱の中を動かす
   for(let p=this.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){

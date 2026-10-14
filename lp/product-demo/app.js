@@ -2123,10 +2123,10 @@ function openOptionSamplePhoto(url, optionName) {
     dialog.onclick=(event)=>{if(event.target===dialog)dialog.close();};
     document.body.appendChild(dialog);
   }
-  dialog.querySelector('.option-sample-title').textContent=`${optionName}の見本`;
+  dialog.querySelector('.option-sample-title').textContent=optionName ? `${optionName}の見本` : '見本';
   const image=dialog.querySelector('img');
   image.src=src;
-  image.alt=`${optionName}の見本写真`;
+  image.alt=optionName ? `${optionName}の見本写真` : '見本写真';
   if(typeof dialog.showModal==='function')dialog.showModal();
   else window.open(src,'_blank','noopener,noreferrer');
 }
@@ -2664,7 +2664,8 @@ function sampleImageHtml(url) {
 function wireSampleImage(el) {
   for (const s of el.querySelectorAll(".sample-img")) {
   // labelの中にあるので、押しただけで選択が変わらないように止めてから開く
-  s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.open(s.querySelector("img").src, "_blank", "noopener,noreferrer"); };
+  // 別タブで開かず、選択肢の「見本を見る」と同じくページの上で大きく開く（2026-10-14 まりほ指摘）
+  s.onclick = (e) => { e.preventDefault(); e.stopPropagation(); const img = s.querySelector("img"); const head = s.closest(".group")?.querySelector("h3")?.firstChild?.textContent || ""; openOptionSamplePhoto(img.src, s.dataset.name || head.trim()); };
   }
 }
 

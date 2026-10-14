@@ -344,3 +344,28 @@
     };
   });
 })();
+
+// LPに埋め込まれたとき（2026-10-14）：自動スクロールで外側のLPまで動かさない。
+// scrollIntoView はデモの枠の中だけをスクロールし、focus でもページが飛ばないようにする
+if(window.top!==window.self){
+ Element.prototype.scrollIntoView=function(opt){
+  const o=opt&&typeof opt==='object'?opt:{block:opt===false?'end':'start'},b=o.block||'start',beh=o.behavior==='smooth'?'smooth':'auto';
+  // デモの中のスクロールする箱（一覧・ダイアログなど）は、先にその箱の中を動かす
+  for(let p=this.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){
+   const cs=getComputedStyle(p);
+   if(!/(auto|scroll|overlay)/.test(cs.overflowY)||p.scrollHeight<=p.clientHeight)continue;
+   const pr=p.getBoundingClientRect(),er=this.getBoundingClientRect();let t=p.scrollTop+er.top-pr.top;
+   if(b==='center')t-=(p.clientHeight-er.height)/2;else if(b==='end')t-=p.clientHeight-er.height;
+   else if(b==='nearest'){if(er.top>=pr.top&&er.bottom<=pr.bottom)continue;t=er.top<pr.top?t:p.scrollTop+er.bottom-pr.bottom;}
+   p.scrollTo({top:Math.max(0,t),behavior:beh});
+  }
+  const r=this.getBoundingClientRect();
+  let y=scrollY+r.top;
+  if(b==='center')y-=(innerHeight-r.height)/2;
+  else if(b==='end')y-=innerHeight-r.height;
+  else if(b==='nearest'){if(r.top>=0&&r.bottom<=innerHeight)return;y=r.top<0?scrollY+r.top:scrollY+r.bottom-innerHeight;}
+  window.scrollTo({top:Math.max(0,y),behavior:beh});
+ };
+ const focus=HTMLElement.prototype.focus;
+ HTMLElement.prototype.focus=function(o){focus.call(this,Object.assign({},o,{preventScroll:true}));};
+}

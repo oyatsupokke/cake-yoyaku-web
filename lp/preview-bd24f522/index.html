@@ -234,6 +234,7 @@ details.calc summary{cursor:pointer;color:var(--red);font-weight:700;font-size:1
 .std-block{margin-top:64px;padding:40px;border-radius:24px;background:var(--pink);border:1px solid var(--pinkline)}
 .oc.std{border-color:var(--pinkline)}
 @media(max-width:760px){.std-block{padding:24px 16px}}
+@media(max-width:520px){.std-block h2{font-size:22px}}
 .oc{background:#fff;border-radius:var(--r);padding:24px;border:1px solid var(--line)}
 .oc .ic{font-size:26px;margin-bottom:8px}
 .plan-pills{display:flex;gap:8px;margin:0 0 12px}
@@ -435,7 +436,7 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
 
     <div class="xmas">
       <p class="eyebrow">たとえば、クリスマス</p>
-      <h3>クリスマスの予約、こう変わります。</h3>
+      <h3>クリスマスの予約、<br class="sp-only">こう変わります。</h3>
       <div class="xmas-cols">
         <div class="tl before">
           <h4>これまで</h4>
@@ -575,7 +576,7 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
 
     <div class="std-block">
       <p class="plan-pills"><span class="pp std">Standard</span></p>
-      <h2>より多くの業務をカバーする<br>アップグレード機能</h2>
+      <h2><span class="nw">より多くの業務を</span><span class="nw">カバーする</span><br><span class="nw">アップグレード機能</span></h2>
       <p class="lead">細かな注文や、クリスマスなどの季節予約をまとめたいお店向けの機能です。</p>
       <div class="opt-grid">
         <div class="oc std"><h3>飾りの選択肢と追加料金</h3><p>選んだ飾りに合わせて、金額を自動で計算。</p></div>
@@ -703,7 +704,7 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
 <section class="faq" id="faq">
   <span class="sec-label">⑨ よくある質問</span>
   <div class="wrap narrow">
-    <div class="center"><p class="eyebrow">よくある質問</p><h2>よくある質問</h2></div>
+    <div class="center"><h2>よくある質問</h2></div>
     <details><summary>クリスマスケーキの予約だけ、ネットで受けられますか？</summary><p>はい、Standardで対応しています。クリスマスのケーキだけをネット予約にして、いつものケーキは電話・店頭のままでも構いません。販売期間・受取日・台数上限を決めておけば、その期間だけ予約ページに出て、期限で自動的に締め切ります。設定は、クリスマスの受付を始める2週間前までに済ませておくと安心です。</p></details>
     <details><summary>LiteとStandardは、どう選べばいいですか？</summary><p>定番ケーキを写真とサイズから予約してもらうならLite、選択肢ごとの追加料金・商品別の台数上限・クリスマスなどの季節予約・デザインイメージのプレビューを使うならStandardです。月に30台を超えるネット予約が見込まれる場合もStandardをお選びください。</p></details>
     <details><summary>Liteの割引は、いつまで続きますか？</summary><p>通常は月額1,980円（税込）です。14日間のお試し期間中に有料で申し込むと、最初の3か月は月額1,480円（税込）、4か月目以降は月額1,980円（税込）になります。</p></details>
@@ -743,6 +744,6 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
   <p class="foot-copy">© CakeBook / oyatsupokke</p>
 </footer>
 
-<script src="app.js?v=1791960588"></script>
+<script src="app.js?v=1791962158"></script>
 </body>
 </html>

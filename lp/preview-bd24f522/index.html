@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ケーキ予約管理システム｜CakeBook（新LP 確認用）</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbf7f2; --paper:#ffffff; --tint:#f5ebe4; --pink:#fbeceb; --pinkline:#f3d9d6;
+  --ink:#2a211e; --sub:#6e605a; --mute:#a3958e; --line:#eadfd6;
+  --red:#b93f4a; --red-d:#962f39; --red-l:#fbeceb;
+  --beige:#efe3d8; --pinkcard:#fbeceb; --arrow:#b93f4a; --green:#5d7a5a; --green-l:#e9efe6; --gold:#c08a2e;
+  --r:18px; --shadow:0 10px 30px rgba(80,40,40,.08);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans JP",system-ui,sans-serif;line-height:1.8;font-size:16px;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.narrow{max-width:860px}
+section{padding:96px 0}
+.eyebrow{color:var(--red);font-weight:700;letter-spacing:.12em;font-size:13px;margin:0 0 10px}
+h2{font-size:clamp(26px,3.6vw,38px);line-height:1.45;margin:0 0 18px;font-weight:900;letter-spacing:.02em}
+h3{font-size:19px;line-height:1.5;margin:0 0 8px}
+.lead{color:var(--sub);max-width:680px;margin:0 0 40px}
+.center{text-align:center}.center .lead{margin-left:auto;margin-right:auto}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:16px 28px;border-radius:999px;font-weight:700;text-decoration:none;border:2px solid var(--red);font-size:16px}
+.btn-p{background:var(--red);color:#fff}.btn-p:hover{background:var(--red-d)}
+.btn-o{color:var(--red);background:#fff}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--red-l);color:var(--red);vertical-align:middle;letter-spacing:.04em}
+.tag.lite{background:var(--green-l);color:var(--green)}
+.note{font-size:12.5px;color:var(--mute);line-height:1.7}
+.win{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.win-bar{background:var(--tint);padding:8px 14px;font-size:12px;color:var(--sub);display:flex;gap:6px;align-items:center}
+.win-bar i{width:9px;height:9px;border-radius:50%;background:#dcd2c8;display:inline-block}
+.win-bar span{margin-left:8px}
+
+/* モックであることの帯 */
+.mockbar{background:#2a211e;color:#fff;font-size:12.5px;text-align:center;padding:6px 12px}
+.mockbar b{color:#ffd2d6}
+.sec-label{position:absolute;left:12px;top:12px;font-size:11px;background:#2a211e;color:#fff;padding:2px 8px;border-radius:6px;opacity:.75}
+section{position:relative}
+
+/* header */
+header{position:sticky;top:0;z-index:50;background:rgba(250,247,242,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:24px;height:64px}
+.logo{font-weight:900;font-size:22px;letter-spacing:.02em;text-decoration:none;display:flex;align-items:center;gap:8px}
+.logo img{height:26px}
+nav{display:flex;gap:22px;font-size:14px;font-weight:500;margin-left:auto}
+nav a{text-decoration:none;color:var(--sub)}
+header .btn{padding:9px 18px;font-size:14px;white-space:nowrap}
+header .btn-o{border-width:1.5px}
+.hd-cta{display:flex;gap:8px;align-items:center}
+.sp-only{display:none}
+@media(max-width:1060px){nav{gap:16px;font-size:13px}}
+@media(max-width:600px){header .wrap{gap:10px;height:58px}.hd-cta{gap:6px}header .btn{padding:7px 12px;font-size:12.5px}.logo img{height:20px}.login{font-size:12.5px}.pc-only{display:none}.sp-only{display:inline}}
+@media(max-width:360px){header .btn{padding:6px 9px;font-size:12px}.logo img{height:17px}}
+.login{font-size:14px;font-weight:700;text-decoration:none;color:var(--ink);white-space:nowrap}
+@media(max-width:860px){nav{display:none}.login{margin-left:auto}}
+
+/* 1. hero */
+.hero{padding:64px 0 80px}
+.hero .wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.price-chip{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:4px;color:var(--ink);font-weight:900;font-size:20px;margin:6px 0 0}
+.price-chip b{font-size:52px;font-weight:900;line-height:1;color:var(--red);letter-spacing:.01em;margin:0 2px}
+.price-chip .unit{font-size:20px;color:var(--red)}
+@media(max-width:520px){.price-chip{font-size:16px}.price-chip b{font-size:40px}.price-chip .unit{font-size:16px}.price-chip .chip-sub{font-size:13px;margin-left:10px;padding-left:10px}}
+.hero h1{font-size:clamp(32px,4vw,52px);line-height:1.35;margin:0 0 22px;font-weight:900;letter-spacing:.01em}
+.nw{display:inline-block}
+@media(max-width:860px){br.pc{display:none}}
+.hero-q{font-size:clamp(20px,2.4vw,26px);font-weight:900;margin:0 0 4px;color:var(--ink)}
+.hero-sub b{color:var(--ink);font-size:19px}
+.hero-eyebrow{color:var(--red);font-weight:700;letter-spacing:.08em;font-size:15px;margin:0 0 10px}
+@media(max-width:520px){.hero-eyebrow{font-size:13px;letter-spacing:.04em}}
+.hero-eyebrow.q{color:var(--ink);font-size:18px;letter-spacing:.02em;font-weight:700}
+.hero-sub{font-size:17px;color:var(--sub);margin:0 0 6px;font-weight:500}
+.hero-tag{color:var(--red);font-weight:700;font-size:16px;margin:0 0 28px;letter-spacing:.02em}
+@media(max-width:520px){.hero-tag{font-size:14.5px}}
+.chip-sub{font-size:15px;color:var(--sub);font-weight:700;margin-left:14px;padding-left:14px;border-left:1px solid var(--line);align-self:center}
+.hero h1 em{font-style:normal;color:var(--red);background:linear-gradient(transparent 68%,var(--red-l) 68%)}
+.benefits{list-style:none;padding:0;margin:0 0 30px;display:grid;gap:10px}
+.benefits li{display:flex;gap:12px;align-items:flex-start;font-weight:500}
+.benefits li::before{content:"";flex:0 0 22px;height:22px;border-radius:50%;background:var(--red) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/13px no-repeat;margin-top:3px}
+.benefits b{color:var(--red)}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.hero-vis{position:relative}
+.hero-vis .win{transform:rotate(.6deg)}
+.hero-vis .win img{width:100%;aspect-ratio:4/3;object-fit:cover;object-position:top left}
+@media(max-width:860px){.hero-vis .win img{aspect-ratio:16/10}}
+.hero-phone{position:absolute;left:-40px;bottom:-34px;width:190px;border:8px solid #2a211e;border-radius:28px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
+.hero-stat{position:absolute;right:-12px;top:-22px;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:10px 16px;font-size:13px;border:1px solid var(--line)}
+.hero-stat b{display:block;font-size:22px;color:var(--red);line-height:1.2}
+@media(max-width:860px){.hero .wrap{grid-template-columns:1fr}.hero-phone{width:130px;left:-6px;bottom:-24px}.hero-stat{right:0}}
+
+/* 2. aruaru */
+.aruaru{background:var(--paper)}
+.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px 40px}
+.ba{position:relative;display:block}
+.ba .b,.ba .a{border-radius:28px;padding:24px 28px}
+.ba .b{background:var(--beige);width:82%;padding-bottom:64px}
+.ba .a{background:var(--pinkcard);width:82%;margin:-44px 0 0 18%;position:relative}
+.ba .lbl{display:inline-block;font-size:13px;font-weight:900;letter-spacing:.06em;line-height:1;padding:6px 12px;border-radius:7px;color:#fff;margin-bottom:10px}
+.ba .b .lbl{background:#8f7d77}.ba .a .lbl{background:var(--red)}
+.ba h3{font-size:17px}
+.ba p{margin:0;color:var(--sub);font-size:14.5px}
+.ba .arrow{position:absolute;left:-60px;top:46px;width:44px;height:44px;color:var(--arrow)}
+@media(max-width:860px){.ba-grid{grid-template-columns:1fr}}
+@media(max-width:520px){.ba .b,.ba .a{width:88%}.ba .a{margin-left:12%}.ba .arrow{width:32px;height:32px;left:-40px;top:48px}}
+
+.xmas{margin-top:64px;border-radius:24px;background:linear-gradient(160deg,#fff 0%,#fbf1f2 100%);border:1px solid var(--pinkline);padding:40px}
+.xmas h3{font-size:24px;margin-bottom:6px}
+.xmas-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.tl{background:#fff;border-radius:16px;padding:20px 22px;border:1px solid var(--line)}
+.tl h4{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.tl ol{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:104px 1fr;gap:10px;padding:7px 0;border-top:1px dashed var(--line);font-size:14px}
+.tl li:first-child{border-top:0}
+.tl time{font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.tl.before li span.bad{color:var(--red);font-weight:700}
+.tl.after{border-color:var(--pinkline)}
+.tl.after time{color:var(--red)}
+@media(max-width:760px){.xmas{padding:24px 18px}.xmas-cols{grid-template-columns:1fr}}
+
+.staff{margin-top:28px;display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;background:var(--bg);border-radius:20px;padding:26px 30px}
+.staff .big{font-size:44px;font-weight:900;color:var(--red);line-height:1}
+.staff .big small{font-size:18px}
+@media(max-width:760px){.staff{grid-template-columns:1fr}}
+details.calc summary{cursor:pointer;color:var(--red);font-weight:700;font-size:14px;margin-top:8px}
+.calc table{border-collapse:collapse;font-size:13.5px;margin-top:10px}
+.calc td,.calc th{padding:5px 14px 5px 0;text-align:left;border-bottom:1px solid var(--line)}
+
+/* 3. flow */
+.flow-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;counter-reset:s;margin-bottom:56px}
+.fs{background:#fff;border-radius:16px;padding:18px 16px;border:1px solid var(--line);position:relative}
+.fs::before{counter-increment:s;content:counter(s);display:flex;width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;font-weight:900;align-items:center;justify-content:center;margin-bottom:10px;font-size:14px}
+.fs h3{font-size:15.5px;margin-bottom:4px}
+.fs p{margin:0;font-size:13px;color:var(--sub);line-height:1.7}
+.fs .who{position:absolute;top:16px;right:14px;font-size:10.5px;color:var(--mute)}
+@media(max-width:980px){.flow-steps{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.flow-steps{grid-template-columns:1fr}}
+
+.preview-demo{display:grid;grid-template-columns:340px 1fr;gap:40px;align-items:center;background:#fff;border-radius:24px;padding:36px;border:1px solid var(--line)}
+.cake{position:relative;aspect-ratio:1;background:radial-gradient(circle at 50% 60%,#fff 0,#fbf3ee 70%);border-radius:20px}
+.cake img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity .25s}
+.opt-group{margin-bottom:16px}
+.opt-group .gname{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:6px}
+.opt-row{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+.opt small{color:var(--mute);margin-left:6px}
+.opt[aria-pressed="true"]{border-color:var(--red);background:var(--pink);color:var(--red);font-weight:700}
+.total{margin-top:14px;font-size:14px;color:var(--sub)}.total b{font-size:22px;color:var(--ink)}
+@media(max-width:860px){.preview-demo{grid-template-columns:1fr;padding:22px}}
+
+.after-booking{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
+.ab{background:var(--bg);border-radius:16px;padding:18px 20px}
+.ab h3{font-size:15.5px}
+.ab p{margin:0;font-size:13.5px;color:var(--sub)}
+@media(max-width:760px){.after-booking{grid-template-columns:1fr}}
+
+.flow-grid{display:grid;grid-template-columns:1fr 340px;gap:56px;align-items:center}
+.flow-points{display:grid;gap:22px;margin-top:28px}
+.fp{display:grid;grid-template-columns:48px 1fr;gap:16px;align-items:start}
+.fp-ic{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;background:var(--pink);color:var(--red)}
+.fp-ic svg{width:24px;height:24px}
+.fp h3{font-size:18px;margin-bottom:4px}
+.fp p{margin:0;color:var(--sub);font-size:15px}
+.flow-grid .demo-box{margin-top:0}
+@media(max-width:860px){.flow-grid{grid-template-columns:1fr;gap:36px}}
+/* 4. dashboard */
+.dash{background:var(--paper)}
+.dash-wrap{display:grid;grid-template-columns:300px 1fr;gap:32px;align-items:start}
+.dtabs{display:grid;gap:8px;position:sticky;top:90px}
+.dtab{text-align:left;font:inherit;background:transparent;border:1.5px solid transparent;border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--ink)}
+.dtab b{display:block;font-size:15.5px}
+.dtab span{display:block;font-size:13px;color:var(--sub);line-height:1.6;margin-top:2px}
+.dtab[aria-selected="true"]{background:var(--pink);border-color:var(--pinkline)}
+.dtab[aria-selected="true"] b{color:var(--red)}
+.dpanel{display:none}.dpanel.on{display:block}
+.dpanel .cap{margin:14px 4px 0;font-size:14px;color:var(--sub)}
+@media(max-width:860px){.dash-wrap{grid-template-columns:1fr}.dtabs{position:static;grid-template-columns:1fr 1fr}.dtab span{display:none}}
+.acc{max-width:920px;margin:0 auto;display:grid;gap:12px}
+.acc-item{background:#fff;border:1.5px solid var(--line);border-radius:16px;overflow:hidden}
+.acc-item[open]{border-color:var(--pinkline)}
+.acc-item summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:18px 22px}
+.acc-item summary::-webkit-details-marker{display:none}
+.acc-t{flex:1}
+.acc-t b{display:block;font-size:17px}
+.acc-t span{display:block;font-size:14px;color:var(--sub);line-height:1.6;margin-top:2px}
+.acc-item[open] .acc-t b{color:var(--red)}
+.acc-i{flex:0 0 28px;height:28px;border-radius:50%;background:var(--bg);position:relative}
+.acc-i::before,.acc-i::after{content:"";position:absolute;left:8px;right:8px;top:13px;height:2px;background:var(--red);border-radius:2px;transition:transform .2s}
+.acc-i::after{transform:rotate(90deg)}
+.acc-item[open] .acc-i::after{transform:rotate(0)}
+.acc-body{padding:0 22px 22px}
+.acc-body .cap{margin:14px 4px 0;font-size:14px;color:var(--sub)}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:48px;align-items:start}
+.dash-grid .acc{max-width:none;margin:0}
+.dash-grid .lead{margin-bottom:28px}
+.admin-demo{position:sticky;top:90px;display:flex;flex-direction:column;align-items:center;gap:12px;scroll-margin-top:90px}
+.admin-demo-win{width:100%}
+.admin-demo-win iframe{display:block;width:100%;height:min(720px,calc(100vh - 170px));border:0;background:#fff}
+@media(max-width:1060px){.dash-grid{grid-template-columns:1fr}.admin-demo{position:static;margin-top:16px}.admin-demo-win iframe{height:680px}}
+.admin-demo-btn{display:none}
+@media(max-width:760px){.admin-demo-win iframe{height:640px}}
+/* 管理画面ミニ再現 */
+.mini{font-size:12.5px;padding:14px}
+.mini table{width:100%;border-collapse:collapse}
+.mini td,.mini th{padding:7px 8px;border-bottom:1px solid #f0ebe5;text-align:left}
+.mini th{background:#f6f3ee;font-weight:700;color:var(--sub);font-size:11.5px}
+.mini td.n{text-align:right;font-weight:700}
+.mini .sub td:first-child{color:transparent}
+.mini .sub td:nth-child(2){padding-left:22px;color:var(--sub)}
+.badge{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:6px;font-weight:700}
+.b-new{background:#fde8ea;color:var(--red)}.b-ok{background:#fdf1d8;color:#9a6a12}.b-tel{background:#e4eefb;color:#2d5f9a}.b-memo{background:#f3ecdc;color:#7a5c22}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal div{background:#fff;border:1px solid #eee6dd;border-radius:6px;min-height:52px;padding:4px 6px;font-size:11px}
+.cal div b{display:block;font-size:15px}
+.cal div em{font-style:normal;font-size:10px;color:var(--red);font-weight:700}
+.cal .off{background:#f1ece6;color:var(--mute)}
+.cal .hd{min-height:0;border:0;background:none;text-align:center;color:var(--sub);font-weight:700}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px dashed #cfc6bb}
+.cards>div{border:1px dashed #cfc6bb;padding:12px 14px;min-height:150px}
+.cards h5{margin:0 0 4px;font-size:13px}
+.cards ul{margin:6px 0;padding-left:18px}
+.cards .pl{display:inline-block;background:#fff6d6;padding:1px 8px;border-radius:4px;margin-top:2px}
+.cards .memo{display:block;background:#fff1c9;padding:2px 8px;border-radius:4px;margin-top:4px;font-weight:700}
+
+/* 5. options */
+.opt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.std-block{margin-top:64px;padding:40px;border-radius:24px;background:var(--pink);border:1px solid var(--pinkline)}
+.oc.std{border-color:var(--pinkline)}
+@media(max-width:760px){.std-block{padding:24px 16px}}
+.oc{background:#fff;border-radius:var(--r);padding:24px;border:1px solid var(--line)}
+.oc .ic{font-size:26px;margin-bottom:8px}
+.plan-pills{display:flex;gap:8px;margin:0 0 12px}
+.pp{display:inline-block;font-weight:900;font-size:16px;line-height:1;padding:8px 16px;border-radius:9px}
+.pp.lite{background:var(--green-l);color:var(--green)}
+.pp.std{background:var(--red);color:#fff}
+.oc p{margin:0;font-size:14px;color:var(--sub)}
+.oc h3{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:980px){.opt-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.opt-grid{grid-template-columns:1fr}}
+
+.demo-box{scroll-margin-top:90px;margin-top:40px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.demo-phone{width:340px;height:640px;border:10px solid #2a211e;border-radius:36px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
+.demo-cap{margin:0;font-size:14px;font-weight:700;color:var(--red)}
+.demo-open{font-size:13px;color:var(--sub)}
+.demo-phone iframe{width:100%;height:100%;border:0;display:block}
+.demo-full{display:none}
+@media(max-width:760px){.demo-phone{width:calc(100% - 48px);max-width:320px;height:540px;margin:0 auto}.demo-full{display:inline-flex}}
+/* 6. pricing */
+.price-zero{display:inline-block;margin:0 0 14px;padding:6px 22px;border-radius:999px;background:var(--red);color:#fff;font-weight:900;font-size:18px}
+.price-zero b{font-size:26px;margin:0 2px}
+.pricing{background:var(--paper)}
+.zero{display:flex;flex-wrap:wrap;gap:10px 28px;justify-content:center;margin:0 0 36px;font-weight:700;font-size:15px}
+.zero span::before{content:"✓ ";color:var(--red)}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:900px;margin:0 auto}
+.plan{border-radius:22px;padding:30px 28px;border:1.5px solid var(--line);background:#fff;position:relative}
+.plan.rec{border:2px solid var(--red);box-shadow:var(--shadow)}
+.plan .rib{position:absolute;top:-14px;left:28px;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 12px;border-radius:999px}
+.plan .for{font-size:13.5px;color:var(--sub);margin:0}
+.plan .name{font-size:24px;font-weight:900;margin:2px 0 8px}
+.plan .yen{font-size:46px;font-weight:900;line-height:1}
+.plan .yen small{font-size:15px;font-weight:500;color:var(--sub)}
+.plan .promo{font-size:13px;background:var(--green-l);color:var(--green);border-radius:10px;padding:6px 10px;margin:12px 0 0;font-weight:700}
+.plan .promo.r{background:var(--red-l);color:var(--red)}
+.plan ul{list-style:none;padding:0;margin:20px 0 24px;display:grid;gap:7px;font-size:14.5px}
+.plan li::before{content:"✓";color:var(--red);font-weight:900;margin-right:8px}
+.plan .btn{width:100%;justify-content:center}
+@media(max-width:760px){.plans{grid-template-columns:1fr}}
+.terms{max-width:900px;margin:40px auto 0}
+.terms h3{font-size:18px;margin-bottom:16px}
+.terms-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tm{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:20px 18px;text-align:center;position:relative}
+.tm.best{border-color:var(--red)}
+.tm-b{position:absolute;top:-11px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--red);color:#fff;font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:999px}
+.tm-n{margin:4px 0 2px;font-weight:700;font-size:14px}
+.tm-y{margin:0;font-size:30px;font-weight:900;line-height:1.3}
+.tm-y small{font-size:13px;font-weight:500;color:var(--sub)}
+.tm-s{margin:6px 0 0;font-size:12.5px;color:var(--sub);line-height:1.6}
+@media(max-width:640px){.terms-grid{grid-template-columns:1fr;gap:18px}}
+.cmp-wrap{max-width:900px;margin:56px auto 0}
+.cmp-title{font-size:20px;text-align:center;margin:0 0 16px}
+.cmp{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border-radius:14px;overflow:hidden;min-width:560px}
+.cmp th,.cmp td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:center}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp thead th{background:var(--tint);font-size:13px}
+.cmp thead th.f{background:transparent;color:var(--sub);font-weight:500}
+.cmp thead th.l{background:var(--green-l);color:var(--green)}
+.cmp thead th.l,.cmp thead th.s{font-size:15px;border-left:3px solid var(--paper)}
+.cmp thead th.s{background:var(--red);color:#fff}
+.cmp td.s{background:#fffafa;font-weight:700}
+.cmp .grp td{background:var(--bg);font-weight:700;font-size:12.5px;color:var(--sub);text-align:left}
+.cmp .no{color:#cbbfb9}
+.cmp .ok{color:var(--red);font-size:17px;font-weight:900;line-height:1}
+.cmp td[data-l="Lite"] .ok{color:var(--green)}
+.cmp th,.cmp td{font-size:14.5px}
+.cmp tbody tr:not(.grp):hover td{background:#fffdfb}
+@media(max-width:640px){
+  .cmp{min-width:0;table-layout:fixed}
+  .cmp th,.cmp td{padding:8px 6px;font-size:12.5px;line-height:1.5}
+  .cmp th:first-child,.cmp td:first-child{width:46%;padding-left:10px}
+  .cmp thead th.l,.cmp thead th.s{font-size:13px}
+  .cmp .grp td{font-size:12px;padding:6px 10px}
+  .cmp .ok{font-size:15px}
+}
+.vs{max-width:900px;margin:40px auto 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center}
+.vs div{background:var(--bg);border-radius:14px;padding:16px}
+.vs b{display:block;font-size:26px}
+.vs .d b{color:var(--red)}
+@media(max-width:560px){.vs{grid-template-columns:1fr}}
+
+/* 7. start */
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:t}
+.s3{background:#fff;border-radius:var(--r);padding:26px;border:1px solid var(--line)}
+.s3::before{counter-increment:t;content:"STEP " counter(t);color:var(--red);font-weight:900;font-size:13px;letter-spacing:.1em}
+.s3 p{margin:0;color:var(--sub);font-size:14px}
+.s3 .time{display:inline-block;margin-top:10px;font-size:12px;background:var(--bg);padding:2px 10px;border-radius:999px;color:var(--sub)}
+@media(max-width:760px){.steps3{grid-template-columns:1fr}}
+.help-box{margin-top:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.hb{background:var(--pink);border-radius:16px;padding:18px 20px;border:1px solid var(--pinkline)}
+.hb h3{font-size:15.5px}.hb p{margin:0;font-size:13.5px;color:var(--sub)}
+@media(max-width:760px){.help-box{grid-template-columns:1fr}}
+
+/* 8. story */
+.story{background:var(--pink)}
+.story .wrap{display:grid;grid-template-columns:300px 1fr;gap:56px;align-items:center}
+.story-art{position:relative;aspect-ratio:1}
+.story-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+@media(max-width:860px){.story .wrap{grid-template-columns:1fr;gap:24px}.story-art{width:220px;margin:0 auto}}
+.story-img{border-radius:24px;overflow:hidden;background:#fff;aspect-ratio:1}
+.story-img img{width:100%;height:100%;object-fit:cover}
+.story blockquote{margin:0 0 20px;font-size:clamp(22px,2.8vw,30px);font-weight:900;line-height:1.55}
+.story p{color:var(--sub)}
+.sign{font-weight:700;color:var(--ink)!important;margin-top:18px}
+@media(max-width:860px){.story .wrap{grid-template-columns:1fr}.story-img{max-width:260px}}
+
+/* 9. faq */
+.faq details{background:#fff;border-radius:14px;border:1px solid var(--line);margin-bottom:10px}
+.faq summary{cursor:pointer;padding:18px 22px;font-weight:700;list-style:none;display:flex;gap:12px}
+.faq summary::before{content:"Q";color:var(--red);font-weight:900}
+.faq summary::-webkit-details-marker{display:none}
+.faq details p{margin:0;padding:0 22px 20px 50px;color:var(--sub);font-size:14.5px}
+
+/* final cta */
+.final{background:var(--ink);color:#fff;text-align:center;padding:80px 0}
+.final h2{color:#fff}
+.final p{color:#d9cfd1}
+.final .btn-o{background:transparent;color:#fff;border-color:#fff}
+footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
+.site-foot{background:var(--paper);border-top:1px solid var(--line);padding:56px 0 28px;font-size:14px;color:var(--sub);text-align:left}
+.foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr;gap:32px}
+.foot-brand img{height:26px;margin-bottom:12px}
+.foot-brand p{margin:0;line-height:1.8}
+.site-foot nav{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-left:0;font-size:14px;font-weight:400}
+.site-foot nav b{color:var(--ink);font-size:13px;margin-bottom:2px}
+.site-foot a{color:var(--sub);text-decoration:none}
+.site-foot a:hover{color:var(--red);text-decoration:underline}
+.foot-copy{text-align:center;margin:40px 0 0;font-size:12px;color:var(--mute)}
+@media(max-width:860px){.foot-grid{grid-template-columns:1fr 1fr}.foot-brand{grid-column:1/-1}}
+@media(max-width:420px){.foot-grid{grid-template-columns:1fr}}
+.mockbar,.sec-label{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="mockbar"><b>モック v3</b>：構成の確認用です（数字・画面は見本）。各セクション左上の黒ラベル＝構成メモの番号。</div>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#"><img src="/lp/brand/logo-yoko.svg" alt="CakeBook"></a>
+    <nav>
+      <a href="#aruaru">こんなお悩み</a><a href="#flow">予約の流れ</a><a href="#dash">お店の画面</a><a href="#price">料金</a><a href="#faq">よくある質問</a>
+    </nav>
+    <a class="login" href="https://cakebook.jp/admin/">ログイン</a>
+    <div class="hd-cta">
+      <a class="btn btn-p" href="#start"><span class="pc-only">14日間無料で試す</span><span class="sp-only">無料で試す</span></a>
+      <a class="btn btn-o" href="#demo"><span class="pc-only">登録なしでデモを見る</span><span class="sp-only">デモを見る</span></a>
+    </div>
+  </div>
+</header>
+
+<!-- ① キャッチ -->
+<section class="hero">
+  <span class="sec-label">① キャッチ</span>
+  <div class="wrap">
+    <div>
+      <h1 id="catch"><span class="nw">ケーキの予約受付を、</span><br><em class="nw">もっとかんたんに。</em></h1>
+      <p class="hero-sub"><span class="nw">ケーキを登録して、</span><span class="nw">リンクを貼るだけ。</span><br><span class="nw">予約表の数え直しは、</span><span class="nw">もうおしまい。</span></p>
+      <p class="hero-tag"><span class="nw">ケーキ屋さんが本当にほしかった</span><span class="nw">予約システム</span></p>
+      <div class="price-chip">月額<b>1,980</b><span class="unit">円〜</span><span class="chip-sub">初期費用0円</span></div>
+    </div>
+    <div class="hero-vis">
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>予約帳（管理画面）</span></div>
+        <img src="/lp/shots/admin-production.jpg" alt="この日の製造数">
+      </div>
+      <div class="hero-phone"><img src="/lp/shots/form.jpg" alt="お客様の予約画面"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ② あるある Before/After -->
+<section class="aruaru" id="aruaru">
+  <span class="sec-label">② あるある（Before / After・クリスマス・人手不足）</span>
+  <div class="wrap">
+    <p class="eyebrow">こんな毎日、ありませんか？</p>
+    <h2>ケーキの予約に、<br>時間をとられていませんか？</h2>
+
+    <div class="ba-grid">
+      <div class="ba">
+        <div class="b"><div class="lbl">Before</div><h3>予約を受けるたび、スタッフの手が止まる。</h3><p>電話対応で製造が中断したり、店頭でお客様がケーキを選ぶ間、スタッフが一人つきっきりになることも。</p></div>
+        <div class="a"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v8a5 5 0 0 0 5 5h9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 11.5 19.5 16 15 20.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="lbl">After</div><h3><span class="nw">予約はCakeBookに、</span><span class="nw">勝手に入る。</span></h3><p>お客様はお店専用の予約ページから、好きな時間に予約。入った予約はそのままCakeBookの予約帳に並ぶので、手を止めて受ける必要はありません。</p></div>
+      </div>
+      <div class="ba">
+        <div class="b"><div class="lbl">Before</div><h3>予約内容が、きちんと伝わっているか心配。</h3><p>お名前や受取日時の聞き間違い、ケーキのイメージの行き違い。「伝えたつもり」が受注ミスにつながることも。</p></div>
+        <div class="a"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v8a5 5 0 0 0 5 5h9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 11.5 19.5 16 15 20.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="lbl">After</div><h3>お客様が選んで、文字で届く。</h3><p>サイズ・飾り・プレートの文字をお客様自身が入力。デザインイメージを見ながら選ぶので、行き違いが減ります。</p></div>
+      </div>
+      <div class="ba">
+        <div class="b"><div class="lbl">Before</div><h3>予約票を並べて、数えて、また数える。</h3><p>受取日順に並べ替え、サイズごとに台数を手で集計。変更が入るたびに書き直しと数え直し。</p></div>
+        <div class="a"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v8a5 5 0 0 0 5 5h9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 11.5 19.5 16 15 20.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="lbl">After</div><h3>製造数は見るだけ。</h3><p>商品・サイズ・果物ごとの台数を自動で集計。変更・キャンセルが入っても、数字はその場で直ります。</p></div>
+      </div>
+      <div class="ba">
+        <div class="b"><div class="lbl">Before</div><h3>「この日まだ受けられる？」が分からない。</h3><p>カレンダーと予約票を見比べて残り枠を確認。うっかり作れる台数を超えて受けてしまうことも。</p></div>
+        <div class="a"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v8a5 5 0 0 0 5 5h9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 11.5 19.5 16 15 20.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="lbl">After</div><h3><span class="nw">上限に達したら、</span><span class="nw">自動で締め切り。</span></h3><p>1日・時間帯ごとの上限を決めておけば、超えた分はネット予約が止まります。</p></div>
+      </div>
+    </div>
+
+    <div class="xmas">
+      <p class="eyebrow">たとえば、クリスマス</p>
+      <h3>クリスマスの予約、こう変わります。</h3>
+      <div class="xmas-cols">
+        <div class="tl before">
+          <h4>これまで</h4>
+          <ol>
+            <li><time>クリスマス前</time><span>ケーキの集計を、目視で<span class="bad">何回もやり直す</span></span></li>
+            <li><time>仕込み中</time><span>仕込みのたびに、何台入っているかを<span class="bad">数え直す</span></span></li>
+            <li><time>クリスマス直前</time><span>「24日まだ空いてますか？」の電話が鳴るたび、<span class="bad">手を洗って出る</span></span></li>
+            <li><time>閉店後</time><span>渡した数と集計が<span class="bad">合わない…</span></span></li>
+          </ol>
+        </div>
+        <div class="tl after">
+          <h4>CakeBookなら</h4>
+          <ol>
+            <li><time>クリスマス前</time><span>ケーキの集計は、見るだけ</span></li>
+            <li><time>仕込み中</time><span>何を何台作るか、目で見てすぐわかる</span></li>
+            <li><time>クリスマス直前</time><span>空いている枠に予約が勝手に入るので、仕込みに集中できる</span></li>
+            <li><time>閉店後</time><span>数え直しはなし</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ③ フロー（お客様目線） -->
+<section id="flow">
+  <span class="sec-label">③ フロー（お客様目線）</span>
+  <div class="wrap">
+    <div class="flow-grid">
+      <div>
+        <p class="eyebrow">お客様も迷わない簡単操作</p>
+        <h2>スマホで選んで、<br>そのまま予約。</h2>
+        <div class="flow-points">
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><div><h3><span class="nw">電話がつながらない時間も、</span><span class="nw">予約を受け付ける。</span></h3><p>仕事の合間や閉店後でも、お客様の都合のよいときに予約できます。<br class="pc">「あとで電話しよう」のまま終わっていた注文を逃しません。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><div><h3><span class="nw">見つけたケーキを、</span><span class="nw">そのまま予約へ。</span></h3><p>Instagramやホームページのリンクから予約ページへ。サイズや飾り、<br class="pc">価格を見ながら選べるので、電話で一から説明する必要がありません。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06 4 20"/><path d="m15 4 1.5 3.5L20 9l-3.5 1.5L15 14l-1.5-3.5L10 9l3.5-1.5Z"/><path d="M5 3v4M3 5h4"/></svg></span><div><h3><span class="nw">選んだ飾りを、</span><span class="nw">その場で見て確かめる。</span> <span class="tag">Standard</span></h3><p>飾りやチョコがけを選ぶと、デザインイメージが切り替わります。<br class="pc">イメージの行き違いを減らし、ホールケーキを選ぶ楽しさにつなげます。</p></div></div>
+        </div>
+      </div>
+      <div class="demo-box" id="demo">
+        <p class="demo-cap">ためしに、ケーキを選んでみてください</p>
+        <div class="demo-phone"><iframe data-demo src="about:blank" title="予約画面のデモ" loading="lazy"></iframe></div>
+        <a class="btn btn-o demo-full" data-demo-link href="/lp/product-demo/" target="_blank" rel="noopener">デモを全画面で開く</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ④ ダッシュボード -->
+<section class="dash" id="dash">
+  <span class="sec-label">④ ダッシュボード説明</span>
+  <div class="wrap">
+    <div class="dash-grid">
+    <div>
+    <p class="eyebrow">お店の管理画面（予約帳）もシンプル操作</p>
+    <h2>電話もネットも、<br>ひとつの予約帳で。</h2>
+    <p class="lead">今日は何をいくつ作る？ 何時に、どのケーキをお渡しする？ 毎日知りたいことが、予約を受けた瞬間から一目でわかります。</p>
+
+    <div class="acc">
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>カレンダー</b><span>日ごとの台数と上限、未確認の予約がひと目で。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p1"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>予約カレンダー</span></div>
+          <div class="mini"><div style="font-weight:700;margin-bottom:6px">2026年12月　<span style="color:var(--sub);font-weight:500">今月の受取：186台</span>　<span class="badge b-new">未確認 7件</span></div>
+          <div class="cal" id="cal"></div></div></div>
+          <p class="cap">数字は「その日に受け取るケーキの台数／1日の上限」。上限に達した日はネット予約が自動で締め切られます。</p></div>
+      </details>
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>まとめて確認</b><span>未確認の予約だけを並べて、ボタンひとつで確認済に。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p2"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>未確認の予約</span></div>
+          <div class="mini"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span>全日の未確認 3件（受取日順）</span><span class="badge b-ok" style="padding:5px 10px">→ 3件をまとめて確認済にする</span></div>
+          <table><tr><td>12/23 10:00</td><td>佐藤（見本）様<br><span style="color:var(--sub)">デコレーションケーキ 5号</span></td><td class="n">¥4,700 <span class="badge b-new">未確認</span></td></tr>
+          <tr><td>12/23 10:30</td><td>鈴木（見本）様<br><span style="color:var(--sub)">チョコレートケーキ 4号</span></td><td class="n">¥3,700 <span class="badge b-new">未確認</span></td></tr>
+          <tr><td>12/24 14:00</td><td>高橋（見本）様<br><span style="color:var(--sub)">クリスマスデコ 6号</span></td><td class="n">¥6,200 <span class="badge b-new">未確認</span></td></tr></table></div></div>
+          <p class="cap">内容を見てから、まとめて確認済に。予約の受取日時や内容の変更も、お店の画面からできます。</p></div>
+      </details>
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>製造数</b><span>商品・サイズ・果物ごとの台数を自動で集計。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p3"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>この日の製造数</span></div>
+          <img src="/lp/shots/admin-production.jpg" alt=""></div>
+          <p class="cap">「15cm：シャインマスカット3・いちじく1」のように、お店が決めた項目ごとの内訳も出せます。</p></div>
+      </details>
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>製造カード</b><span>その日の予約一覧を印刷できます。製造時の補助として使用したり、お渡し前の箱に貼ったり。書き写す手間はいりません。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p4"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>製造カード（印刷）</span></div>
+          <div class="mini"><div class="cards">
+            <div><h5>10:00 No.101 佐藤（見本）様<br>デコレーションケーキ 5号（15cm）</h5>合計 ¥4,700　当日店頭払い<ul><li>フルーツ：シャインマスカット</li><li>飾り方：フルーツ1周</li></ul><span class="pl">プレート：「Happy Birthday」</span></div>
+            <div><h5>10:00 No.102 鈴木（見本）様<br>チョコレートケーキ 4号（12cm）</h5>合計 ¥3,700　当日店頭払い</div>
+            <div><h5>10:30 No.103 高橋（見本）様<br>デコレーションケーキ 6号（18cm）</h5>合計 ¥6,200<ul><li>フルーツ：ナガノパープル</li><li>飾り方：フルーツ盛り</li></ul><span class="memo">お店のメモ：ろうそく大2本・小5本</span></div>
+            <div><h5>11:00 No.104 田中（見本）様<br>フルーツタルト 18cm</h5>合計 ¥5,000<ul><li>フルーツ：いちじく</li></ul><span class="pl">プレート：「おたんじょうびおめでとう」</span></div>
+          </div></div></div>
+          <p class="cap">飾り・プレートの文字・お店のメモまで載ったカードをA4に6件。予約票を書き写す時間はもういりません。</p></div>
+      </details>
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>お渡しリスト</b><span>受取時間順。予約時のデザインイメージ付き。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p5"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>受取時間順の予約</span></div>
+          <img src="/lp/shots/admin-pickup.jpg" alt=""></div>
+          <p class="cap">何時に、どなたに、どのケーキを渡すか。お客様が見ていたデザインイメージも並ぶので、お渡し前の確認も一目で。</p></div>
+      </details>
+      <details class="acc-item" name="dash">
+        <summary><span class="acc-t"><b>電話予約も登録</b><span>店頭・電話で受けた予約も同じ一覧に。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
+        <div class="acc-body" id="p6"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>受取時間順の予約</span></div>
+          <div class="mini"><table>
+          <tr><td>10:00</td><td>佐藤（見本）様　デコレーションケーキ 5号</td><td class="n"><span class="badge b-ok">確認済</span></td></tr>
+          <tr><td>10:00</td><td>鈴木（見本）様　チョコレートケーキ 4号</td><td class="n"><span class="badge b-ok">確認済</span> <span class="badge b-tel">電話</span></td></tr>
+          <tr><td>10:30</td><td>高橋（見本）様　デコレーションケーキ 6号</td><td class="n"><span class="badge b-ok">確認済</span> <span class="badge b-memo">メモ</span></td></tr>
+          <tr><td>11:00</td><td>田中（見本）様　フルーツタルト 18cm</td><td class="n"><span class="badge b-ok">確認済</span></td></tr></table></div></div>
+          <p class="cap">電話や店頭で受けた予約は、スタッフがお客様と同じ画面で登録。満枠の日でも、お店の判断で受けられます。</p></div>
+      </details>
+    </div>
+    </div>
+    <div class="admin-demo" id="admin-demo">
+      <p class="demo-cap admin-demo-cap">ためしに、お店の画面を触ってみてください</p>
+      <div class="win admin-demo-win"><div class="win-bar"><i></i><i></i><i></i><span>予約帳（管理画面）の操作デモ</span></div>
+        <iframe data-admin-demo src="about:blank" title="お店の画面のデモ" loading="lazy"></iframe></div>
+      <a class="btn btn-o admin-demo-btn" data-admin-demo-link href="/lp/admin-demo/" target="_blank" rel="noopener">お店の画面のデモを開く</a>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑤ オプション機能 -->
+<section id="options">
+  <span class="sec-label">⑤ 機能紹介（共通 → Standard）</span>
+  <div class="wrap">
+    <p class="plan-pills"><span class="pp lite">Lite</span><span class="pp std">Standard</span></p>
+    <h2>毎日の予約を楽にする<br>ベース機能</h2>
+    <div class="opt-grid">
+      <div class="oc"><h3>予約ページ</h3><p>お客様がスマホで予約。URLをInstagramやホームページに貼るだけ。</p></div>
+      <div class="oc"><h3>プレート・ろうそく・質問</h3><p>プレートの文字やろうそくの本数も、予約と一緒に。</p></div>
+      <div class="oc"><h3>定休日・締切・上限</h3><p>決めた台数を超えたら、自動で締め切り。</p></div>
+      <div class="oc"><h3>電話・店頭予約の登録</h3><p>ネット予約と同じ一覧で管理。</p></div>
+      <div class="oc"><h3>確認メール</h3><p>予約内容をお客様に自動でお送りします。</p></div>
+      <div class="oc"><h3>お客様自身で変更・キャンセル</h3><p>お店が決めた期限内なら、お客様が自分で手続き。</p></div>
+      <div class="oc"><h3><span class="nw">製造数・製造カード・</span><span class="nw">お渡しリスト</span></h3><p>台数は自動で集計。カードはA4で印刷。</p></div>
+      <div class="oc"><h3>集計・CSV出力</h3><p>製造数や予約の明細をCSVで書き出し。</p></div>
+    </div>
+
+    <div class="std-block">
+      <p class="plan-pills"><span class="pp std">Standard</span></p>
+      <h2>より多くの業務をカバーする<br>アップグレード機能</h2>
+      <p class="lead">細かな注文や、クリスマスなどの季節予約をまとめたいお店向けの機能です。</p>
+      <div class="opt-grid">
+        <div class="oc std"><h3>飾りの選択肢と追加料金</h3><p>選んだ飾りに合わせて、金額を自動で計算。</p></div>
+        <div class="oc std"><h3>質問の出し分け</h3><p>「似顔絵」を選んだ人にだけ写真をお願い、など。</p></div>
+        <div class="oc std"><h3>季節商品・商品別の上限</h3><p>クリスマスなどを期間・台数つきで。期限で自動締切。</p></div>
+        <div class="oc std"><h3>デザインイメージ</h3><p>選んだ飾りがイラストで重なり、仕上がりを想像できる。</p><p class="note" style="margin-top:6px">※ご利用には素材の準備が必要です</p></div>
+        <div class="oc std"><h3>LINE通知</h3><p>予約の確認や受取前日のお知らせをLINEでも。</p></div>
+        <div class="oc std"><h3>商品設定アシスト</h3><p>文章で書くだけで、AIが設定案を作成。</p></div>
+        <div class="oc std"><h3>使い方AIヘルプ</h3><p>わからないことは、管理画面からAIに質問。</p></div>
+        <div class="oc std"><h3>メニュー表作成</h3><p>写真・価格・予約QR付きのメニュー表をA4で。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ⑥ 料金 -->
+<section class="pricing" id="price">
+  <span class="sec-label">⑥ 料金プラン＋比較表</span>
+  <div class="wrap">
+    <div class="center">
+      <p class="price-zero">導入費用は<b>0</b>円</p>
+      <h2>予約が増えても、<br>月額は変わりません。</h2>
+      <p class="lead">CakeBookは従量課金ではなく、定額制です。</p>
+    </div>
+    <div class="zero"><span>初期費用0円</span><span>カード登録なしで14日間お試し</span><span>今のスマホ・パソコンで使える</span></div>
+
+    <div class="plans">
+      <div class="plan">
+        <p class="for">定番ケーキのネット予約から始めたいお店へ</p>
+        <div class="name">Lite</div>
+        <div class="yen">1,980<small>円／月（税込）</small></div>
+        <p class="promo">お試し中のお申し込みで、最初の3か月は月額1,480円</p>
+        <ul><li>ネット予約 月30台まで</li><li>最大30日先まで受付</li><li>写真・サイズ別価格・質問3つまで</li><li>電話・店頭予約もまとめて管理</li><li>製造数・製造カード・お渡しリスト</li></ul>
+        <a class="btn btn-o" href="#">Liteを14日間試す</a>
+      </div>
+      <div class="plan rec">
+        <span class="rib">おすすめ</span>
+        <p class="for">オーダーの細かな注文や、クリスマス予約もまとめたいお店へ</p>
+        <div class="name">Standard</div>
+        <div class="yen">4,980<small>円／月（税込）</small></div>
+        <p class="promo r">何台予約が入っても、月額は同じ</p>
+        <ul><li>ネット予約 台数無制限</li><li>最大90日先まで受付</li><li>飾りの選択肢・質問の出し分け</li><li>季節予約・商品別の上限</li><li>デザインイメージのプレビュー</li><li>LINE通知・AIアシスト・メニュー表</li></ul>
+        <a class="btn btn-p" href="#">Standardを14日間試す</a>
+      </div>
+    </div>
+
+    <div class="terms">
+      <h3 class="center">Standardは、まとめ払いでさらにお得に</h3>
+      <div class="terms-grid">
+        <div class="tm"><p class="tm-n">月払い</p><p class="tm-y">4,980<small>円／月</small></p><p class="tm-s">毎月のお支払い</p></div>
+        <div class="tm"><span class="tm-b">月あたり300円お得</span><p class="tm-n">半年契約・一括払い</p><p class="tm-y">4,680<small>円／月相当</small></p><p class="tm-s">お支払い総額 28,080円／6か月<br>月払い6か月分より1,800円お得</p></div>
+        <div class="tm best"><span class="tm-b">月あたり500円お得</span><p class="tm-n">年間契約・一括払い</p><p class="tm-y">4,480<small>円／月相当</small></p><p class="tm-s">お支払い総額 53,760円／年<br>月払い12か月分より6,000円お得</p></div>
+      </div>
+      <p class="note center">料金はすべて税込。月あたりの金額は、契約期間の総額を月数で割ったものです。半年・年間契約のお申し込みは準備中です。</p>
+    </div>
+
+    <div class="cmp-wrap">
+      <h3 class="cmp-title">プランの機能比較</h3>
+      <table class="cmp">
+        <thead><tr><th class="f">機能</th><th class="l">Lite</th><th class="s">Standard</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="3">受付</td></tr>
+          <tr><td>ネット予約の月間台数</td><td data-l="Lite">30台まで</td><td data-l="Standard" class="s">無制限</td></tr>
+          <tr><td>予約できる受取日</td><td data-l="Lite">最大30日先</td><td data-l="Standard" class="s">最大90日先</td></tr>
+          <tr><td>商品写真・サイズ別価格</td><td data-l="Lite"><span class="ok">○</span></td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>追加の質問</td><td data-l="Lite">1商品3つまで</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>写真の添付・ラジオなど多彩な答え方</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>質問の答えごとの追加料金</td><td data-l="Lite"><span class="ok">○</span></td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>飾りなどの選択肢ごとの追加料金</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>回答に応じた質問の出し分け</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>季節商品の受付期間・受取期間</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>デザインイメージのプレビュー</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr class="grp"><td colspan="3">管理・製造</td></tr>
+          <tr><td>電話・店頭予約の登録</td><td data-l="Lite"><span class="ok">○</span></td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>製造数・製造カード・お渡しリスト</td><td data-l="Lite"><span class="ok">○</span></td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>受取時間帯の上限</td><td data-l="Lite">全商品の合計</td><td data-l="Standard" class="s">時間帯・商品別</td></tr>
+          <tr><td>商品ごとの台数上限</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr class="grp"><td colspan="3">お客様対応・サポート</td></tr>
+          <tr><td>確認メール・期限内の変更／キャンセル</td><td data-l="Lite"><span class="ok">○</span></td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>LINE通知</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>商品設定アシスト・使い方AIヘルプ</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+          <tr><td>メニュー表作成</td><td data-l="Lite" class="no">—</td><td data-l="Standard" class="s"><span class="ok">○</span></td></tr>
+        </tbody>
+      </table>
+      <p class="note">お試し中はお客様からの本予約は受け付けません。有料のお申し込み・決済が完了した日から、課金と本予約の受付が始まります。</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ⑦ 始め方 -->
+<section id="start">
+  <span class="sec-label">⑦ 始め方</span>
+  <div class="wrap">
+    <div class="center">
+      <p class="eyebrow">はじめ方</p>
+      <h2><span class="nw">3ステップで、</span><span class="nw">はじめられます。</span></h2>
+      <p class="lead">一部の商品だけネット予約にして、電話・店頭の受付と並行して始めることもできます。</p>
+    </div>
+    <div class="steps3">
+      <div class="s3"><h3>ケーキを登録</h3><p>写真・サイズ・価格、飾りなどの選択肢を設定。似た商品はコピーで。</p></div>
+      <div class="s3"><h3>受け方を決める</h3><p>定休日・締切・1日の台数上限を、お店のやり方に合わせて。</p></div>
+      <div class="s3"><h3>予約ページを案内</h3><p>InstagramやホームページにURLを貼るだけ。メニュー表のQRも使えます。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑧ 製作者の想い -->
+<section class="story">
+  <span class="sec-label">⑧ 製作者の想い</span>
+  <div class="wrap">
+    <div class="story-art"><img src="/lp/illust/decorationbase.png" alt=""><img src="/lp/illust/nomaldeco.png" alt="oyatsupokkeのいちごのデコレーションケーキのイラスト"></div>
+    <div>
+      <p class="eyebrow">つくった人</p>
+      <blockquote><span class="nw">「こんな予約ページがほしい！」</span><span class="nw">の気持ちを、</span><br><span class="nw">そのまま形にしました。</span></blockquote>
+      <p>CakeBookは、現役の菓子店 oyatsupokke がつくった予約システムです。</p>
+      <p>「こんな予約が受けられたらいいのに」「既存の予約サービスを使ってもカバーしきれない」「ネットで予約〜製造確認まで完結して、無駄な時間を減らしたい…」</p>
+      <p>現場の声や悩みを、そのまま形にしました。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ⑨ よくある質問 -->
+<section class="faq" id="faq">
+  <span class="sec-label">⑨ よくある質問</span>
+  <div class="wrap narrow">
+    <div class="center"><p class="eyebrow">よくある質問</p><h2>よくある質問</h2></div>
+    <details><summary>クリスマスケーキの予約だけ、ネットで受けられますか？</summary><p>はい、Standardで対応しています。クリスマスのケーキだけをネット予約にして、いつものケーキは電話・店頭のままでも構いません。販売期間・受取日・台数上限を決めておけば、その期間だけ予約ページに出て、期限で自動的に締め切ります。設定は、クリスマスの受付を始める2週間前までに済ませておくと安心です。</p></details>
+    <details><summary>LiteとStandardは、どう選べばいいですか？</summary><p>定番ケーキを写真とサイズから予約してもらうならLite、選択肢ごとの追加料金・商品別の台数上限・クリスマスなどの季節予約・デザインイメージのプレビューを使うならStandardです。月に30台を超えるネット予約が見込まれる場合もStandardをお選びください。</p></details>
+    <details><summary>Liteの割引は、いつまで続きますか？</summary><p>通常は月額1,980円（税込）です。14日間のお試し期間中に有料で申し込むと、最初の3か月は月額1,480円（税込）、4か月目以降は月額1,980円（税込）になります。</p></details>
+    <details><summary>Liteで30台に達したら？</summary><p>その受取月のネット予約は満枠として受付を止めます。キャンセルが出ると枠は戻ります。管理画面には残りの台数が表示され、必要なときはStandardへ切り替えられます。</p></details>
+    <details><summary>LiteからStandardに変更できますか？</summary><p>管理画面の「ご契約・お支払い」から切り替えられます。日割りの差額をお支払いいただき、商品・予約・予約ページのURLはそのまま引き継ぎます。Liteの初回割引は切り替え時に終了します。</p></details>
+    <details><summary>14日間のお試しでは、何ができますか？</summary><p>カード登録なしで、商品設定とテスト予約を14日間お試しいただけます。この期間はお客様からの本予約は受け付けません。有料のお申し込み・決済が完了した日から課金と本予約の受付が始まります。契約せずに期間が終わった場合は、設定を残して休止します。自動で課金されることはありません。</p></details>
+    <details><summary>専用の機械は必要ですか？</summary><p>必要ありません。スマートフォンやパソコンのブラウザから使えます。予約内容や製造一覧は印刷もできます。</p></details>
+    <details><summary>パソコンがなくても、設定・操作できますか？</summary><p>はい。スマートフォンから商品や受取ルールの設定、予約の確認ができます。商品をたくさん登録するときは、画面の広いパソコンが便利です。有料の設定代行もご用意しています。</p></details>
+    <details><summary>設定が難しそうで不安です。</summary><p>Standardでは、商品の内容を文章で書くとAIが設定案を作る「商品設定アシスト」と、管理画面から使い方を質問できる「AIヘルプ」が使えます。画面写真つきの使い方マニュアルもあり、有料の設定代行もご用意しています。</p></details>
+    <details><summary>ネット予約への切り替えは大変ではありませんか？</summary><p>すべてを一度に切り替える必要はありません。一部の商品からネット予約を始め、電話・店頭の受付と並行して使えます。</p></details>
+    <details><summary>今のホームページは、そのまま使えますか？</summary><p>はい。今のホームページやInstagramに、予約ページのリンクを載せてご案内ください。</p></details>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <p class="eyebrow" style="color:#ffb3ba">ケーキ屋がつくった、ケーキの予約システム</p>
+    <h2>大切なケーキに、<br>もっと時間を。</h2>
+    <p>初期費用0円・カード登録なしで14日間お試し・一部の商品からでも始められます</p>
+    <div class="cta-row" style="justify-content:center;margin-top:24px">
+      <a class="btn btn-p" href="#">カード登録なしで14日間試す</a>
+      <a class="btn btn-o" href="#demo">登録なしでデモを体験</a>
+    </div>
+    <p style="margin-top:22px;font-size:14px">導入のご相談・ご質問は support@cakebook.jp まで、お気軽にどうぞ。</p>
+  </div>
+</section>
+<footer class="site-foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <img src="/lp/brand/logo-yoko.svg" alt="CakeBook">
+      <p>ケーキの予約受付から、製造数の集計、お渡しまで。<br>ケーキ屋さんのための予約システム。</p>
+    </div>
+    <nav aria-label="サービス"><b>サービス</b><a href="#options">できること</a><a href="https://cakebook.jp/lp/features/">機能の詳細</a><a href="#price">料金</a><a href="#faq">よくある質問</a></nav>
+    <nav aria-label="はじめる"><b>はじめる</b><a href="https://cakebook.jp/signup.html">お申し込み</a><a href="#demo">デモを体験</a><a href="https://cakebook.jp/admin/">ログイン</a><a href="https://cakebook.jp/help/">使い方マニュアル</a></nav>
+    <nav aria-label="運営"><b>運営</b><span>oyatsupokke（愛知県刈谷市）</span><span>お問い合わせ：support@cakebook.jp</span><a href="https://cakebook.jp/terms.html">利用規約</a><a href="https://cakebook.jp/privacy.html">プライバシーポリシー</a><a href="https://cakebook.jp/tokushoho.html">特定商取引法に基づく表記</a></nav>
+  </div>
+  <p class="foot-copy">© CakeBook / oyatsupokke</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -7,3 +7,6 @@
 .actual-demo-banner .demo-type{display:inline-flex;border:1px solid #cab283;border-radius:999px;overflow:hidden;background:#fff}
 .actual-demo-banner .demo-type a{padding:3px 12px;text-decoration:none;color:#694626}
 .actual-demo-banner .demo-type a[aria-current="page"]{background:#694626;color:#fff;font-weight:700}
+
+/* LPに埋め込まれたときは帯を出さない（2026-10-14） */
+.in-lp .actual-demo-banner{display:none!important}

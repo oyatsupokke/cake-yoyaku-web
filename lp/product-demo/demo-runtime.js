@@ -59,6 +59,8 @@ window.addEventListener('DOMContentLoaded',()=>{
 // LPに埋め込まれたとき（2026-10-14）：自動スクロールで外側のLPまで動かさない。
 // scrollIntoView はデモの枠の中だけをスクロールし、focus でもページが飛ばないようにする
 if(window.top!==window.self){
+ // LPの中では上の黄色い帯（説明・切り替え・リンク）を出さない。切り替えはLP側の枠の外に置く
+ document.documentElement.classList.add('in-lp');
  // LPでは毎回まっさらな状態から始める（前回の入力を復元すると、途中の手順までスクロールした状態で開いてしまう）
  try{for(const k of Object.keys(localStorage))if(k.startsWith('cake_form_'))localStorage.removeItem(k);}catch{}
  // 見ている人がデモに触るまでは、自動スクロールしない（開いた直後に中身が動かないように）

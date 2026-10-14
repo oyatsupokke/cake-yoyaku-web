@@ -3,6 +3,14 @@
 (function(){
   var base='';
   document.querySelectorAll('[data-demo]').forEach(function(el){el.src=base+'/lp/product-demo/';});
+  // 写真で選ぶお店／イラストを重ねるお店の切り替え（デモの枠の外）
+  document.querySelectorAll('[data-demo-type]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var t=b.getAttribute('data-demo-type');
+      document.querySelectorAll('[data-demo]').forEach(function(el){el.src=base+'/lp/product-demo/'+(t?'?type='+t:'');});
+      document.querySelectorAll('[data-demo-type]').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+    });
+  });
   document.querySelectorAll('[data-demo-link]').forEach(function(el){el.href=base+'/lp/product-demo/';});
   // スマホ幅では管理画面のデモを埋め込まず（読み込みもしない）、別タブで開くボタンにする
   document.querySelectorAll('[data-admin-demo-link]').forEach(function(el){el.href=base+'/lp/admin-demo/';});

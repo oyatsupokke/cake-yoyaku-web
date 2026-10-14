@@ -348,6 +348,8 @@
 // LPに埋め込まれたとき（2026-10-14）：自動スクロールで外側のLPまで動かさない。
 // scrollIntoView はデモの枠の中だけをスクロールし、focus でもページが飛ばないようにする
 if(window.top!==window.self){
+ // LPの中では上の黄色い帯（説明・切り替え・リンク）を出さない。切り替えはLP側の枠の外に置く
+ document.documentElement.classList.add('in-lp');
  // 見ている人がデモに触るまでは、自動スクロールしない（開いた直後に中身が動かないように）
  let touched=false;for(const ev of ['pointerdown','touchstart','keydown','wheel'])addEventListener(ev,()=>{touched=true;},{capture:true,passive:true});
  Element.prototype.scrollIntoView=function(opt){

@@ -248,6 +248,9 @@ details.calc summary{cursor:pointer;color:var(--red);font-weight:700;font-size:1
 .demo-box{scroll-margin-top:90px;margin-top:40px;display:flex;flex-direction:column;align-items:center;gap:12px}
 .demo-phone{width:340px;height:640px;border:10px solid #2a211e;border-radius:36px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
 .demo-cap{margin:0;font-size:14px;font-weight:700;color:var(--red)}
+.demo-type{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;background:var(--paper);padding:3px;gap:2px}
+.demo-type button{font:inherit;font-size:13px;font-weight:700;border:0;background:transparent;color:var(--sub);padding:6px 14px;border-radius:999px;cursor:pointer}
+.demo-type button[aria-pressed="true"]{background:var(--red);color:#fff}
 .demo-open{font-size:13px;color:var(--sub)}
 .demo-phone iframe{width:100%;height:100%;border:0;display:block}
 .demo-full{display:none}
@@ -474,6 +477,7 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
       </div>
       <div class="demo-box" id="demo">
         <p class="demo-cap">ためしに、ケーキを選んでみてください</p>
+        <div class="demo-type" role="group" aria-label="見本の種類"><button type="button" data-demo-type="" aria-pressed="true">写真で選ぶお店</button><button type="button" data-demo-type="illust" aria-pressed="false">イラストを重ねるお店</button></div>
         <div class="demo-phone"><iframe data-demo src="about:blank" title="予約画面のデモ" loading="lazy"></iframe></div>
       </div>
     </div>

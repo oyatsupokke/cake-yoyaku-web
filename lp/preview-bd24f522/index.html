@@ -489,70 +489,24 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
 <section class="dash" id="dash">
   <span class="sec-label">④ ダッシュボード説明</span>
   <div class="wrap">
-    <div class="dash-grid">
-    <div>
-    <p class="eyebrow">お店の管理画面（予約帳）もシンプル操作</p>
-    <h2>電話もネットも、<br>ひとつの予約帳で。</h2>
-    <p class="lead">今日は何をいくつ作る？ 何時に、どのケーキをお渡しする？ 毎日知りたいことが、予約を受けた瞬間から一目でわかります。</p>
-
-    <div class="acc">
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>カレンダー</b><span>日ごとの台数と上限、未確認の予約がひと目で。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p1"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>予約カレンダー</span></div>
-          <div class="mini"><div style="font-weight:700;margin-bottom:6px">2026年12月　<span style="color:var(--sub);font-weight:500">今月の受取：186台</span>　<span class="badge b-new">未確認 7件</span></div>
-          <div class="cal" id="cal"></div></div></div>
-          <p class="cap">数字は「その日に受け取るケーキの台数／1日の上限」。上限に達した日はネット予約が自動で締め切られます。</p></div>
-      </details>
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>まとめて確認</b><span>未確認の予約だけを並べて、ボタンひとつで確認済に。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p2"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>未確認の予約</span></div>
-          <div class="mini"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span>全日の未確認 3件（受取日順）</span><span class="badge b-ok" style="padding:5px 10px">→ 3件をまとめて確認済にする</span></div>
-          <table><tr><td>12/23 10:00</td><td>佐藤（見本）様<br><span style="color:var(--sub)">デコレーションケーキ 5号</span></td><td class="n">¥4,700 <span class="badge b-new">未確認</span></td></tr>
-          <tr><td>12/23 10:30</td><td>鈴木（見本）様<br><span style="color:var(--sub)">チョコレートケーキ 4号</span></td><td class="n">¥3,700 <span class="badge b-new">未確認</span></td></tr>
-          <tr><td>12/24 14:00</td><td>高橋（見本）様<br><span style="color:var(--sub)">クリスマスデコ 6号</span></td><td class="n">¥6,200 <span class="badge b-new">未確認</span></td></tr></table></div></div>
-          <p class="cap">内容を見てから、まとめて確認済に。予約の受取日時や内容の変更も、お店の画面からできます。</p></div>
-      </details>
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>製造数</b><span>商品・サイズ・果物ごとの台数を自動で集計。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p3"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>この日の製造数</span></div>
-          <img src="/lp/shots/admin-production.jpg" alt=""></div>
-          <p class="cap">「15cm：シャインマスカット3・いちじく1」のように、お店が決めた項目ごとの内訳も出せます。</p></div>
-      </details>
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>製造カード</b><span>その日の予約一覧を印刷できます。製造時の補助として使用したり、お渡し前の箱に貼ったり。書き写す手間はいりません。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p4"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>製造カード（印刷）</span></div>
-          <div class="mini"><div class="cards">
-            <div><h5>10:00 No.101 佐藤（見本）様<br>デコレーションケーキ 5号（15cm）</h5>合計 ¥4,700　当日店頭払い<ul><li>フルーツ：シャインマスカット</li><li>飾り方：フルーツ1周</li></ul><span class="pl">プレート：「Happy Birthday」</span></div>
-            <div><h5>10:00 No.102 鈴木（見本）様<br>チョコレートケーキ 4号（12cm）</h5>合計 ¥3,700　当日店頭払い</div>
-            <div><h5>10:30 No.103 高橋（見本）様<br>デコレーションケーキ 6号（18cm）</h5>合計 ¥6,200<ul><li>フルーツ：ナガノパープル</li><li>飾り方：フルーツ盛り</li></ul><span class="memo">お店のメモ：ろうそく大2本・小5本</span></div>
-            <div><h5>11:00 No.104 田中（見本）様<br>フルーツタルト 18cm</h5>合計 ¥5,000<ul><li>フルーツ：いちじく</li></ul><span class="pl">プレート：「おたんじょうびおめでとう」</span></div>
-          </div></div></div>
-          <p class="cap">飾り・プレートの文字・お店のメモまで載ったカードをA4に6件。予約票を書き写す時間はもういりません。</p></div>
-      </details>
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>お渡しリスト</b><span>受取時間順。予約時のデザインイメージ付き。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p5"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>受取時間順の予約</span></div>
-          <img src="/lp/shots/admin-pickup.jpg" alt=""></div>
-          <p class="cap">何時に、どなたに、どのケーキを渡すか。お客様が見ていたデザインイメージも並ぶので、お渡し前の確認も一目で。</p></div>
-      </details>
-      <details class="acc-item" name="dash">
-        <summary><span class="acc-t"><b>電話予約も登録</b><span>店頭・電話で受けた予約も同じ一覧に。</span></span><span class="acc-i" aria-hidden="true"></span></summary>
-        <div class="acc-body" id="p6"><div class="win"><div class="win-bar"><i></i><i></i><i></i><span>受取時間順の予約</span></div>
-          <div class="mini"><table>
-          <tr><td>10:00</td><td>佐藤（見本）様　デコレーションケーキ 5号</td><td class="n"><span class="badge b-ok">確認済</span></td></tr>
-          <tr><td>10:00</td><td>鈴木（見本）様　チョコレートケーキ 4号</td><td class="n"><span class="badge b-ok">確認済</span> <span class="badge b-tel">電話</span></td></tr>
-          <tr><td>10:30</td><td>高橋（見本）様　デコレーションケーキ 6号</td><td class="n"><span class="badge b-ok">確認済</span> <span class="badge b-memo">メモ</span></td></tr>
-          <tr><td>11:00</td><td>田中（見本）様　フルーツタルト 18cm</td><td class="n"><span class="badge b-ok">確認済</span></td></tr></table></div></div>
-          <p class="cap">電話や店頭で受けた予約は、スタッフがお客様と同じ画面で登録。満枠の日でも、お店の判断で受けられます。</p></div>
-      </details>
-    </div>
-    </div>
-    <div class="admin-demo" id="admin-demo">
-      <p class="demo-cap admin-demo-cap">ためしに、お店の画面を触ってみてください</p>
-      <div class="win admin-demo-win"><div class="win-bar"><i></i><i></i><i></i><span>予約帳（管理画面）の操作デモ</span></div>
-        <iframe data-admin-demo src="about:blank" title="お店の画面のデモ" loading="lazy"></iframe></div>
-      <a class="btn btn-o admin-demo-btn" data-admin-demo-link href="/lp/admin-demo/" target="_blank" rel="noopener">お店の画面のデモを開く</a>
-    </div>
+    <div class="flow-grid">
+      <div>
+        <p class="eyebrow">お店の管理画面（予約帳）もシンプル操作</p>
+        <h2>電話もネットも、<br>ひとつの予約帳で。</h2>
+        <p class="lead" style="margin-bottom:0">今日は何をいくつ作る？ 何時に、どのケーキをお渡しする？ 毎日知りたいことが、予約を受けた瞬間から一目でわかります。</p>
+        <div class="flow-points">
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><div><h3>カレンダー</h3><p>日ごとの台数と上限、まだ確認していない予約がひと目で。上限に達した日は、ネット予約が自動で締め切られます。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><div><h3>まとめて確認</h3><p>未確認の予約だけを並べて、ボタンひとつで確認済に。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><div><h3>製造数</h3><p>商品・サイズ・果物ごとの台数を自動で集計。変更やキャンセルが入っても、その場で直ります。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span><div><h3>製造カード</h3><p>その日の予約一覧を印刷できます。製造時の補助として使用したり、お渡し前の箱に貼ったり。書き写す手間はいりません。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg></span><div><h3>お渡しリスト</h3><p>受取時間順に、予約時のデザインイメージ付きで並びます。</p></div></div>
+          <div class="fp"><span class="fp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/></svg></span><div><h3>電話予約も登録</h3><p>店頭・電話で受けた予約も、同じ一覧で管理できます。</p></div></div>
+        </div>
+      </div>
+      <div class="demo-box" id="admin-demo">
+        <p class="demo-cap">ためしに、お店の画面を触ってみてください</p>
+        <div class="demo-phone"><iframe data-admin-demo src="about:blank" title="お店の画面のデモ" loading="lazy"></iframe></div>
+      </div>
     </div>
   </div>
 </section>
@@ -744,6 +698,6 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
   <p class="foot-copy">© CakeBook / oyatsupokke</p>
 </footer>
 
-<script src="app.js?v=1791962357"></script>
+<script src="app.js?v=1792042044"></script>
 </body>
 </html>

@@ -2146,7 +2146,7 @@ function renderLiteQuestions(p) {
   wrap.appendChild(standard);
   const additional=qs.filter(q=>!q.lite_standard_kind);
   $('btn-g-add').disabled=additional.length>=3;
-  const count=document.createElement('p');count.textContent=`追加質問 ${additional.length}／３つ（無料）`;wrap.appendChild(count);
+  const count=document.createElement('p');count.textContent=`追加質問 ${additional.length}／３つ`;wrap.appendChild(count);
   for(const q of additional){
     const box=document.createElement('div');box.className='q';
     box.innerHTML=`<label class="field">質問文<input class="lite-label" value="${esc(q.label)}"></label>
@@ -2161,8 +2161,10 @@ function renderLiteQuestions(p) {
     const updateVisibility=()=>{choices.hidden=add.hidden=box.querySelector('.lite-type').value!=='select';};
     box.querySelector('.lite-type').addEventListener('change',updateVisibility);updateVisibility();
     for(const c of drafts.overlay('common_question_choices',qChoices(q))){
-      const row=document.createElement('label');row.className='field';row.innerHTML=`選択肢<input value="${esc(c.label)}"><span><input type="checkbox" ${c.is_available?'checked':''}>表示する</span>`;
-      regField('common_question_choices',c.id,'label',row.querySelector('input'));
+      const row=document.createElement('label');row.className='field';row.innerHTML=`選択肢<input class="lite-choice-label" value="${esc(c.label)}"><span class="lite-choice-price">+¥<input type="number" class="c-price" min="0" step="1" inputmode="numeric" aria-label="追加料金（税込・円）" value="${esc(c.price_delta||0)}"></span><span><input type="checkbox" ${c.is_available?'checked':''}>表示する</span>`;
+      regField('common_question_choices',c.id,'label',row.querySelector('.lite-choice-label'));
+      // 2026-10-13：Liteでも答えごとの追加料金を付けられる（空欄・不正値は0円）
+      regField('common_question_choices',c.id,'price_delta',row.querySelector('.c-price'),{get:()=>{const n=Number(row.querySelector('.c-price').value||'0');return Number.isInteger(n)&&n>=0?n:0;}});
       regField('common_question_choices',c.id,'is_available',row.querySelector('[type=checkbox]'));choices.appendChild(row);
     }
     add.onclick=async()=>{try{await api('POST','/rest/v1/common_question_choices',[{tenant_id:state.tenantId,question_id:q.id,label:'新しい選択肢',price_delta:0,display_order:qChoices(q).length}]);await reloadAll();}catch(e){toast(e.message);}};

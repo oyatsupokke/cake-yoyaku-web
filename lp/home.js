@@ -1,4 +1,4 @@
-// 新LP（v3）の確認用ページ。2026-10 まりほ依頼。確認が済んだらこのフォルダごと削除する
+// CakeBook LP の動き（web/lp/index.html・トップ cakebook-home.html 共通）。cakebook.jp のCSPでインラインscriptが止まるため外部ファイル
 // デモの場所：本番（cakebook.jp）は同じサイトの /lp/product-demo/・/lp/admin-demo/。手元のモック（8031番）では main の web/ を配信する8032番のデモを使う
 (function(){
   var base='';

@@ -623,3 +623,9 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .limit-warn > p:first-child { margin: 0 0 4px; font-weight: 700; }
 .limit-warn ul { margin: 0 0 6px; padding-left: 1.2em; }
 .limit-warn li { margin: 4px 0; }
+
+/* 製造数をたたむ（画面だけ。印刷では常に出す） */
+@media screen {
+  .kitchen-folded #kitchen-summary,
+  .kitchen-folded .kitchen-breakdown-setting { display: none; }
+}

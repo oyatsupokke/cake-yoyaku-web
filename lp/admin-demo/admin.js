@@ -363,14 +363,25 @@ $("order-sort").onchange = () => {
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
 const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE");
+// 「期間を指定してまとめる」を使っている間は、下の予約一覧も同じ期間を出す
+// （2026-10-15 まりほ指摘「期間を指定しても明らかに少ない数しか並ばない」＝一覧だけ1日分のままだった）。
+const pickupRange = () => !$("review-filter")?.value && $("kitchen-range-mode").checked && kitchenRange ? kitchenRange : null;
 function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
-  const active = sortForView(state.orders);
+  const range = pickupRange();
+  $("pickup-heading").textContent = (receivedFirst() ? "予約が入った順の予約" : "受取時間順の予約") +
+    (range ? `（受取日 ${range.from} 〜 ${range.to}）` : "");
   renderBulkConfirm();
+  if (!range && !$("review-filter")?.value && $("kitchen-range-mode").checked) {
+    // 期間の読み込み中・読み込めなかったときに、1日分を期間の一覧と取り違えないようにする
+    wrap.innerHTML = '<p class="empty-note">期間の予約を読み込むと、ここに並びます</p>';
+    return;
+  }
+  const active = sortForView(range ? range.orders : state.orders);
   if (!active.length) {
     const filter = $("review-filter")?.value;
-    wrap.innerHTML = `<p class="empty-note">${filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : 'この日の予約はありません'}</p>`;
+    wrap.innerHTML = `<p class="empty-note">${filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : range ? 'この期間の予約はありません' : 'この日の予約はありません'}</p>`;
     return;
   }
   for (const o of active) {
@@ -380,7 +391,7 @@ function renderPickup() {
     card.dataset.orderId = o.id;
     card.innerHTML = `
       <div class="order-head">
-        <span class="order-time">${$("review-filter")?.value ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
+        <span class="order-time">${$("review-filter")?.value || range ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
           receivedFirst() && BookingReport.receivedLabel(o) ? `<span class="order-received">受付 ${esc(BookingReport.receivedLabel(o))}</span>` : ""}</span>
         <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
@@ -841,6 +852,7 @@ async function loadKitchenRange() {
   const generation = ++kitchenGeneration, tenant = state.tenantId;
   const from = $("kitchen-from").value, to = $("kitchen-to").value;
   kitchenRange = null;
+  renderPickup();
   $("btn-print").disabled = true;
   $("kitchen-summary").replaceChildren(); $("kitchen-detail").replaceChildren();
   $("kitchen-heading").textContent = "期間の製造数";
@@ -849,11 +861,11 @@ async function loadKitchenRange() {
   try {
     const orders = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at)&limit=500&offset=${orders.length}`);
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
       orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }
-    kitchenRange = {from, to, orders}; renderKitchen();
+    kitchenRange = {from, to, orders}; renderKitchen(); renderPickup();
     $("btn-print").disabled = false;
   } catch {
     if (generation === kitchenGeneration) $("kitchen-scope").textContent = "読み込めませんでした。「この期間の製造数を見る」で再度お試しください。";
@@ -866,9 +878,16 @@ $("kitchen-range-mode").onchange = () => {
     $("kitchen-from").value ||= state.date;
     $("kitchen-to").value ||= state.date;
     loadKitchenRange();
-  } else { ++kitchenGeneration; kitchenRange = null; $("btn-print").disabled = false; renderKitchen(); }
+  } else { ++kitchenGeneration; kitchenRange = null; $("btn-print").disabled = false; renderKitchen(); renderPickup(); }
 };
 $("kitchen-range-load").onclick = loadKitchenRange;
+// 製造数の表（商品・サイズ別と飾り・選択肢の数）をたたんで、下の予約一覧へすぐ届くようにする（2026-10-15 まりほ要望）。
+// 開くたびの既定は「開いている」。印刷には影響しない（CSSは画面表示のときだけ隠す）。
+$("kitchen-fold").onclick = () => {
+  const folded = $("tab-kitchen").classList.toggle("kitchen-folded");
+  $("kitchen-fold").setAttribute("aria-expanded", String(!folded));
+  $("kitchen-fold").textContent = folded ? "▼ 製造数を開く" : "▲ 製造数をたたむ";
+};
 for (const id of ["kitchen-from", "kitchen-to"]) $(id).onchange = loadKitchenRange;
 
 /* ---------- 厨房ビュー ---------- */

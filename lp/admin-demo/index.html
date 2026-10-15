@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1792047042">
-<link rel="stylesheet" href="admin.css?v=1792047042">
-<link rel="stylesheet" href="admin-layout.css?v=1792047042">
-<link rel="stylesheet" href="support.css?v=1792047042">
-<link rel="stylesheet" href="help-panel.css?v=1792047042">
-<link rel="stylesheet" href="demo-banner.css?v=1792047042">
+<link rel="stylesheet" href="styles.css?v=1792050090">
+<link rel="stylesheet" href="admin.css?v=1792050090">
+<link rel="stylesheet" href="admin-layout.css?v=1792050090">
+<link rel="stylesheet" href="support.css?v=1792050090">
+<link rel="stylesheet" href="help-panel.css?v=1792050090">
+<link rel="stylesheet" href="demo-banner.css?v=1792050090">
 </head>
 <body>
 <div id="app" class="admin">
@@ -110,6 +110,7 @@
           <div><h2 id="kitchen-heading">この日の製造数</h2><p class="small">商品・サイズごとの合計と、飾り・選択肢の数です（キャンセル・追加希望の承諾前を除く）。</p></div>
           <div class="print-actions">
             <button type="button" class="pill" id="btn-print">🖨 製造表を印刷</button>
+            <button type="button" class="pill" id="kitchen-fold" aria-expanded="true" aria-controls="kitchen-summary kitchen-breakdown-setting">▲ 製造数をたたむ</button>
             <label class="card-size-field">製造カード<select id="kitchen-card-size"><option value="six">A4に6件（切り分け用）</option><option value="wide">1件ずつ大きく</option></select></label>
           </div>
         </div>
@@ -121,11 +122,11 @@
               <label class="field">受取日（終了）<input type="date" id="kitchen-to" required></label>
               <button type="button" class="pill" id="kitchen-range-load">この期間の製造数を見る</button>
             </div>
-            <p class="small">開始日・終了日を含む合計です。下の予約一覧は、上で選んだ1日分を表示します。</p>
+            <p class="small">開始日・終了日を含む合計です。下の予約一覧もこの期間の予約を受取日順に表示します。</p>
           </div>
           <p id="kitchen-scope" role="status"></p>
         </div>
-        <div class="kitchen-breakdown-setting no-print">
+        <div class="kitchen-breakdown-setting no-print" id="kitchen-breakdown-setting">
           <span id="kb-current" class="small"></span>
           <button type="button" class="pill" id="kb-toggle" aria-expanded="false" aria-controls="kb-panel">内訳の出し方を変える</button>
           <div id="kb-panel" class="kb-panel hidden">
@@ -568,22 +569,22 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="demo-runtime.js?v=1792047042"></script>
-<script src="tips.js?v=1792047042"></script>
-<script src="edit-drafts.js?v=1792047042"></script>
-<script src="report-core.js?v=1792047042"></script>
-<script src="line-settings.js?v=1792047042"></script>
-<script src="billing-upgrade.js?v=1792047042"></script>
-<script src="order-gallery.js?v=1792047042"></script>
-<script src="option-counts.js?v=1792047042"></script>
-<script src="kitchen-breakdown.js?v=1792047042"></script>
-<script src="limit-check.js?v=1792047042"></script>
-<script src="date-limits.js?v=1792047042"></script>
-<script src="admin.js?v=1792047042"></script>
-<script src="order-calendar.js?v=1792047042"></script>
-<script src="onboarding.js?v=1792047042"></script>
-<script src="reports.js?v=1792047042"></script>
-<script src="support.js?v=1792047042"></script>
-<script src="navigation.js?v=1792047042"></script>
+<script src="demo-runtime.js?v=1792050090"></script>
+<script src="tips.js?v=1792050090"></script>
+<script src="edit-drafts.js?v=1792050090"></script>
+<script src="report-core.js?v=1792050090"></script>
+<script src="line-settings.js?v=1792050090"></script>
+<script src="billing-upgrade.js?v=1792050090"></script>
+<script src="order-gallery.js?v=1792050090"></script>
+<script src="option-counts.js?v=1792050090"></script>
+<script src="kitchen-breakdown.js?v=1792050090"></script>
+<script src="limit-check.js?v=1792050090"></script>
+<script src="date-limits.js?v=1792050090"></script>
+<script src="admin.js?v=1792050090"></script>
+<script src="order-calendar.js?v=1792050090"></script>
+<script src="onboarding.js?v=1792050090"></script>
+<script src="reports.js?v=1792050090"></script>
+<script src="support.js?v=1792050090"></script>
+<script src="navigation.js?v=1792050090"></script>
 </body>
 </html>

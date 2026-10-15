@@ -48,3 +48,5 @@
 
 /* LPに埋め込まれたときは帯を出さない（2026-10-14） */
 .in-lp .admin-demo-banner{display:none!important}
+/* LPの中では横に揺れないようにする（中身がわずかに広いと左右にスクロールできてしまう・2026-10-15） */
+.in-lp,.in-lp body{overflow-x:hidden}

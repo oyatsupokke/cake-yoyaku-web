@@ -254,6 +254,9 @@ details.calc summary{cursor:pointer;color:var(--red);font-weight:700;font-size:1
 .demo-type button[aria-pressed="true"]{background:var(--red);color:#fff}
 .demo-open{font-size:13px;color:var(--sub)}
 .demo-phone iframe{width:100%;height:100%;border:0;display:block}
+/* お店の画面のデモは400px幅で描いて、枠の幅に合わせて縮小する（中身が枠より広く、左右に揺れていたため・2026-10-15） */
+.admin-phone{position:relative}
+.admin-phone iframe{position:absolute;top:0;left:0;width:400px;transform-origin:0 0}
 .demo-full{display:none}
 @media(max-width:760px){.demo-phone{width:calc(100% - 48px);max-width:320px;height:540px;margin:0 auto}.demo-full{display:inline-flex}}
 /* 6. pricing */
@@ -505,7 +508,7 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
       </div>
       <div class="demo-box" id="admin-demo">
         <p class="demo-cap">ためしに、お店の画面を触ってみてください</p>
-        <div class="demo-phone"><iframe data-admin-demo src="about:blank" title="お店の画面のデモ" loading="lazy"></iframe></div>
+        <div class="demo-phone admin-phone"><iframe data-admin-demo src="about:blank" title="お店の画面のデモ" loading="lazy"></iframe></div>
       </div>
     </div>
   </div>
@@ -698,6 +701,6 @@ footer{padding:36px 0;font-size:13px;color:var(--sub);text-align:center}
   <p class="foot-copy">© CakeBook / oyatsupokke</p>
 </footer>
 
-<script src="app.js?v=1792042044"></script>
+<script src="app.js?v=1792043803"></script>
 </body>
 </html>

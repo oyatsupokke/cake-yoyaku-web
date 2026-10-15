@@ -18,4 +18,14 @@
   var wide={matches:true,addEventListener:function(){}};
   function loadAdmin(){ if(!wide.matches) return; document.querySelectorAll('[data-admin-demo]').forEach(function(el){ if(el.src==='about:blank') el.src=base+'/lp/admin-demo/';}); }
   loadAdmin(); wide.addEventListener('change',loadAdmin);
+  // お店の画面のデモ：400px幅で描いた画面を、枠の内側の幅に合わせて縮小する
+  function fitAdmin(){
+    document.querySelectorAll('.admin-phone').forEach(function(box){
+      var f=box.querySelector('iframe'); if(!f) return;
+      var k=box.clientWidth/400;
+      f.style.transform='scale('+k+')';
+      f.style.height=(box.clientHeight/k)+'px';
+    });
+  }
+  fitAdmin(); window.addEventListener('resize',fitAdmin);
 })();

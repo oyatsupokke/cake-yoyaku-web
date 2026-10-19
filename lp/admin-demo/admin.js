@@ -392,7 +392,9 @@ function renderPickup() {
     card.innerHTML = `
       <div class="order-head">
         <span class="order-time">${$("review-filter")?.value || range ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
-          receivedFirst() && BookingReport.receivedLabel(o) ? `<span class="order-received">受付 ${esc(BookingReport.receivedLabel(o))}</span>` : ""}</span>
+          // 受付日時は並び順に関係なくいつも出す（2026-10-20 まりほ「いつ入った予約なのかわからない」）
+          // （旧フォームから移した予約は移した日時になるので出さない）
+          !legacyOrder(o) && BookingReport.receivedLabel(o) ? `<span class="order-received">受付 ${esc(BookingReport.receivedLabel(o))}</span>` : ""}</span>
         <span class="order-name">${esc(o.customer_name)} 様${o.customer_kana ? ` <span class="order-kana">（${esc(o.customer_kana)}）</span>` : ""}
           <span class="order-product">No.${esc(o.order_number)}　${esc(item.product_name_snapshot)} ${esc(item.variant_label_snapshot)}</span>
         </span>

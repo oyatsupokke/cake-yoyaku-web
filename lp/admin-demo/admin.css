@@ -629,3 +629,18 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
   .kitchen-folded #kitchen-summary,
   .kitchen-folded .kitchen-breakdown-setting { display: none; }
 }
+
+/* 見積もりの内訳・質問（2026-10-20） */
+.quote-form .field-label { font-weight: 700; margin: 14px 0 6px; }
+.quote-form .field-label small { display: block; font-weight: 400; color: var(--muted, #8a7a80); font-size: .82rem; margin-top: 2px; }
+.qi-row, .qc-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 36px; gap: 6px; margin-bottom: 6px; }
+.qi-row input, .qc-row input, .qq-text { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border: 1px solid var(--line, #e5dce0); border-radius: 8px; }
+.qi-amount, .qc-amount { text-align: right; }
+.qi-del { border: 1px solid var(--line, #e5dce0); background: #fff; border-radius: 8px; cursor: pointer; font-size: 1rem; color: #a0525f; }
+.quote-form .btn-secondary { width: auto; display: inline-block; padding: 6px 14px; font-size: .88rem; margin: 2px 0 6px; }
+.qi-total { font-weight: 700; font-size: 1.05rem; margin: 6px 0 4px; }
+.qq { border: 1px solid var(--line, #e5dce0); border-radius: 10px; padding: 10px; margin-bottom: 8px; background: #fffdfd; }
+.qq-head { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 6px; }
+.qq-type { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 6px; font-size: .9rem; }
+.qq-type label { display: inline-flex; align-items: center; gap: 4px; }
+.qc-list { margin-left: 8px; }

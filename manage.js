@@ -259,6 +259,7 @@ function renderOrder() {
       p.className = "action-hint"; p.textContent = hint;
       list.appendChild(p);
     }
+    return b;
   };
   if (o.payment?.can_prepay)
     btn(`事前にカードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
@@ -269,27 +270,7 @@ function renderOrder() {
     btn("ご注文内容を変更する", "btn-secondary", `${deadlines.content}受け付けています`, openEditForm);
   if (allowed.cancel)
     btn("このご予約をキャンセルする", "btn-danger", `${deadlines.cancel}受け付けています`, openCancelView);
-  if (o.quote) {
-    const q=o.quote,box=document.createElement('div');box.className='confirm-box quote-box';
-    const h=document.createElement('h3');h.textContent=q.revision>1?'お見積もり（更新）':'お見積もり';box.append(h);
-    if (o.review_state==='quoted') {
-      const lead=document.createElement('p');lead.className='quote-lead';
-      lead.textContent='ご希望のデザインについて、お見積もりをお送りしました。内容と金額をご確認ください。';box.append(lead);
-    }
-    const d=document.createElement('p');d.className='quote-desc';d.textContent=q.description;box.append(d);
-    const sum=document.createElement('p');sum.className='quote-sum';sum.textContent=`ケーキ全体の税込総額：${yen(q.amount)}`;box.append(sum);
-    if (o.review_state==='quoted') {
-      const ex=document.createElement('p');ex.className='quote-exp';ex.textContent=`ご回答期限：${fmtQuoteDeadline(q.expires_at)}まで`;box.append(ex);
-    }
-    list.prepend(box);
-    if (q.can_accept) btn('この内容と金額で予約を確定する','btn-primary','押した時点で、上の内容と金額でご予約が確定します。', async () => {
-      if (!confirm(`${q.description}\n\nケーキ全体の税込総額 ${yen(q.amount)}\nこの内容と金額で予約を確定しますか？`)) return;
-      await quoteAction('fn_accept_order_quote',{p_token:TOKEN,p_quote:q.id});
-    });
-    else if(o.review_state==='quoted' && o.status!=='canceled') {
-      const p=document.createElement('p');p.textContent='回答期限を過ぎています。お店へご連絡ください。';list.appendChild(p);
-    }
-  }
+  if (o.quote) renderQuote(o, list, btn);
   if (['requested','quoted'].includes(o.review_state) && o.status!=='canceled') {
     // 相談したい人が「取り下げ（＝キャンセル）」しか選べないと困るので、取り下げより先に相談の案内を出す（2026-10-19 まりほ指摘）
     if (o.review_state==='quoted') {
@@ -358,6 +339,101 @@ function renderOrder() {
   $("cancel-policy").textContent = t.cancel_policy || "";
   show("view-order");
 }
+/* お見積もり（2026-10-20）：内訳（1行ずつ）・仕上がりの条件・お店からの質問（選ぶ／自由に書く）・ひとこと・了承のチェック。
+ * 金額の付いた選択肢を選ぶと、その場で内訳と合計が変わる。確定はサーバーで回答から計算し直す（画面の数字は使わない）。
+ * 内訳の無い古い見積もりは、これまでどおり対応内容の文を出す。 */
+function renderQuote(o, list, btn) {
+  const q = o.quote, el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const box = el('div', 'confirm-box quote-box');
+  box.append(el('h3', null, q.revision > 1 ? 'お見積もり（更新）' : 'お見積もり'));
+  const asking = o.review_state === 'quoted';
+  let acceptBtn = null;
+  if (asking) box.append(el('p', 'quote-lead', 'ご希望のデザインについて、お見積もりをお送りしました。内容と金額をご確認ください。'));
+  const items = Array.isArray(q.items) ? q.items : null;
+  const questions = Array.isArray(q.questions) ? q.questions : [];
+  const picked = questions.map(() => null);   // 選ぶ質問：選んだ番号
+  const extra = el('div');                    // 金額の付いた回答の行
+  const sum = el('p', 'quote-sum');
+  const topTotal = document.querySelector('#order-detail .confirm-row.total span:last-child');
+  const delta = () => questions.reduce((n, qq, i) => n + (qq.type === 'choice' && picked[i] != null ? (qq.choices[picked[i]].amount || 0) : 0), 0);
+  const total = () => q.amount + (asking ? delta() : 0);
+  const signed = n => (n < 0 ? '−' : '') + yen(Math.abs(n));
+  const refresh = () => {
+    // 金額の付いた回答の行：見積もり中は選んだもの、承諾後は確定した回答
+    const priced = asking
+      ? questions.map((qq, i) => qq.type === 'choice' && picked[i] != null ? { answer: qq.choices[picked[i]].label, amount: qq.choices[picked[i]].amount } : null)
+      : (Array.isArray(q.answers) ? q.answers : []);
+    extra.replaceChildren(...priced.filter(a => a && a.amount).map(a => {
+      const r = el('div', 'quote-line quote-line-answer'); r.append(el('span', null, `${a.answer}（ご回答）`), el('span', null, signed(a.amount))); return r;
+    }));
+    sum.textContent = `ケーキ全体の税込総額：${yen(total())}`;
+    if (topTotal) topTotal.textContent = yen(total());
+    if (acceptBtn) acceptBtn.textContent = `${questions.length ? '回答して、' : ''}${yen(total())}で予約を確定する`;
+  };
+  if (items) {
+    const lines = el('div', 'quote-lines');
+    for (const it of items) { const r = el('div', 'quote-line'); r.append(el('span', null, it.label), el('span', null, signed(it.amount))); lines.append(r); }
+    lines.append(extra);
+    box.append(lines);
+    if ((q.note || '').trim()) { box.append(el('p', 'quote-sub', '仕上がりの条件')); box.append(el('p', 'quote-desc', q.note)); }
+  } else {
+    box.append(el('p', 'quote-desc', q.description));
+  }
+  box.append(sum);
+  if (asking) box.append(el('p', 'quote-exp', `ご回答期限：${fmtQuoteDeadline(q.expires_at)}まで`));
+  // 承諾後：回答・ひとことを表示（内訳の無い古い見積もりは description に入っている）
+  if (!asking && items && Array.isArray(q.answers) && q.answers.length) {
+    box.append(el('p', 'quote-sub', 'ご質問へのご回答'));
+    box.append(el('p', 'quote-desc', q.answers.map(a => `${a.question} → ${a.answer}`).join('\n')));
+  }
+  if (!asking && items && (q.customer_comment || '').trim()) { box.append(el('p', 'quote-sub', 'お店へのひとこと')); box.append(el('p', 'quote-desc', q.customer_comment)); }
+  list.prepend(box);
+
+  if (q.can_accept) {
+    const form = el('div', 'quote-form');
+    const texts = [];
+    if (questions.length) form.append(el('p', 'quote-sub', 'お店からのご質問にお答えください'));
+    questions.forEach((qq, i) => {
+      const f = el('fieldset', 'quote-q'); f.append(el('legend', null, `${i + 1}. ${qq.text}`));
+      if (qq.type === 'choice') {
+        qq.choices.forEach((c, k) => {
+          const lab = el('label', 'quote-choice'); const r = document.createElement('input');
+          r.type = 'radio'; r.name = `qq${i}`; r.value = k;
+          r.onchange = () => { picked[i] = k; f.classList.remove('missing'); refresh(); };
+          lab.append(r, el('span', null, c.label + (c.amount ? `（${c.amount > 0 ? '＋' : ''}${signed(c.amount)}）` : '')));
+          f.append(lab);
+        });
+      } else {
+        const t = document.createElement('textarea'); t.rows = 2; t.maxLength = 500; t.className = 'quote-text';
+        t.oninput = () => f.classList.remove('missing'); texts[i] = t; f.append(t);
+      }
+      form.append(f);
+    });
+    const cm = el('label', 'quote-comment'); cm.append(el('span', null, 'お店へのひとこと（任意）'));
+    const comment = document.createElement('textarea'); comment.rows = 2; comment.maxLength = 1000; cm.append(comment); form.append(cm);
+    const ag = el('label', 'quote-agree'); const agree = document.createElement('input'); agree.type = 'checkbox';
+    ag.append(agree, el('span', null, '上記の内容と金額を了承しました')); form.append(ag);
+    const err = el('p', 'quote-error'); form.append(err);
+    agree.onchange = () => { if (agree.checked) err.textContent = ''; };
+    box.append(form);
+    acceptBtn = btn('', 'btn-primary', '押した時点で、上の内容と金額でご予約が確定します。', async () => {
+      err.textContent = '';
+      const answers = questions.map((qq, i) => qq.type === 'choice' ? picked[i] : (texts[i].value.trim() || null));
+      const miss = answers.findIndex(a => a == null);
+      if (miss >= 0) {
+        const f = form.querySelectorAll('.quote-q')[miss]; f.classList.add('missing');
+        err.textContent = 'すべてのご質問にお答えください。'; f.scrollIntoView({ behavior: 'smooth', block: 'center' }); return;
+      }
+      if (!agree.checked) { err.textContent = '「上記の内容と金額を了承しました」にチェックしてください。'; ag.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      if (!confirm(`ケーキ全体の税込総額 ${yen(total())}\nこの内容と金額で予約を確定しますか？`)) return;
+      await quoteAction('fn_accept_order_quote', { p_token: TOKEN, p_quote: q.id, p_answers: questions.length ? answers : null, p_comment: comment.value.trim() || null, p_agreed: true });
+    });
+  } else if (asking && o.status !== 'canceled') {
+    list.appendChild(el('p', null, '回答期限を過ぎています。お店へご連絡ください。'));
+  }
+  refresh();
+}
+
 // 回答期限：「10月21日（水）22:30」（秒は出さない）
 function fmtQuoteDeadline(iso) {
   const d = new Date(iso);

@@ -272,6 +272,24 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .quote-box .quote-desc { white-space: pre-wrap; }
 .quote-box .quote-sum { font-weight: 700; margin-bottom: 4px; }
 .quote-box .quote-exp { font-size: .9rem; margin: 0; }
+.quote-lines { margin: 4px 0 12px; }
+.quote-line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: .95rem; }
+.quote-line span:last-child { white-space: nowrap; }
+.quote-line-answer { color: var(--primary-deep); }
+.quote-box .quote-sub { font-weight: 700; font-size: .9rem; margin: 14px 0 4px; }
+.quote-form { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 6px; }
+.quote-q { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: #fff; }
+.quote-q legend { font-weight: 700; padding: 0 4px; font-size: .95rem; }
+.quote-q.missing { border-color: #d0455f; background: #fff6f7; }
+.quote-choice { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: .95rem; }
+.quote-choice input { width: 20px; height: 20px; margin: 0; flex: none; }
+.quote-q textarea, .quote-comment textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.quote-comment { display: block; margin: 12px 0 6px; font-size: .9rem; }
+.quote-comment span { display: block; margin-bottom: 4px; }
+.quote-agree { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; font-weight: 700; }
+.quote-agree input { width: 22px; height: 22px; margin: 0; flex: none; }
+.quote-error { color: #d0455f; font-weight: 700; margin: 6px 0 0; min-height: 0; }
+.quote-error:empty { display: none; }
 a.quote-ask { display: block; box-sizing: border-box; width: 100%; text-align: center; text-decoration: none; margin-bottom: 18px; }
 .quote-talk { background: #fbf3ea; border-radius: 12px; padding: 12px 14px; margin: 14px 0 16px; font-size: .9rem; line-height: 1.7; }
 .confirm-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: .92rem; }

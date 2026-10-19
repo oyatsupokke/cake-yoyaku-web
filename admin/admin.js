@@ -774,7 +774,9 @@ function renderQuoteEditor(el,o) {
   const q = o.quote;
   if (q) {
     const detail = document.createElement('p'); detail.style.whiteSpace = 'pre-wrap';
-    detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額）\n${q.description}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
+    // 質問はお客様が答えるまで description に入らないので、ここで並べる（2026-10-20）
+    const qs = Array.isArray(q.questions) && !q.accepted_at ? '\n\nお客様への質問：\n' + q.questions.map((x, i) => `${i + 1}. ${x.text}${x.type === 'choice' ? '（' + x.choices.map(c => c.label + (c.amount ? `${c.amount > 0 ? '＋' : '−'}${yen(Math.abs(c.amount))}` : '')).join('／') + '）' : '（自由に書く）'}`).join('\n') : '';
+    detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額${q.quoted_amount != null && q.quoted_amount !== q.amount ? `・提示 ${yen(q.quoted_amount)}＋ご回答の分` : ''}）\n${q.description}${qs}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
     box.appendChild(detail);
   }
   // SELECTTYPEから移した承認待ち（見積もりの話ではない）。旧側で承認したら、ここで確定にするだけ（2026-09-30）
@@ -798,25 +800,85 @@ function renderQuoteEditor(el,o) {
     return;
   }
   if (reviewPending(o) && o.status !== 'canceled') {
-    const form = document.createElement('form');
-    form.innerHTML = `<p>追加希望を確認し、対応内容と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>
-      <label class="field">対応内容・仕上がりの条件<textarea class="quote-description" rows="4" maxlength="4000" required>${esc(q?.description || '')}</textarea></label>
-      <label class="field">ケーキ全体の税込総額（円）<input class="quote-amount" type="number" min="0" max="1000000" step="1" required value="${esc(q?.amount ?? '')}" placeholder="選択分 ${esc(o.total_amount)}円を含む総額"></label>
+    // 見積もりは内訳（1行ずつ）＋仕上がりの条件＋お客様への質問（選ぶ／自由に書く・選択肢に金額）（2026-10-20 まりほ要望）
+    const form = document.createElement('form'); form.className = 'quote-form';
+    const first = (o.order_items || [])[0];
+    const base = first ? `${first.product_name_snapshot || 'ケーキ'} ${first.variant_label_snapshot || ''}（予約時の選択分）`.replace(/\s+（/, '（') : '予約時の選択分';
+    const items = Array.isArray(q?.items) && q.items.length ? q.items : [{ label: base, amount: o.total_amount }];
+    const questions = Array.isArray(q?.questions) ? q.questions : [];
+    form.innerHTML = `<p>追加希望を確認し、内訳と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>
+      <p class="field-label">お見積もりの内訳（1行ずつ・税込）</p>
+      <div class="qi-rows"></div>
+      <button type="button" class="btn-secondary qi-add">＋ 行を足す</button>
+      <p class="qi-total"></p>
+      <label class="field">仕上がりの条件・補足（任意）<textarea class="quote-description" rows="3" maxlength="2000" placeholder="例：手作りのため、色味や形はイメージと多少異なる場合がございます">${esc(q?.note ?? (Array.isArray(q?.items) ? '' : (q?.description || '')))}</textarea></label>
+      <p class="field-label">お客様への質問（任意）<small>お客様は答えないと確定できません。「選ぶ」の選択肢に金額を入れると、選んだ分が合計に足されます。</small></p>
+      <div class="qq-list"></div>
+      <button type="button" class="btn-secondary qq-add">＋ 質問を足す</button>
       <label class="field">回答期限（この端末の時刻）<input class="quote-expiry" type="datetime-local" required></label>
       <button class="btn-primary" type="submit">${q ? '見積もりを更新してメールで案内' : '見積もりをメールで案内'}</button><p class="quote-error error" role="status"></p>`;
+    const rows = form.querySelector('.qi-rows'), qlist = form.querySelector('.qq-list');
+    const total = () => [...rows.querySelectorAll('.qi-row')].reduce((n, r) => n + (Number(r.querySelector('.qi-amount').value) || 0), 0);
+    const showTotal = () => { form.querySelector('.qi-total').textContent = `ケーキ全体の税込総額：${yen(total())}`; };
+    const addRow = (it = { label: '', amount: '' }) => {
+      const r = document.createElement('div'); r.className = 'qi-row';
+      r.innerHTML = `<input class="qi-label" maxlength="100" placeholder="品名（例：うさぎのマジパン2体）" value="${esc(it.label)}"><input class="qi-amount" type="number" step="1" inputmode="numeric" placeholder="金額" value="${esc(it.amount)}"><button type="button" class="qi-del" aria-label="この行を消す">×</button>`;
+      r.querySelector('.qi-amount').oninput = showTotal;
+      r.querySelector('.qi-del').onclick = () => { r.remove(); showTotal(); };
+      rows.append(r);
+    };
+    const addChoice = (box, c = { label: '', amount: '' }) => {
+      const r = document.createElement('div'); r.className = 'qc-row';
+      r.innerHTML = `<input class="qc-label" maxlength="60" placeholder="選択肢（例：いちご）" value="${esc(c.label)}"><input class="qc-amount" type="number" step="1" inputmode="numeric" placeholder="＋円" value="${esc(c.amount || '')}"><button type="button" class="qi-del" aria-label="この選択肢を消す">×</button>`;
+      r.querySelector('.qi-del').onclick = () => r.remove();
+      box.append(r);
+    };
+    const addQuestion = (x = { text: '', type: 'choice', choices: [] }) => {
+      const d = document.createElement('div'); d.className = 'qq';
+      d.innerHTML = `<div class="qq-head"><input class="qq-text" maxlength="200" placeholder="質問（例：中のフルーツはどれにしますか？）" value="${esc(x.text)}"><button type="button" class="qi-del" aria-label="この質問を消す">×</button></div>
+        <div class="qq-type"><label><input type="radio" name="t${Math.random().toString(36).slice(2)}" value="choice"${x.type !== 'text' ? ' checked' : ''}> 選んでもらう</label><label><input type="radio" value="text"${x.type === 'text' ? ' checked' : ''}> 自由に書いてもらう</label></div>
+        <div class="qc-list"></div><button type="button" class="btn-secondary qc-add">＋ 選択肢を足す</button>`;
+      const radios = d.querySelectorAll('.qq-type input'); radios[1].name = radios[0].name;
+      const cl = d.querySelector('.qc-list'), ca = d.querySelector('.qc-add');
+      const sync = () => { const ch = radios[0].checked; cl.hidden = !ch; ca.hidden = !ch; };
+      radios.forEach(r => r.onchange = sync);
+      (x.choices && x.choices.length ? x.choices : [{ label: '' }, { label: '' }]).forEach(c => addChoice(cl, c));
+      ca.onclick = () => addChoice(cl);
+      d.querySelector('.qq-head .qi-del').onclick = () => d.remove();
+      sync(); qlist.append(d);
+    };
+    items.forEach(addRow); questions.forEach(addQuestion); showTotal();
+    form.querySelector('.qi-add').onclick = () => addRow();
+    form.querySelector('.qq-add').onclick = () => addQuestion();
     form.onsubmit = async e => {
       e.preventDefault(); if (!form.reportValidity()) return;
+      const err = form.querySelector('.quote-error'); err.textContent = '';
+      const its = [...rows.querySelectorAll('.qi-row')].map(r => ({ label: r.querySelector('.qi-label').value.trim(), amount: r.querySelector('.qi-amount').value.trim() }))
+        .filter(it => it.label || it.amount);
+      if (!its.length) { err.textContent = '内訳を1行以上入れてください'; return; }
+      if (its.some(it => !it.label || !/^-?\d+$/.test(it.amount))) { err.textContent = '内訳の品名と金額（整数）を入れてください'; return; }
+      const qs = [];
+      for (const d of qlist.querySelectorAll('.qq')) {
+        const text = d.querySelector('.qq-text').value.trim(), type = d.querySelector('.qq-type input:checked').value;
+        const choices = type === 'choice' ? [...d.querySelectorAll('.qc-row')].map(r => ({ label: r.querySelector('.qc-label').value.trim(), amount: r.querySelector('.qc-amount').value.trim() })).filter(c => c.label || c.amount) : null;
+        if (!text && !(choices || []).length) continue;
+        if (!text) { err.textContent = '質問の文を入れてください'; return; }
+        if (choices && (choices.length < 2 || choices.some(c => !c.label || (c.amount && !/^-?\d+$/.test(c.amount))))) { err.textContent = '「選んでもらう」質問は選択肢を2つ以上・金額は整数で入れてください'; return; }
+        qs.push({ text, type, choices: choices && choices.map(c => ({ label: c.label, amount: Number(c.amount || 0) })) });
+      }
+      const itemsOut = its.map(it => ({ label: it.label, amount: Number(it.amount) }));
+      const amount = itemsOut.reduce((n, it) => n + it.amount, 0);
       const description = form.querySelector('.quote-description').value.trim();
-      const amount = Number(form.querySelector('.quote-amount').value);
       const expiry = new Date(form.querySelector('.quote-expiry').value);
-      if (!confirm(`税込総額 ${yen(amount)}\n回答期限 ${expiry.toLocaleString('ja-JP')}\n\n${description}\n\nこの内容をお客様へメールで案内しますか？`)) return;
-      const button = form.querySelector('button'); button.disabled = true;
+      const preview = itemsOut.map(it => `・${it.label}　${yen(it.amount)}`).join('\n') + (qs.length ? `\n\n質問：\n${qs.map((x, i) => `${i + 1}. ${x.text}`).join('\n')}` : '');
+      if (!confirm(`税込総額 ${yen(amount)}${qs.some(x => (x.choices || []).some(c => c.amount)) ? '（お客様の回答で変わります）' : ''}\n回答期限 ${expiry.toLocaleString('ja-JP')}\n\n${preview}\n\nこの内容をお客様へメールで案内しますか？`)) return;
+      const button = form.querySelector('button[type=submit]'); button.disabled = true;
       try {
-        const r = await api('POST','/rest/v1/rpc/fn_issue_order_quote',{p_order:o.id,p_amount:amount,p_description:description,p_expires_at:expiry.toISOString(),p_expected_quote:o.current_quote_id || null});
+        const r = await api('POST','/rest/v1/rpc/fn_issue_order_quote',{p_order:o.id,p_amount:amount,p_description:description,p_expires_at:expiry.toISOString(),p_expected_quote:o.current_quote_id || null,p_items:itemsOut,p_questions:qs.length ? qs : null});
         if (!r.ok) throw new Error(r.message);
         toast('見積もりを保存し、メール送信を受け付けました');
         await loadOrders();
-      } catch (error) {form.querySelector('.quote-error').textContent=error.message;button.disabled=false;}
+      } catch (error) {err.textContent=error.message;button.disabled=false;}
     };
     box.appendChild(form);
   }

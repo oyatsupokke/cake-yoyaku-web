@@ -268,6 +268,12 @@ label.pick:has(input:checked) { border-color: var(--selbox); background: var(--s
 .confirm-not-done { color: #d0455f; font-weight: bold; text-align: center; line-height: 1.6; background: #fff1f3; border: 1.5px solid #f2b8c4; border-radius: var(--r); padding: 10px 12px; margin: 0 0 16px; }
 .confirm-box { background: var(--boxbg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; margin: 14px 0; }
 .confirm-box h3 { margin: 0 0 8px; font-size: .95rem; color: var(--primary-deep); }
+.quote-box p { margin: 0 0 10px; }
+.quote-box .quote-desc { white-space: pre-wrap; }
+.quote-box .quote-sum { font-weight: 700; margin-bottom: 4px; }
+.quote-box .quote-exp { font-size: .9rem; margin: 0; }
+a.quote-ask { display: block; box-sizing: border-box; width: 100%; text-align: center; text-decoration: none; margin-bottom: 18px; }
+.quote-talk { background: #fbf3ea; border-radius: 12px; padding: 12px 14px; margin: 14px 0 16px; font-size: .9rem; line-height: 1.7; }
 .confirm-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: .92rem; }
 .confirm-row .k { color: var(--mute); flex: 0 1 auto; max-width: 50%; }
 /* 質問文が長いと値の列が1文字幅に潰れて縦書きになっていた（2026-10-03 お客様のスマホで発覚）。

@@ -240,7 +240,9 @@ function renderOrder() {
   }
   row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   row("お名前", `${o.customer.name} 様`);
-  rows.push(`<div class="confirm-row total"><span class="k">${['requested','quoted'].includes(o.review_state) ? '選択分（税込・仮）' : '合計（税込）'}</span><span>${yen(o.total_amount)}</span></div>`);
+  // 見積もりを出したあとは「選択分（仮）」ではなく見積もりの総額を出す（金額が2つ並んで迷わないように・2026-10-19）
+  const quoted = o.review_state === 'quoted' && o.quote;
+  rows.push(`<div class="confirm-row total"><span class="k">${quoted ? 'お見積もりの総額（税込）' : o.review_state === 'requested' ? '選択分（税込・仮）' : '合計（税込）'}</span><span>${yen(quoted ? o.quote.amount : o.total_amount)}</span></div>`);
   rows.push(...paymentRows(o.payment));
   $("order-detail").innerHTML = rows.join("");
   loadOrderImages();
@@ -268,12 +270,20 @@ function renderOrder() {
   if (allowed.cancel)
     btn("このご予約をキャンセルする", "btn-danger", `${deadlines.cancel}受け付けています`, openCancelView);
   if (o.quote) {
-    const q=o.quote,box=document.createElement('div');box.className='confirm-box';
-    box.style.whiteSpace='pre-wrap';
-    box.textContent=`お見積もり ${q.revision}\n\n${q.description}\n\nケーキ全体の税込総額：${yen(q.amount)}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}`;
+    const q=o.quote,box=document.createElement('div');box.className='confirm-box quote-box';
+    const h=document.createElement('h3');h.textContent=q.revision>1?'お見積もり（更新）':'お見積もり';box.append(h);
+    if (o.review_state==='quoted') {
+      const lead=document.createElement('p');lead.className='quote-lead';
+      lead.textContent='ご希望のデザインについて、お見積もりをお送りしました。内容と金額をご確認ください。';box.append(lead);
+    }
+    const d=document.createElement('p');d.className='quote-desc';d.textContent=q.description;box.append(d);
+    const sum=document.createElement('p');sum.className='quote-sum';sum.textContent=`ケーキ全体の税込総額：${yen(q.amount)}`;box.append(sum);
+    if (o.review_state==='quoted') {
+      const ex=document.createElement('p');ex.className='quote-exp';ex.textContent=`ご回答期限：${fmtQuoteDeadline(q.expires_at)}まで`;box.append(ex);
+    }
     list.prepend(box);
-    if (q.can_accept) btn('この内容と金額に同意して予約を確定する','btn-primary','承諾後は、上の対応内容・税込総額で予約が確定します。', async () => {
-      if (!confirm(`${q.description}\n\n税込総額 ${yen(q.amount)}\nこの内容と金額に同意して予約を確定しますか？`)) return;
+    if (q.can_accept) btn('この内容と金額で予約を確定する','btn-primary','押した時点で、上の内容と金額でご予約が確定します。', async () => {
+      if (!confirm(`${q.description}\n\nケーキ全体の税込総額 ${yen(q.amount)}\nこの内容と金額で予約を確定しますか？`)) return;
       await quoteAction('fn_accept_order_quote',{p_token:TOKEN,p_quote:q.id});
     });
     else if(o.review_state==='quoted' && o.status!=='canceled') {
@@ -281,8 +291,25 @@ function renderOrder() {
     }
   }
   if (['requested','quoted'].includes(o.review_state) && o.status!=='canceled') {
-    btn('この依頼を取り下げる','btn-danger','予約確定前のご依頼を取り下げます。',async()=>{
-      if(confirm('この依頼を取り下げますか？')) await quoteAction('fn_decline_custom_order',{p_token:TOKEN});
+    // 相談したい人が「取り下げ（＝キャンセル）」しか選べないと困るので、取り下げより先に相談の案内を出す（2026-10-19 まりほ指摘）
+    if (o.review_state==='quoted') {
+      const mail=state.data.tenant?.contact_email;
+      const talk=document.createElement('p');talk.className='quote-talk';
+      talk.textContent=mail
+        ?'内容や金額を変えたい・ご質問がある場合は、下の「お店に相談する」からメールをお送りください。ご予約は確定前のまま、お店がお見積もりを作り直してお送りします。'
+        :'内容や金額についてご相談がある場合は、お店へご連絡ください。ご予約は確定前のまま、お店がお見積もりを作り直してお送りします。';
+      list.appendChild(talk);
+      if (mail) {
+        // メールアプリが「お店宛て・件名入り」で開く。送ったメールはお店の受信箱に届く
+        const a=document.createElement('a');a.className='btn-secondary quote-ask';a.textContent='お店に相談する（メール）';
+        const subject=`【No.${o.order_number}】お見積もりについてのご相談`;
+        const body=`No.${o.order_number} ${o.customer.name}です。\nお見積もり（${yen(o.quote.amount)}）について相談させてください。\n\n`;
+        a.href=`mailto:${mail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        list.appendChild(a);
+      }
+    }
+    btn('依頼を取り下げる（ご予約をキャンセル）','btn-danger','このご予約そのものがキャンセルになります。',async()=>{
+      if(confirm('このご依頼を取り下げて、ご予約をキャンセルしますか？\n（内容のご相談だけなら、メールにご返信ください）')) await quoteAction('fn_decline_custom_order',{p_token:TOKEN});
     });
   }
 
@@ -310,22 +337,33 @@ function renderOrder() {
     } else if (cutoffMsg) {
       msg = cutoffMsg;
     } else if (o.review_state && o.review_state !== 'none') {
-      msg = o.review_state === 'requested' ? 'お店が追加希望の対応内容と金額を確認しています。予約はまだ確定していません。' : '追加希望のあるご注文の内容・日時の変更は、お店へご連絡ください。';
+      // 相談したい人が「取り下げ（＝キャンセル）」しか選べないと困るので、メールへの返信で相談できると案内する（2026-10-19 まりほ指摘）
+      msg = o.review_state === 'requested' ? 'お店で内容と金額を確認し、お見積もりをメールでお送りします。ご予約はまだ確定していません。ご質問は、受付のメールにそのままご返信ください。'
+        : o.review_state === 'quoted' ? ''   // 見積もり中の相談の案内は、ボタンの間（quote-talk）に出す
+        : '追加希望のあるご注文の内容・日時の変更は、お店へご連絡ください。';
     } else {
       msg = "この画面からのお手続きの受付期限を過ぎています。ご変更・キャンセルをご希望の場合は、お手数ですがお店まで直接ご連絡ください。";
     }
     note.textContent = msg;
-    note.classList.remove("hidden");
+    note.classList.toggle("hidden", !msg);
   } else {
     note.classList.add("hidden");
   }
 
   renderLineArea();
 
-  $("policy-box").classList.toggle("hidden", !t.cancel_policy);
+  // 見積もりの段階（確認待ち・承諾待ち）は予約が確定していないので、キャンセル規定は出さない（2026-10-19 まりほ指摘）。承諾後は出す
+  const reviewing = ["requested", "quoted"].includes(o.review_state) && o.status !== "canceled";
+  $("policy-box").classList.toggle("hidden", !t.cancel_policy || reviewing);
   $("cancel-policy").textContent = t.cancel_policy || "";
   show("view-order");
 }
+// 回答期限：「10月21日（水）22:30」（秒は出さない）
+function fmtQuoteDeadline(iso) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}月${d.getDate()}日（${'日月火水木金土'[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 async function quoteAction(name,args) {
   const buttons=[...$("action-list").querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
   try {const r=await rpc(name,args);if(!r.ok)throw new Error(r.message);kickMailWorker();await load();}

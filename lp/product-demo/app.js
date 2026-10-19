@@ -1190,6 +1190,9 @@ function dogNumberPlan() {
   const largeOpt = [...state.sel.options.keys()].map((id) => findOption(id)?.o).find((o) => o && optName(o) === "ナンバークッキー大");
   const text = largeOpt ? normAnswer(state.sel.answers.get(previewQuestionForOption(largeOpt, "number")?.id)).text : "";
   const groups = numberCookieDigitGroups(text);
+  // ナンバークッキー小だけのときは、犬がいても「いつもの場所」（上面の右）に置く（2026-10-20 まりほ「いつもここじゃない」）。
+  // プレートなし＝犬を左へ寄せて右に数字、プレートあり＝犬はプレートの下・数字はふだんの小の位置（smallUsual）
+  if (hasS && !hasL) return plate ? { ...plan, onTop: false, withPlate: true, smallUsual: true } : { ...plan, onTop: true, withPlate: false };
   // クッキープレートがあるときは、上面の上側をプレートが使うので、犬は真ん中のまま少し下げ・数字は側面へ
   const onTop = !plate && hasL && !hasS && groups.length === 1 && groups[0].length <= 2;
   return { ...plan, onTop, withPlate: plate };
@@ -1333,7 +1336,7 @@ function numberCookieLayouts(product, animalCount) {
 function drawNumberCookieLayers(ctx, entries) {
   if(!entries.length)return;
   const dogPlan=dogNumberPlan();
-  if(dogPlan){drawPlannedNumbers(ctx,entries,dogPlan);return;}
+  if(dogPlan&&!dogPlan.smallUsual){drawPlannedNumbers(ctx,entries,dogPlan);return;}
   const product=state.sel.product?.name;
   const selectedNames=new Set([...state.sel.options.keys()].map(id=>findOption(id)?.o).filter(Boolean).map(optName));
   const animalCount=selectedAnimalToppingCount();
@@ -1472,7 +1475,10 @@ function messagePlateLayout(img, url, mode) {
     :product==='フルーツタルト'&&mode==='number-large'?{cx:400,cy:545,w:370}
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
     :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
-    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}:{cx:155,cy:350,w:215};
+    :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}
+    // ナンバー大＋動物のトッピング：左端は動物とぶつかるので、上面の手前の真ん中へ（2026-10-20 まりほ指定「この辺」）
+    :mode==='number-large'&&selectedAnimalToppingCount()>0?{cx:395,cy:505,w:215}
+    :{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
   return {b,cx:cx+LEGACY_LAYER_OFFSET,cy:cy+LEGACY_LAYER_OFFSET,w,h};
 }
@@ -1607,7 +1613,9 @@ function directMessageLayout(selectedNames, calendarCake, calendarRows) {
   const dogCake=selectedNames.has("わんこホイップ絞り")||selectedNames.has("犬ケーキに変更");
   // 12cmの6段の月は、下の輪にかからないようメッセージを少しカレンダーへ寄せる（2026-10-02）
   if(calendarCake)return { cx:400, cy:calendarRows>5?(state.sel.variant?.size_label==="12cm"?530:550):505, maxWidth:430, size:46, lineHeight:56 };
-  if(fruitSide)return { cx:235, cy:295, maxWidth:320, size:64, lineHeight:88 };
+  // 12cmは上面が小さいので、果物の左の空きに収まる幅に（2026-10-20 まりほ「文字がずれる」＝ケーキの外へはみ出していた）
+  if(fruitSide&&state.sel.variant?.size_label==="12cm")return { cx:245, cy:300, maxWidth:250, size:56, lineHeight:64, maxHeight:300 };
+  if(fruitSide)return { cx:235, cy:295, maxWidth:320, size:64, lineHeight:74, maxHeight:340 };   // 行間は詰める（2026-10-20 まりほ「行間が広い」）
   // 犬の顔に重ねず、見本で示された上側の弧の間へ置く。
   if(dogCake)return { cx:400, cy:210, maxWidth:430, size:48, lineHeight:60 };
   return { cx:400, cy:315, maxWidth:430, size:48, lineHeight:78 };
@@ -1628,14 +1636,21 @@ function drawDirectMessageLayer(ctx, message) {
   ctx.fillStyle = calendarCake ? CALENDAR_BROWN : "#49352F";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `${layout.size}px ${CALENDAR_FONT}, sans-serif`;
-  let lines = wrapDirectMessage(ctx, message.text, layout.maxWidth, 2);
-  // 片側寄せの英語2語は、参考見本どおり上下2段にする。
-  if (fruitSide && lines.length === 1 && message.text.trim().split(/\s+/).length === 2) {
-    lines = message.text.trim().split(/\s+/);
+  // 入力された文は全部描く（以前は2行で切れて、3行目以降や日付が消えていた）。入らないときは文字を小さくして収める
+  const text = String(message.text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join("\n");
+  const maxLines = calendarCake ? 2 : 4;
+  const maxHeight = layout.maxHeight || layout.lineHeight * 2.4;
+  let size = layout.size, lines = [], lineHeight = layout.lineHeight;
+  for (; size >= 26; size -= 2) {
+    ctx.font = `${size}px ${CALENDAR_FONT}, sans-serif`;
+    lines = wrapDirectMessage(ctx, text, layout.maxWidth, maxLines);
+    // 片側寄せの英語2語は、参考見本どおり上下2段にする。
+    if (fruitSide && lines.length === 1 && text.split(/\s+/).length === 2) lines = text.split(/\s+/);
+    lineHeight = layout.lineHeight * size / layout.size;
+    if (lines.length * lineHeight <= maxHeight && lines.every((l) => ctx.measureText(l).width <= layout.maxWidth)) break;
   }
-  const firstY = layout.cy - (lines.length - 1) * layout.lineHeight / 2;
-  lines.forEach((line, i) => ctx.fillText(line, layout.cx, firstY + i * layout.lineHeight, layout.maxWidth));
+  const firstY = layout.cy - (lines.length - 1) * lineHeight / 2;
+  lines.forEach((line, i) => ctx.fillText(line, layout.cx, firstY + i * lineHeight, layout.maxWidth));
   ctx.restore();
 }
 

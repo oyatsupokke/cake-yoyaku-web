@@ -504,6 +504,20 @@ async function ensureOrderPreviewUrl(o) {
   return o._preview_url || null;
 }
 
+/* 別添えにしたトッピング（完成イメージには描かれない）。画像を見て作ると抜けるので目立たせる（2026-10-20 まりほ
+ * 「画像を見て作ってるから、別添えにするが現れると見忘れる」）。ナンバークッキーは数字も添える */
+function detachedSummary(o) {
+  const opt = (o.order_items || []).flatMap((i) => i.order_item_options || []).find((x) => x.option_name_snapshot === "選んだトッピングを別添えにする");
+  const names = String(opt?.option_text || "").split("、").map((x) => x.trim()).filter(Boolean);
+  return names.map((n) => {
+    const m = n.match(/ナンバークッキー(大|小)/);
+    if (!m) return n;
+    const a = (o.order_answers || []).find((x) => (x.label_snapshot || "").includes(`ナンバークッキー${m[1]}`));
+    const v = (a?.answer_text || "").trim();
+    return v ? `${n}（${v}）` : n;
+  }).join("・");
+}
+const detachedNoteHtml = (o) => { const d = detachedSummary(o); return d ? `<p class="detached-note">別添えあり：${esc(d)}<small>（完成イメージには描かれていません）</small></p>` : ""; };
 async function paintOrderPreview(box, o) {
   const url = await ensureOrderPreviewUrl(o);
   if (!url) { box.remove(); return; }
@@ -590,7 +604,7 @@ function fillOrderBody(el, o) {
   }
   const hasImages = (o.order_images || []).length > 0;
   const hasPreview = (o.order_previews || []).length > 0;
-  el.innerHTML = (hasPreview ? `<div class="order-preview">読み込み中…</div>` : "") + rows.join("") +
+  el.innerHTML = detachedNoteHtml(o) + (hasPreview ? `<div class="order-preview">読み込み中…</div>` : "") + rows.join("") +
     (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
@@ -1054,6 +1068,7 @@ function renderKitchen() {
         (o._preview_url ? `<figure><img class="design-img" src="${esc(o._preview_url)}" alt="予約時のデザインイメージ"><figcaption>デザインイメージ</figcaption></figure>` : "") +
         (o._images_signed || []).map((x) => `<figure class="kimage"><img src="${esc(x.url)}" alt="お客様の添付画像"><figcaption>${esc(x.note || "添付画像")}</figcaption></figure>`).join("") +
         `</div>` : ""}
+      ${detachedNoteHtml(o)}
       <ul>${opts}${notes}</ul>
       ${o.review_state === 'accepted' && o.quote ? `<p style="white-space:pre-wrap"><strong>合意した追加希望：</strong>${esc(o.quote.description)}</p>` : ""}
       ${plate?.answer_text ? `<span class="plate">プレート：「${esc(plate.answer_text)}」</span>` : ""}

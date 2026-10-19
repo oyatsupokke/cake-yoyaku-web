@@ -647,3 +647,9 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 
 .status-badge.st-change { background: #fdf0dc; color: #8a5a00; }
 .quote-change-note { white-space: pre-wrap; background: #fdf0dc; color: #6b4600; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: .92rem; line-height: 1.7; }
+
+/* 別添えあり（完成イメージに描かれないもの・2026-10-20） */
+.detached-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: #fff1e0; border: 2px solid #f0a64a; color: #7a4300; font-weight: 700; line-height: 1.6; }
+.detached-note small { display: block; font-weight: 400; font-size: .82rem; }
+.kcard .detached-note { padding: 6px 8px; margin: 6px 0; font-size: .95rem; }
+@media print { .detached-note { border: 2px solid #000; background: none; color: #000; } }

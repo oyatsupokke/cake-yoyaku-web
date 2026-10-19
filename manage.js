@@ -272,27 +272,14 @@ function renderOrder() {
     btn("このご予約をキャンセルする", "btn-danger", `${deadlines.cancel}受け付けています`, openCancelView);
   if (o.quote) renderQuote(o, list, btn);
   if (['requested','quoted'].includes(o.review_state) && o.status!=='canceled') {
-    // 相談したい人が「取り下げ（＝キャンセル）」しか選べないと困るので、取り下げより先に相談の案内を出す（2026-10-19 まりほ指摘）
-    if (o.review_state==='quoted') {
-      const mail=state.data.tenant?.contact_email;
-      const talk=document.createElement('p');talk.className='quote-talk';
-      talk.textContent=mail
-        ?'内容や金額を変えたい・ご質問がある場合は、下の「お店に相談する」からメールをお送りください。ご予約は確定前のまま、お店がお見積もりを作り直してお送りします。'
-        :'内容や金額についてご相談がある場合は、お店へご連絡ください。ご予約は確定前のまま、お店がお見積もりを作り直してお送りします。';
-      list.appendChild(talk);
-      if (mail) {
-        // メールアプリが「お店宛て・件名入り」で開く。送ったメールはお店の受信箱に届く
-        const a=document.createElement('a');a.className='btn-secondary quote-ask';a.textContent='お店に相談する（メール）';
-        const subject=`【No.${o.order_number}】お見積もりについてのご相談`;
-        const body=`No.${o.order_number} ${o.customer.name}です。\nお見積もり（${yen(o.quote.amount)}）について相談させてください。\n\n`;
-        a.href=`mailto:${mail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        list.appendChild(a);
-      }
-    }
+    // 自由なメッセージ欄は作らず、決まった選択肢でやり取りする（2026-10-20 まりほ「ある程度機械的な感じは残したい」）：
+    // 確定する（上）／修正をお願いする（直してほしいところを選ぶ＋ひとこと）／取り下げる
+    if (o.review_state==='quoted' && o.quote) renderChangeRequest(o, list);
     btn('依頼を取り下げる（ご予約をキャンセル）','btn-danger','このご予約そのものがキャンセルになります。',async()=>{
-      if(confirm('このご依頼を取り下げて、ご予約をキャンセルしますか？\n（内容のご相談だけなら、メールにご返信ください）')) await quoteAction('fn_decline_custom_order',{p_token:TOKEN});
+      if(confirm('このご依頼を取り下げて、ご予約をキャンセルしますか？\n（内容を直したいだけなら「修正をお願いする」から）')) await quoteAction('fn_decline_custom_order',{p_token:TOKEN});
     });
   }
+  if (o.quote && Array.isArray(o.quote.history) && o.quote.history.length) renderQuoteHistory(o.quote.history, list);
 
   // 選択肢ごとの期限（例：写真付きのデザインは7日前まで）を過ぎた時の案内
   const oc = o.option_cutoff;
@@ -348,7 +335,8 @@ function renderQuote(o, list, btn) {
   box.append(el('h3', null, q.revision > 1 ? 'お見積もり（更新）' : 'お見積もり'));
   const asking = o.review_state === 'quoted';
   let acceptBtn = null;
-  if (asking) box.append(el('p', 'quote-lead', 'ご希望のデザインについて、お見積もりをお送りしました。内容と金額をご確認ください。'));
+  if (asking) box.append(el('p', 'quote-lead', q.revision > 1 ? 'お見積もりを作り直してお送りしました。内容と金額をご確認ください。' : 'ご希望のデザインについて、お見積もりをお送りしました。内容と金額をご確認ください。'));
+  if ((q.shop_message || '').trim()) { box.append(el('p', 'quote-sub', 'お店からのひとこと')); box.append(el('p', 'quote-desc quote-shopmsg', q.shop_message)); }
   const items = Array.isArray(q.items) ? q.items : null;
   const questions = Array.isArray(q.questions) ? q.questions : [];
   const picked = questions.map(() => null);   // 選ぶ質問：選んだ番号
@@ -389,7 +377,7 @@ function renderQuote(o, list, btn) {
   if (!asking && items && (q.customer_comment || '').trim()) { box.append(el('p', 'quote-sub', 'お店へのひとこと')); box.append(el('p', 'quote-desc', q.customer_comment)); }
   list.prepend(box);
 
-  if (q.can_accept) {
+  if (q.can_accept) {   // 修正をお願い中の見積もりは can_accept=false（サーバーで判定）
     const form = el('div', 'quote-form');
     const texts = [];
     if (questions.length) form.append(el('p', 'quote-sub', 'お店からのご質問にお答えください'));
@@ -428,10 +416,65 @@ function renderQuote(o, list, btn) {
       if (!confirm(`ケーキ全体の税込総額 ${yen(total())}\nこの内容と金額で予約を確定しますか？`)) return;
       await quoteAction('fn_accept_order_quote', { p_token: TOKEN, p_quote: q.id, p_answers: questions.length ? answers : null, p_comment: comment.value.trim() || null, p_agreed: true });
     });
-  } else if (asking && o.status !== 'canceled') {
+  } else if (asking && o.status !== 'canceled' && !q.change_requested) {
     list.appendChild(el('p', null, '回答期限を過ぎています。お店へご連絡ください。'));
   }
   refresh();
+}
+
+const CHANGE_REASONS = ['デザインの内容', '金額', '受取日時', 'その他'];
+/* 「修正をお願いする」：押すと、直してほしいところ（複数選択）とひとことの欄が開く。送るとお店にメールが届き、
+ * お店が見積もりを作り直すまで、この見積もりは確定できない（2026-10-20）。 */
+function renderChangeRequest(o, list) {
+  const q = o.quote, el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  if (q.change_requested) {
+    list.appendChild(el('p', 'quote-talk', '修正をお願いしました。お店からの新しいお見積もりをお待ちください（届いたらメールでお知らせします）。'));
+    return;
+  }
+  const open = el('button', 'btn-secondary quote-change-open', '修正をお願いする');
+  open.type = 'button';
+  const box = el('div', 'quote-change hidden');
+  box.append(el('p', 'quote-sub', '直してほしいところ（いくつでも）'));
+  const checks = CHANGE_REASONS.map(r => {
+    const lab = el('label', 'quote-choice'); const c = document.createElement('input'); c.type = 'checkbox'; c.value = r;
+    lab.append(c, el('span', null, r)); box.append(lab); return c;
+  });
+  const cm = el('label', 'quote-comment'); cm.append(el('span', null, 'ひとこと（任意）'));
+  const comment = document.createElement('textarea'); comment.rows = 3; comment.maxLength = 1000;
+  comment.placeholder = '例：ハイビスカスは1輪にしてほしい／予算を1万円くらいにしたい';
+  cm.append(comment); box.append(cm);
+  const err = el('p', 'quote-error'); box.append(err);
+  const send = el('button', 'btn-primary', 'お店に修正をお願いする'); send.type = 'button'; box.append(send);
+  box.append(el('p', 'action-hint', 'お店がお見積もりを作り直してお送りします。ご予約は確定前のままです。'));
+  open.onclick = () => { box.classList.remove('hidden'); open.classList.add('hidden'); };
+  send.onclick = async () => {
+    const reasons = checks.filter(c => c.checked).map(c => c.value);
+    if (!reasons.length) { err.textContent = '直してほしいところを選んでください。'; return; }
+    err.textContent = '';
+    await quoteAction('fn_request_quote_change', { p_token: TOKEN, p_quote: q.id, p_reasons: reasons, p_comment: comment.value.trim() || null });
+  };
+  list.append(open, box);
+}
+
+/* やり取りの履歴（見積もり・修正のお願い・確定・取り下げを時間順に） */
+function renderQuoteHistory(history, list) {
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const box = el('div', 'confirm-box quote-history');
+  box.append(el('h3', null, 'やり取りの履歴'));
+  const ol = el('ol');
+  for (const h of history) {
+    const li = el('li', 'qh-' + h.kind);
+    const when = h.at ? fmtQuoteDeadline(h.at) : '';
+    const title = h.kind === 'quote' ? `お店からお見積もり（${h.revision}回目）${h.amount != null ? yen(h.amount) : ''}`
+      : h.kind === 'change' ? `修正のお願い：${(h.reasons || []).join('・')}`
+      : h.kind === 'accept' ? `確定（${yen(h.amount)}）` : '取り下げ';
+    li.append(el('span', 'qh-when', when), el('span', 'qh-title', title));
+    const note = h.kind === 'quote' ? h.message : h.kind === 'change' ? h.comment : null;
+    if (note) li.append(el('span', 'qh-note', `「${note}」`));
+    ol.append(li);
+  }
+  box.append(ol);
+  list.appendChild(box);
 }
 
 // 回答期限：「10月21日（水）22:30」（秒は出さない）

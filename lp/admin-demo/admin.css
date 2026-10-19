@@ -644,3 +644,6 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .qq-type { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 6px; font-size: .9rem; }
 .qq-type label { display: inline-flex; align-items: center; gap: 4px; }
 .qc-list { margin-left: 8px; }
+
+.status-badge.st-change { background: #fdf0dc; color: #8a5a00; }
+.quote-change-note { white-space: pre-wrap; background: #fdf0dc; color: #6b4600; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: .92rem; line-height: 1.7; }

@@ -267,7 +267,7 @@ async function loadOrders() {
     (filter === "new" ? `&status=eq.new&review_state=eq.none`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
-    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
@@ -400,6 +400,7 @@ function renderPickup() {
         <span class="order-total">${yen(o.quote?.amount ?? o.total_amount)}${reviewPending(o) ? "（未確定）" : ""}</span>
         <span class="status-badge st-${o.status}">${STATUS[o.status]}</span>
         ${REVIEW[o.review_state] ? `<span class="status-badge st-image">${REVIEW[o.review_state]}${o.review_state==='quoted' && new Date(o.quote?.expires_at)<=new Date() ? '・回答期限切れ' : ''}</span>` : ""}
+        ${pendingChange(o) ? `<span class="status-badge st-change">修正のお願いあり</span>` : ""}
         ${legacyOrder(o) ? `<span class="status-badge st-legacy" title="旧予約フォーム（SELECTTYPE）で受けたご予約">旧フォーム</span>`
           : o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${prepayBadge(o)}
@@ -770,9 +771,20 @@ function renderRefundBox(el, o) {
     await loadOrders();
   });
 }
+/* お客様からの「修正のお願い」のうち、今の見積もりに対するもの（お店が作り直すまで残る・2026-10-20） */
+function pendingChange(o) {
+  if (o.review_state !== 'quoted' || !o.current_quote_id) return null;
+  return (o.change_requests || []).find(r => r.quote_id === o.current_quote_id) || null;
+}
 function renderQuoteEditor(el,o) {
   const box = document.createElement('div'); box.className = 'confirm-box quote-editor';
   const q = o.quote;
+  const ch = pendingChange(o);
+  if (ch) {
+    const p = document.createElement('div'); p.className = 'quote-change-note';
+    p.textContent = `お客様から修正のお願い（${new Date(ch.created_at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}）\n直してほしいところ：${(ch.reasons || []).join('・')}${ch.comment ? `\nひとこと：「${ch.comment}」` : ''}\n下のお見積もりを直して、もう一度送ってください。`;
+    box.appendChild(p);
+  }
   if (q) {
     const detail = document.createElement('p'); detail.style.whiteSpace = 'pre-wrap';
     // 質問はお客様が答えるまで description に入らないので、ここで並べる（2026-10-20）
@@ -812,6 +824,7 @@ function renderQuoteEditor(el,o) {
       <div class="qi-rows"></div>
       <button type="button" class="btn-secondary qi-add">＋ 行を足す</button>
       <p class="qi-total"></p>
+      <label class="field">お客様へのひとこと（任意）<textarea class="quote-shopmsg" rows="2" maxlength="1000" placeholder="例：ハイビスカスを1輪にして調整しました">${esc(q?.shop_message || '')}</textarea></label>
       <label class="field">仕上がりの条件・補足（任意）<textarea class="quote-description" rows="3" maxlength="2000" placeholder="例：手作りのため、色味や形はイメージと多少異なる場合がございます">${esc(q?.note ?? (Array.isArray(q?.items) ? '' : (q?.description || '')))}</textarea></label>
       <p class="field-label">お客様への質問（任意）<small>お客様は答えないと確定できません。「選ぶ」の選択肢に金額を入れると、選んだ分が合計に足されます。</small></p>
       <div class="qq-list"></div>
@@ -875,7 +888,7 @@ function renderQuoteEditor(el,o) {
       if (!confirm(`税込総額 ${yen(amount)}${qs.some(x => (x.choices || []).some(c => c.amount)) ? '（お客様の回答で変わります）' : ''}\n回答期限 ${expiry.toLocaleString('ja-JP')}\n\n${preview}\n\nこの内容をお客様へメールで案内しますか？`)) return;
       const button = form.querySelector('button[type=submit]'); button.disabled = true;
       try {
-        const r = await api('POST','/rest/v1/rpc/fn_issue_order_quote',{p_order:o.id,p_amount:amount,p_description:description,p_expires_at:expiry.toISOString(),p_expected_quote:o.current_quote_id || null,p_items:itemsOut,p_questions:qs.length ? qs : null});
+        const r = await api('POST','/rest/v1/rpc/fn_issue_order_quote',{p_order:o.id,p_amount:amount,p_description:description,p_expires_at:expiry.toISOString(),p_expected_quote:o.current_quote_id || null,p_items:itemsOut,p_questions:qs.length ? qs : null,p_shop_message:form.querySelector('.quote-shopmsg').value.trim() || null});
         if (!r.ok) throw new Error(r.message);
         toast('見積もりを保存し、メール送信を受け付けました');
         await loadOrders();
@@ -923,7 +936,7 @@ async function loadKitchenRange() {
   try {
     const orders = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
       orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }

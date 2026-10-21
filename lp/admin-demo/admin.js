@@ -267,7 +267,7 @@ async function loadOrders() {
     (filter === "new" ? `&status=eq.new&review_state=eq.none`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
-    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
@@ -798,13 +798,13 @@ function renderQuoteEditor(el,o) {
   const ch = pendingChange(o);
   if (ch) {
     const p = document.createElement('div'); p.className = 'quote-change-note';
-    p.textContent = `お客様から修正のお願い（${new Date(ch.created_at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}）\n直してほしいところ：${(ch.reasons || []).join('・')}${ch.comment ? `\nひとこと：「${ch.comment}」` : ''}\n下のお見積もりを直して、もう一度送ってください。`;
+    p.textContent = `お客様から修正のお願い（${new Date(ch.created_at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}）\n直してほしいところ：${(ch.reasons || []).join('・')}${ch.comment ? `\nひとこと：「${ch.comment}」` : ''}${(ch.images || []).length ? `\n写真：${ch.images.length}枚（下の「添付画像」）` : ''}\n下のお見積もりを直して、もう一度送ってください。`;
     box.appendChild(p);
   }
   if (q) {
     const detail = document.createElement('p'); detail.style.whiteSpace = 'pre-wrap';
     // 質問はお客様が答えるまで description に入らないので、ここで並べる（2026-10-20）
-    const qs = Array.isArray(q.questions) && !q.accepted_at ? '\n\nお客様への質問：\n' + q.questions.map((x, i) => `${i + 1}. ${x.text}${x.type === 'choice' ? '（' + x.choices.map(c => c.label + (c.amount ? `${c.amount > 0 ? '＋' : '−'}${yen(Math.abs(c.amount))}` : '')).join('／') + '）' : '（自由に書く）'}`).join('\n') : '';
+    const qs = Array.isArray(q.questions) && !q.accepted_at ? '\n\nお客様への質問：\n' + q.questions.map((x, i) => `${i + 1}. ${x.text}${['choice', 'multi'].includes(x.type) ? '（' + (x.type === 'multi' ? 'いくつでも：' : '') + x.choices.map(c => c.label + (c.amount ? `${c.amount > 0 ? '＋' : '−'}${yen(Math.abs(c.amount))}` : '')).join('／') + '）' : x.type === 'image' ? '（写真で回答）' : '（自由に書く）'}${x.image_url ? '［見本画像あり］' : ''}`).join('\n') : '';
     detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額${q.quoted_amount != null && q.quoted_amount !== q.amount ? `・提示 ${yen(q.quoted_amount)}＋ご回答の分` : ''}）\n${q.description}${qs}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
     box.appendChild(detail);
   }
@@ -852,28 +852,65 @@ function renderQuoteEditor(el,o) {
     const showTotal = () => { form.querySelector('.qi-total').textContent = `ケーキ全体の税込総額：${yen(total())}`; };
     const addRow = (it = { label: '', amount: '' }) => {
       const r = document.createElement('div'); r.className = 'qi-row';
-      r.innerHTML = `<input class="qi-label" maxlength="100" placeholder="品名（例：うさぎのマジパン2体）" value="${esc(it.label)}"><input class="qi-amount" type="number" step="1" inputmode="numeric" placeholder="金額" value="${esc(it.amount)}"><button type="button" class="qi-del" aria-label="この行を消す">×</button>`;
+      r.innerHTML = `<input class="qi-label" maxlength="100" placeholder="品名（例：うさぎのマジパン2体）" value="${esc(it.label)}"><input class="qi-amount" type="number" step="1" inputmode="numeric" placeholder="金額（なしも可）" value="${esc(it.amount ?? '')}"><button type="button" class="qi-del" aria-label="この行を消す">×</button>`;
       r.querySelector('.qi-amount').oninput = showTotal;
       r.querySelector('.qi-del').onclick = () => { r.remove(); showTotal(); };
       rows.append(r);
     };
+    // 選択肢の金額は必要なときだけ（「選択肢に金額を付ける」で出す）（2026-10-22 まりほ「金額の選択肢しか作れないのちょい困る」）
     const addChoice = (box, c = { label: '', amount: '' }) => {
       const r = document.createElement('div'); r.className = 'qc-row';
       r.innerHTML = `<input class="qc-label" maxlength="60" placeholder="選択肢（例：いちご）" value="${esc(c.label)}"><input class="qc-amount" type="number" step="1" inputmode="numeric" placeholder="＋円" value="${esc(c.amount || '')}"><button type="button" class="qi-del" aria-label="この選択肢を消す">×</button>`;
       r.querySelector('.qi-del').onclick = () => r.remove();
       box.append(r);
     };
+    const QTYPES = [['choice', '1つ選んでもらう'], ['multi', 'いくつでも選んでもらう'], ['text', '自由に書いてもらう'], ['image', '写真を送ってもらう']];
     const addQuestion = (x = { text: '', type: 'choice', choices: [] }) => {
       const d = document.createElement('div'); d.className = 'qq';
+      const priced = (x.choices || []).some(c => c.amount);
       d.innerHTML = `<div class="qq-head"><input class="qq-text" maxlength="200" placeholder="質問（例：中のフルーツはどれにしますか？）" value="${esc(x.text)}"><button type="button" class="qi-del" aria-label="この質問を消す">×</button></div>
-        <div class="qq-type"><label><input type="radio" name="t${Math.random().toString(36).slice(2)}" value="choice"${x.type !== 'text' ? ' checked' : ''}> 選んでもらう</label><label><input type="radio" value="text"${x.type === 'text' ? ' checked' : ''}> 自由に書いてもらう</label></div>
-        <div class="qc-list"></div><button type="button" class="btn-secondary qc-add">＋ 選択肢を足す</button>`;
-      const radios = d.querySelectorAll('.qq-type input'); radios[1].name = radios[0].name;
-      const cl = d.querySelector('.qc-list'), ca = d.querySelector('.qc-add');
-      const sync = () => { const ch = radios[0].checked; cl.hidden = !ch; ca.hidden = !ch; };
-      radios.forEach(r => r.onchange = sync);
+        <div class="qq-type"><select class="qq-kind">${QTYPES.map(([v, l]) => `<option value="${v}"${(x.type || 'choice') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+          <button type="button" class="btn-secondary qq-img-add">🖼 見本の画像を付ける</button></div>
+        <div class="qq-img"></div>
+        <div class="qq-choices"><div class="qq-tools"><button type="button" class="btn-secondary qq-yesno">はい／いいえを入れる</button>
+          <label class="qq-price"><input type="checkbox" class="qq-price-on"${priced ? ' checked' : ''}> 選択肢に金額を付ける</label></div>
+          <div class="qc-list"></div><button type="button" class="btn-secondary qc-add">＋ 選択肢を足す</button></div>
+        <input type="file" accept="image/*" class="qq-img-file" hidden>`;
+      const kind = d.querySelector('.qq-kind'), cl = d.querySelector('.qc-list'), chBox = d.querySelector('.qq-choices');
+      const priceOn = d.querySelector('.qq-price-on');
+      const sync = () => { chBox.hidden = !['choice', 'multi'].includes(kind.value); d.classList.toggle('no-price', !priceOn.checked); };
+      kind.onchange = sync; priceOn.onchange = sync;
       (x.choices && x.choices.length ? x.choices : [{ label: '' }, { label: '' }]).forEach(c => addChoice(cl, c));
-      ca.onclick = () => addChoice(cl);
+      d.querySelector('.qc-add').onclick = () => addChoice(cl);
+      d.querySelector('.qq-yesno').onclick = () => { cl.replaceChildren(); addChoice(cl, { label: 'はい' }); addChoice(cl, { label: 'いいえ' }); };
+      // 見本の画像：公開バケット shop-images の <店>/quote/ に置き、URLを質問に持たせる
+      const imgBox = d.querySelector('.qq-img'), file = d.querySelector('.qq-img-file');
+      const showImg = (url) => {
+        d.dataset.imageUrl = url || '';
+        imgBox.innerHTML = url ? `<img src="${esc(url)}" alt="見本の画像"><button type="button" class="qi-del" aria-label="画像を外す">×</button>` : '';
+        if (url) imgBox.querySelector('.qi-del').onclick = () => showImg('');
+      };
+      showImg(x.image_url || '');
+      d.querySelector('.qq-img-add').onclick = () => file.click();
+      file.onchange = async () => {
+        const picked = file.files[0]; file.value = '';
+        if (!picked) return;
+        try {
+          const f = window.ImageCrop ? await ImageCrop.open(picked, { allowOriginal: true, maxSide: 1600, title: '見本の画像の使う範囲を決める' }) : picked;
+          if (!f) return;
+          const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[f.type];
+          if (!ext) throw new Error('PNG・JPEG・WebP の画像を選んでください');
+          if (f.size > 5 * 1024 * 1024) throw new Error('画像が大きすぎます（5MBまで）');
+          const name = `${state.tenantId}/quote/${crypto.randomUUID()}.${ext}`;
+          const res = await fetch(`${CONFIG.url}/storage/v1/object/shop-images/${name}`, {
+            method: 'POST',
+            headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, 'Content-Type': f.type, 'cache-control': 'max-age=31536000' },
+            body: f,
+          });
+          if (!res.ok) throw new Error(`画像を送れませんでした (${res.status})`);
+          showImg(`${CONFIG.url}/storage/v1/object/public/shop-images/${name}`);
+        } catch (e) { toast(e.message); }
+      };
       d.querySelector('.qq-head .qi-del').onclick = () => d.remove();
       sync(); qlist.append(d);
     };
@@ -883,24 +920,26 @@ function renderQuoteEditor(el,o) {
     form.onsubmit = async e => {
       e.preventDefault(); if (!form.reportValidity()) return;
       const err = form.querySelector('.quote-error'); err.textContent = '';
+      // 内訳は金額のない行も可（例「仕上がり：ナチュラル」）。合計は金額のある行だけ（2026-10-22）
       const its = [...rows.querySelectorAll('.qi-row')].map(r => ({ label: r.querySelector('.qi-label').value.trim(), amount: r.querySelector('.qi-amount').value.trim() }))
         .filter(it => it.label || it.amount);
       if (!its.length) { err.textContent = '内訳を1行以上入れてください'; return; }
-      if (its.some(it => !it.label || !/^-?\d+$/.test(it.amount))) { err.textContent = '内訳の品名と金額（整数）を入れてください'; return; }
+      if (its.some(it => !it.label || (it.amount && !/^-?\d+$/.test(it.amount)))) { err.textContent = '内訳の品名と金額（整数・なしでも可）を入れてください'; return; }
       const qs = [];
       for (const d of qlist.querySelectorAll('.qq')) {
-        const text = d.querySelector('.qq-text').value.trim(), type = d.querySelector('.qq-type input:checked').value;
-        const choices = type === 'choice' ? [...d.querySelectorAll('.qc-row')].map(r => ({ label: r.querySelector('.qc-label').value.trim(), amount: r.querySelector('.qc-amount').value.trim() })).filter(c => c.label || c.amount) : null;
-        if (!text && !(choices || []).length) continue;
+        const text = d.querySelector('.qq-text').value.trim(), type = d.querySelector('.qq-kind').value;
+        const usePrice = d.querySelector('.qq-price-on').checked;
+        const choices = ['choice', 'multi'].includes(type) ? [...d.querySelectorAll('.qc-row')].map(r => ({ label: r.querySelector('.qc-label').value.trim(), amount: usePrice ? r.querySelector('.qc-amount').value.trim() : '' })).filter(c => c.label || c.amount) : null;
+        if (!text && !(choices || []).length && !d.dataset.imageUrl) continue;
         if (!text) { err.textContent = '質問の文を入れてください'; return; }
-        if (choices && (choices.length < 2 || choices.some(c => !c.label || (c.amount && !/^-?\d+$/.test(c.amount))))) { err.textContent = '「選んでもらう」質問は選択肢を2つ以上・金額は整数で入れてください'; return; }
-        qs.push({ text, type, choices: choices && choices.map(c => ({ label: c.label, amount: Number(c.amount || 0) })) });
+        if (choices && (choices.length < 2 || choices.some(c => !c.label || (c.amount && !/^-?\d+$/.test(c.amount))))) { err.textContent = '選んでもらう質問は選択肢を2つ以上・金額は整数で入れてください'; return; }
+        qs.push({ text, type, image_url: d.dataset.imageUrl || null, choices: choices && choices.map(c => ({ label: c.label, amount: Number(c.amount || 0) })) });
       }
-      const itemsOut = its.map(it => ({ label: it.label, amount: Number(it.amount) }));
-      const amount = itemsOut.reduce((n, it) => n + it.amount, 0);
+      const itemsOut = its.map(it => ({ label: it.label, amount: it.amount === '' ? null : Number(it.amount) }));
+      const amount = itemsOut.reduce((n, it) => n + (it.amount || 0), 0);
       const description = form.querySelector('.quote-description').value.trim();
       const expiry = new Date(form.querySelector('.quote-expiry').value);
-      const preview = itemsOut.map(it => `・${it.label}　${yen(it.amount)}`).join('\n') + (qs.length ? `\n\n質問：\n${qs.map((x, i) => `${i + 1}. ${x.text}`).join('\n')}` : '');
+      const preview = itemsOut.map(it => `・${it.label}${it.amount == null ? '' : '　' + yen(it.amount)}`).join('\n') + (qs.length ? `\n\n質問：\n${qs.map((x, i) => `${i + 1}. ${x.text}`).join('\n')}` : '');
       if (!confirm(`税込総額 ${yen(amount)}${qs.some(x => (x.choices || []).some(c => c.amount)) ? '（お客様の回答で変わります）' : ''}\n回答期限 ${expiry.toLocaleString('ja-JP')}\n\n${preview}\n\nこの内容をお客様へメールで案内しますか？`)) return;
       const button = form.querySelector('button[type=submit]'); button.disabled = true;
       try {
@@ -952,7 +991,7 @@ async function loadKitchenRange() {
   try {
     const orders = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
       orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }

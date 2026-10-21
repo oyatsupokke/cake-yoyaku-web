@@ -339,17 +339,20 @@ function renderQuote(o, list, btn) {
   if ((q.shop_message || '').trim()) { box.append(el('p', 'quote-sub', 'お店からのひとこと')); box.append(el('p', 'quote-desc quote-shopmsg', q.shop_message)); }
   const items = Array.isArray(q.items) ? q.items : null;
   const questions = Array.isArray(q.questions) ? q.questions : [];
-  const picked = questions.map(() => null);   // 選ぶ質問：選んだ番号
+  // 選ぶ質問（choice）：選んだ番号／いくつでも（multi）：選んだ番号の Set／写真（image）：送った写真
+  const picked = questions.map((qq) => qq.type === 'multi' ? new Set() : null);
+  const photos = questions.map(() => []);
   const extra = el('div');                    // 金額の付いた回答の行
   const sum = el('p', 'quote-sum');
   const topTotal = document.querySelector('#order-detail .confirm-row.total span:last-child');
-  const delta = () => questions.reduce((n, qq, i) => n + (qq.type === 'choice' && picked[i] != null ? (qq.choices[picked[i]].amount || 0) : 0), 0);
+  const chosen = (qq, i) => qq.type === 'choice' ? (picked[i] != null ? [qq.choices[picked[i]]] : []) : qq.type === 'multi' ? [...picked[i]].map((k) => qq.choices[k]) : [];
+  const delta = () => questions.reduce((n, qq, i) => n + chosen(qq, i).reduce((m, c) => m + (c.amount || 0), 0), 0);
   const total = () => q.amount + (asking ? delta() : 0);
   const signed = n => (n < 0 ? '−' : '') + yen(Math.abs(n));
   const refresh = () => {
     // 金額の付いた回答の行：見積もり中は選んだもの、承諾後は確定した回答
     const priced = asking
-      ? questions.map((qq, i) => qq.type === 'choice' && picked[i] != null ? { answer: qq.choices[picked[i]].label, amount: qq.choices[picked[i]].amount } : null)
+      ? questions.flatMap((qq, i) => chosen(qq, i).map((c) => ({ answer: c.label, amount: c.amount })))
       : (Array.isArray(q.answers) ? q.answers : []);
     extra.replaceChildren(...priced.filter(a => a && a.amount).map(a => {
       const r = el('div', 'quote-line quote-line-answer'); r.append(el('span', null, `${a.answer}（ご回答）`), el('span', null, signed(a.amount))); return r;
@@ -360,7 +363,8 @@ function renderQuote(o, list, btn) {
   };
   if (items) {
     const lines = el('div', 'quote-lines');
-    for (const it of items) { const r = el('div', 'quote-line'); r.append(el('span', null, it.label), el('span', null, signed(it.amount))); lines.append(r); }
+    // 金額のない行（例「仕上がり：ナチュラル」）は金額を出さない（2026-10-22）
+    for (const it of items) { const r = el('div', 'quote-line'); r.append(el('span', null, it.label), el('span', null, it.amount == null ? '' : signed(it.amount))); lines.append(r); }
     lines.append(extra);
     box.append(lines);
     if ((q.note || '').trim()) { box.append(el('p', 'quote-sub', '仕上がりの条件')); box.append(el('p', 'quote-desc', q.note)); }
@@ -382,8 +386,21 @@ function renderQuote(o, list, btn) {
     const texts = [];
     if (questions.length) form.append(el('p', 'quote-sub', 'お店からのご質問にお答えください'));
     questions.forEach((qq, i) => {
-      const f = el('fieldset', 'quote-q'); f.append(el('legend', null, `${i + 1}. ${qq.text}`));
-      if (qq.type === 'choice') {
+      const f = el('fieldset', 'quote-q'); f.append(el('legend', null, `${i + 1}. ${qq.text}${qq.type === 'multi' ? '（いくつでも）' : ''}`));
+      // お店が付けた見本の画像（押すと大きく）
+      if (qq.image_url) { const a = el('a', 'quote-q-img'); a.href = qq.image_url; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = qq.image_url; im.alt = '見本の画像'; a.append(im); f.append(a); }
+      const priceText = (c) => c.amount ? `（${c.amount > 0 ? '＋' : ''}${signed(c.amount)}）` : '';
+      if (qq.type === 'multi') {
+        qq.choices.forEach((c, k) => {
+          const lab = el('label', 'quote-choice'); const r = document.createElement('input');
+          r.type = 'checkbox'; r.value = k;
+          r.onchange = () => { if (r.checked) picked[i].add(k); else picked[i].delete(k); f.classList.remove('missing'); refresh(); };
+          lab.append(r, el('span', null, c.label + priceText(c)));
+          f.append(lab);
+        });
+      } else if (qq.type === 'image') {
+        f.append(photoPicker(3, (list) => { photos[i] = list; f.classList.remove('missing'); }));
+      } else if (qq.type === 'choice') {
         qq.choices.forEach((c, k) => {
           const lab = el('label', 'quote-choice'); const r = document.createElement('input');
           r.type = 'radio'; r.name = `qq${i}`; r.value = k;
@@ -406,7 +423,9 @@ function renderQuote(o, list, btn) {
     box.append(form);
     acceptBtn = btn('', 'btn-primary', '押した時点で、上の内容と金額でご予約が確定します。', async () => {
       err.textContent = '';
-      const answers = questions.map((qq, i) => qq.type === 'choice' ? picked[i] : (texts[i].value.trim() || null));
+      // いくつでも（multi）は0個も可。写真（image）は1枚以上
+      const answers = questions.map((qq, i) => qq.type === 'choice' ? picked[i] : qq.type === 'multi' ? [...picked[i]].sort((a, b) => a - b)
+        : qq.type === 'image' ? (photos[i].length ? photos[i].map((p) => p.id) : null) : (texts[i].value.trim() || null));
       const miss = answers.findIndex(a => a == null);
       if (miss >= 0) {
         const f = form.querySelectorAll('.quote-q')[miss]; f.classList.add('missing');
@@ -420,6 +439,64 @@ function renderQuote(o, list, btn) {
     list.appendChild(el('p', null, '回答期限を過ぎています。お店へご連絡ください。'));
   }
   refresh();
+}
+
+/* お見積もりの確認ページからお客様が写真を送る（質問の答え・修正のお願い・2026-10-22）。
+ * 長辺1600pxのJPEGに縮めてから、Edge Function order-images（upload_quote）が出す署名URLへ置く。
+ * 置いた写真は確定／修正のお願いを押すまで仮置き（押さなければ24時間で消える）。 */
+function shrinkQuotePhoto(file, maxSide = 1600) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, maxSide / Math.max(img.width, img.height)), w = Math.round(img.width * k), h = Math.round(img.height * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+      c.toBlob((blob) => blob ? resolve({ blob, w, h }) : reject(new Error('画像を変換できませんでした')), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を読み込めませんでした')); };
+    img.src = url;
+  });
+}
+async function uploadQuotePhoto(file) {
+  const { blob, w, h } = await shrinkQuotePhoto(file);
+  const res = await fetch(`${CONFIG.url}/functions/v1/order-images`, {
+    method: 'POST',
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${CONFIG.anonKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'upload_quote', manage_token: TOKEN, content_type: 'image/jpeg', bytes: blob.size, width: w, height: h }),
+  });
+  const j = await res.json().catch(() => null);
+  if (!j?.ok) throw new Error(j?.message || '写真を受け付けられませんでした');
+  const put = await fetch(j.upload_url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+  if (!put.ok) throw new Error('写真を送れませんでした。電波の良いところでもう一度お試しください');
+  return { id: j.id, url: URL.createObjectURL(blob) };
+}
+function photoPicker(max, onChange) {
+  const wrap = document.createElement('div'); wrap.className = 'quote-photos';
+  const list = [], thumbs = document.createElement('div'); thumbs.className = 'quote-photo-list';
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.hidden = true;
+  const add = document.createElement('button'); add.type = 'button'; add.className = 'btn-secondary quote-photo-add'; add.textContent = '📷 写真を選ぶ';
+  const msg = document.createElement('p'); msg.className = 'quote-photo-msg';
+  const draw = () => {
+    thumbs.replaceChildren(...list.map((p, n) => {
+      const f = document.createElement('figure'); const im = document.createElement('img'); im.src = p.url; im.alt = '送る写真';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'この写真を外す');
+      x.onclick = () => { list.splice(n, 1); draw(); onChange([...list]); };
+      f.append(im, x); return f;
+    }));
+    add.hidden = list.length >= max;
+  };
+  add.onclick = () => input.click();
+  input.onchange = async () => {
+    const files = [...input.files].slice(0, max - list.length); input.value = '';
+    for (const file of files) {
+      msg.textContent = '送信中…';
+      try { list.push(await uploadQuotePhoto(file)); draw(); onChange([...list]); msg.textContent = ''; }
+      catch (e) { msg.textContent = e.message; break; }
+    }
+  };
+  wrap.append(thumbs, add, input, msg);
+  return wrap;
 }
 
 const CHANGE_REASONS = ['デザインの内容', '金額', '受取日時', 'その他'];
@@ -443,6 +520,8 @@ function renderChangeRequest(o, list) {
   const comment = document.createElement('textarea'); comment.rows = 3; comment.maxLength = 1000;
   comment.placeholder = '例：ハイビスカスは1輪にしてほしい／予算を1万円くらいにしたい';
   cm.append(comment); box.append(cm);
+  let shots = [];
+  const pl = el('div', 'quote-comment'); pl.append(el('span', null, '写真（任意・3枚まで）'), photoPicker(3, (list) => { shots = list; })); box.append(pl);
   const err = el('p', 'quote-error'); box.append(err);
   const send = el('button', 'btn-primary', 'お店に修正をお願いする'); send.type = 'button'; box.append(send);
   box.append(el('p', 'action-hint', 'お店がお見積もりを作り直してお送りします。ご予約は確定前のままです。'));
@@ -451,7 +530,7 @@ function renderChangeRequest(o, list) {
     const reasons = checks.filter(c => c.checked).map(c => c.value);
     if (!reasons.length) { err.textContent = '直してほしいところを選んでください。'; return; }
     err.textContent = '';
-    await quoteAction('fn_request_quote_change', { p_token: TOKEN, p_quote: q.id, p_reasons: reasons, p_comment: comment.value.trim() || null });
+    await quoteAction('fn_request_quote_change', { p_token: TOKEN, p_quote: q.id, p_reasons: reasons, p_comment: comment.value.trim() || null, p_images: shots.length ? shots.map((p) => p.id) : null });
   };
   list.append(open, box);
 }
@@ -466,7 +545,7 @@ function renderQuoteHistory(history, list) {
     const li = el('li', 'qh-' + h.kind);
     const when = h.at ? fmtQuoteDeadline(h.at) : '';
     const title = h.kind === 'quote' ? `お店からお見積もり（${h.revision}回目）${h.amount != null ? yen(h.amount) : ''}`
-      : h.kind === 'change' ? `修正のお願い：${(h.reasons || []).join('・')}`
+      : h.kind === 'change' ? `修正のお願い：${(h.reasons || []).join('・')}${h.images ? `（写真${h.images}枚）` : ''}`
       : h.kind === 'accept' ? `確定（${yen(h.amount)}）` : '取り下げ';
     li.append(el('span', 'qh-when', when), el('span', 'qh-title', title));
     const note = h.kind === 'quote' ? h.message : h.kind === 'change' ? h.comment : null;

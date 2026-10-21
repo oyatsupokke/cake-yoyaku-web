@@ -653,3 +653,15 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .detached-note small { display: block; font-weight: 400; font-size: .82rem; }
 .kcard .detached-note { padding: 6px 8px; margin: 6px 0; font-size: .95rem; }
 @media print { .detached-note { border: 2px solid #000; background: none; color: #000; } }
+
+/* 見積もりの質問：種類・見本画像・金額の出し入れ（2026-10-22） */
+.qq-type select { font: inherit; padding: 6px 8px; border: 1px solid var(--line, #e5dce0); border-radius: 8px; }
+.qq-type .btn-secondary { margin: 0; }
+.qq-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 6px; }
+.qq-tools .btn-secondary { margin: 0; }
+.qq-price { display: inline-flex; align-items: center; gap: 4px; font-size: .88rem; }
+.qq.no-price .qc-amount { display: none; }
+.qq.no-price .qc-row { grid-template-columns: minmax(0, 1fr) 36px; }
+.qq-img { position: relative; display: inline-block; margin: 2px 0 6px; }
+.qq-img img { max-width: 220px; max-height: 160px; border-radius: 8px; border: 1px solid var(--line, #e5dce0); display: block; }
+.qq-img .qi-del { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px; padding: 0; }

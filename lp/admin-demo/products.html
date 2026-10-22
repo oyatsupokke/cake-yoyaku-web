@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1792651816">
-<link rel="stylesheet" href="admin.css?v=1792651816">
-<link rel="stylesheet" href="products.css?v=1792651816">
-<link rel="stylesheet" href="admin-layout.css?v=1792651816">
-<link rel="stylesheet" href="help-panel.css?v=1792651816">
-<link rel="stylesheet" href="demo-banner.css?v=1792651816">
+<link rel="stylesheet" href="styles.css?v=1792660494">
+<link rel="stylesheet" href="admin.css?v=1792660494">
+<link rel="stylesheet" href="products.css?v=1792660494">
+<link rel="stylesheet" href="admin-layout.css?v=1792660494">
+<link rel="stylesheet" href="help-panel.css?v=1792660494">
+<link rel="stylesheet" href="demo-banner.css?v=1792660494">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -85,6 +85,7 @@
           <button type="button" class="pill" id="btn-p-publish"></button>
         </div>
         <p id="p-publish-error" class="small warn hidden" role="alert"></p>
+        <p id="p-size-hint" class="size-hint hidden">公開するには、<strong>サイズと価格</strong>を1つ以上入れてください。 <button type="button" class="pill" id="btn-goto-sizes">サイズと価格へ</button></p>
         <div class="product-copy-action">
           <button type="button" class="pill" id="btn-p-copy">この商品をコピー</button><button type="button" class="tip" data-tip="サイズと価格・質問・選択肢・この商品だけの上限・質問の表示設定をコピーした新しい商品を作ります。名前の後ろに（コピー）が付き、公開するまで非公開となります。写真とイラストは同じ画像を使います。">？</button>
         </div>
@@ -169,14 +170,16 @@
         </div>
       </div>
 
-      <div class="confirm-box product-compact-card">
+      <div class="confirm-box product-compact-card" id="p-sizes-card">
         <h3>サイズと価格<button type="button" class="tip" data-tip="サイズ名（例：12cm・4号）と税込価格を追加します。お客様が選ぶと金額は自動で計算されます。">？</button></h3>
+        <p id="v-empty" class="size-hint hidden">まだサイズがありません。サイズ名（例：15cm・5号）と税込価格を入れて「追加」を押してください。</p>
         <div id="variants-list"></div>
         <div class="override-add">
           <input type="text" id="v-label" placeholder="例: 12cm" aria-label="サイズ名" style="width:140px">
           <input type="number" id="v-price" placeholder="税込価格" aria-label="価格（税込）" min="0" style="width:110px">
           <button type="button" class="pill" id="btn-v-add">追加</button>
         </div>
+        <p id="v-pending" class="small warn hidden">「追加」を押すと登録されます（「保存する」でも一緒に登録します）。</p>
       </div>
 
       <section class="confirm-box unified-questions">
@@ -239,17 +242,17 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="demo-runtime.js?v=1792651816"></script>
-<script src="tips.js?v=1792651816"></script>
-<script src="edit-drafts.js?v=1792651816"></script>
-<script src="products-menu.js?v=1792651816"></script>
-<script src="pickup-schedule.js?v=1792651816"></script>
-<script src="question-flow.js?v=1792651816"></script>
-<script src="limit-check.js?v=1792651816"></script>
-<script src="date-limits.js?v=1792651816"></script>
-<script src="products.js?v=1792651816"></script>
-<script type="module" src="product-assistant.js?v=1792651816"></script>
-<script src="products-outline.js?v=1792651816"></script>
-<script src="navigation.js?v=1792651816"></script>
+<script src="demo-runtime.js?v=1792660494"></script>
+<script src="tips.js?v=1792660494"></script>
+<script src="edit-drafts.js?v=1792660494"></script>
+<script src="products-menu.js?v=1792660494"></script>
+<script src="pickup-schedule.js?v=1792660494"></script>
+<script src="question-flow.js?v=1792660494"></script>
+<script src="limit-check.js?v=1792660494"></script>
+<script src="date-limits.js?v=1792660494"></script>
+<script src="products.js?v=1792660494"></script>
+<script type="module" src="product-assistant.js?v=1792660494"></script>
+<script src="products-outline.js?v=1792660494"></script>
+<script src="navigation.js?v=1792660494"></script>
 </body>
 </html>

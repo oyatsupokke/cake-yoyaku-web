@@ -67,8 +67,8 @@ function markDirty() {
   const bar = $("save-bar");
   if (!bar) return;
   bar.classList.toggle("dirty", state.dirty);
-  $("save-status").textContent = state.dirty ? "未保存の変更があります" : "変更はありません";
-  $("btn-save-all").disabled = !!state.saving || !state.dirty;
+  $("save-status").textContent = state.dirty ? "未保存の変更があります" : pendingSize() ? "まだ追加していないサイズがあります" : "変更はありません";
+  $("btn-save-all").disabled = !!state.saving || (!state.dirty && !pendingSize());
 }
 function validateChange(c) {
   if (c.table === "options" && ("pickup_from" in c.patch || "pickup_until" in c.patch)) {
@@ -171,6 +171,11 @@ async function saveAll() {
     invalidDeadline.reportValidity();
     toast("締切・追加料金・個数上限の入力値を確認してください");
     return;
+  }
+  // 「追加」を押し忘れたサイズも、保存するで一緒に登録する
+  if (state.current && pendingSize()) {
+    try { if (!(await addPendingSize())) return; } catch (e) { toast(e.message); return; }
+    if (!collectChanges().length) { toast("サイズを追加しました"); await loadAll(); return; }
   }
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
@@ -1270,6 +1275,7 @@ $("btn-p-publish").onclick = async () => {
   } catch (e) {
     message.textContent = e.message;
     message.classList.remove("hidden");
+    if (/サイズと価格/.test(e.message)) gotoSizes();
   } finally { btn.disabled = false; }
 };
 /* ---------- この商品をコピー（サーバー側 fn_duplicate_product が丸ごと写す） ---------- */
@@ -1335,7 +1341,30 @@ $("btn-p-stop-add").onclick = async () => {
 };
 
 /* ---------- サイズと価格 ---------- */
+// サイズが無いと公開できない（DBの fn_guard_product_publish）。先に案内して、公開ボタンで初めて止まる形にしない
+function renderSizeHint(p) {
+  const vs = p?.product_variants || [];
+  $("v-empty").classList.toggle("hidden", vs.length > 0);
+  $("p-size-hint").classList.toggle("hidden", !p || p.is_published || vs.some((v) => v.is_available));
+}
+function gotoSizes() {
+  const card = $("p-sizes-card");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.remove("size-flash"); void card.offsetWidth; card.classList.add("size-flash");
+  setTimeout(() => $("v-label").focus({ preventScroll: true }), 400);
+}
+$("btn-goto-sizes").onclick = gotoSizes;
+// 入力しただけで「追加」を押していないサイズ（気づかずに離れると消える）
+function pendingSize() {
+  const label = document.getElementById("v-label"), price = document.getElementById("v-price");
+  return !!label && !!price && (label.value.trim() !== "" || price.value !== "");
+}
+function showPending() { $("v-pending").classList.toggle("hidden", !pendingSize()); markDirty(); }
+$("v-label").addEventListener("input", showPending);
+$("v-price").addEventListener("input", showPending);
+
 function renderVariants(p) {
+  renderSizeHint(p);
   const wrap = $("variants-list");
   wrap.innerHTML = "";
   const vs = [...p.product_variants].sort((a, b) => a.display_order - b.display_order);
@@ -1368,16 +1397,21 @@ function renderVariants(p) {
     wrap.appendChild(row);
   }
 }
-$("btn-v-add").onclick = async () => {
+async function addPendingSize() {
   const p = state.current;
   const label = $("v-label").value.trim();
   const price = parseInt($("v-price").value, 10);
-  if (!label || isNaN(price) || price < 0) { toast("サイズ名と価格を入れてください"); return; }
+  if (!label || isNaN(price) || price < 0) { toast("サイズ名と税込価格を両方入れてください"); return false; }
   await api("POST", "/rest/v1/product_variants", [{
     tenant_id: state.tenantId, product_id: p.id, size_label: label, price,
     display_order: p.product_variants.length,
   }]);
   $("v-label").value = ""; $("v-price").value = "";
+  showPending();
+  return true;
+}
+$("btn-v-add").onclick = async () => {
+  try { if (!(await addPendingSize())) return; } catch (e) { toast(e.message); return; }
   toast("サイズを追加しました");
   reloadAll();
 };

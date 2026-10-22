@@ -827,3 +827,8 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
 .products-page .lite-choices .field{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .products-page .lite-choices .lite-choice-label{flex:1 1 160px;min-width:0}
 .products-page .lite-choice-price{display:inline-flex;align-items:center;gap:4px}
+
+/* サイズが無い商品への案内（2026-10-22 お試しの店が「サイズと価格」で止まっていた） */
+.size-hint { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff6e5; border: 1px solid #f0d49a; font-size: .9rem; line-height: 1.6; }
+.size-hint .pill { margin-left: 4px; }
+#p-sizes-card.size-flash { animation: cat-panel-flash 2.4s ease-out; }

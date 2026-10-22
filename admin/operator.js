@@ -80,10 +80,17 @@ const STEPS = [
 // 契約済みの店はテスト予約の手順を出さない（契約後に試すと本物の予約になる）ので済み扱い
 const stepDone = (r, key) => key === "setup_test" ? (r.setup_test || r.setup_billing) : !!r[key];
 const setupLeft = r => r.billing_status === "exempt" ? [] : STEPS.filter(([key]) => !stepDone(r, key));
+// お試し中のお店へのフォローメール（2026-10-22）。送った種類を「はじめにやること」の下に出す
+const FOLLOW = {day1: "翌日", day4: "4日目", ready: "準備完了", idle7: "7日あき", idle30: "30日あき"};
+function followLine(r) {
+  const list = (r.follow_mails || []).filter(f => f.status !== "skipped");
+  if (!list.length) return "";
+  return `<br><span class="muted">メール：${list.map(f => `${esc(FOLLOW[f.kind] || f.kind)}${f.status === "sent" ? "" : f.status === "failed" ? "（失敗）" : "（送信待ち）"}`).join("・")}</span>`;
+}
 function setupCell(r) {
   if (r.billing_status === "exempt") return "—";
   const left = setupLeft(r);
-  if (!left.length) return `<span class="muted">済み</span>`;
+  if (!left.length) return `<span class="muted">済み</span>` + followLine(r);
   const [key, label] = left[0];
   let hint = "";
   // 止まっている所の手がかり（いつまで触っていたか）
@@ -94,7 +101,8 @@ function setupCell(r) {
   const done = STEPS.length - left.length;
   return `<span class="${left.length >= 4 ? "warn" : ""}">${done}/${STEPS.length}・次は${esc(label)}</span>`
     + (hint ? `<br><span class="muted">${esc(hint)}</span>` : "")
-    + (left.length > 1 ? `<br><span class="muted">残り：${left.slice(1).map(([, l]) => esc(l)).join("、")}</span>` : "");
+    + (left.length > 1 ? `<br><span class="muted">残り：${left.slice(1).map(([, l]) => esc(l)).join("、")}</span>` : "")
+    + followLine(r);
 }
 
 function render() {

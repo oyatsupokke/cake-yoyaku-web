@@ -48,10 +48,10 @@
       one(`/rest/v1/pickup_time_slots?tenant_id=eq.${t}&is_active=eq.true&select=id&limit=1`),
       one(`/rest/v1/products?tenant_id=eq.${t}&is_published=eq.true&deleted_at=is.null&select=id&limit=1`),
       one(`/rest/v1/orders?tenant_id=eq.${t}&select=id&limit=1`),
-      api("GET", `/rest/v1/tenants?id=eq.${t}&select=cancel_policy,tokushoho,billing_status,trial_ends_at,subdomain`).then((r) => r[0] || {}),
+      api("GET", `/rest/v1/tenants?id=eq.${t}&select=cancel_policy,tokushoho,billing_status,trial_ends_at,subdomain,trial_tested_at`).then((r) => r[0] || {}),
     ]);
     const status = tenant.billing_status || "exempt";
-    const trialOpen = status === "setup_trial" && tenant.trial_ends_at && new Date(tenant.trial_ends_at) > new Date();
+    const trialOpen = status === "setup_trial";   // お試しに期限なし（2026-10-22）
     const list = [
       { key: "pickup", title: "受取時間を決める", time: "約5分",
         why: "お客様が選べる受取の時間です。これが無いと商品を公開できません。同じ画面で定休日・締切も確認します。",
@@ -68,7 +68,7 @@
     // テスト予約はお試し中だけ（契約後に試すと本物の予約になる）
     if (trialOpen) list.push({ key: "test", title: "お客様の画面でテスト予約をしてみる", time: "約3分",
       why: "実際の予約ページで、選んで・確認するところまで通します。テスト予約は保存されません。",
-      done: orders || recall("tested") === "1", label: "予約ページを開く",
+      done: orders || !!tenant.trial_tested_at || recall("tested") === "1", label: "予約ページを開く",
       go: () => {
         remember("tested", "1");
         window.open(`../?shop=${encodeURIComponent(tenant.subdomain || state.subdomain)}&trial=1`, "_blank", "noopener");

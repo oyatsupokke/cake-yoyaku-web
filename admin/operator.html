@@ -4,8 +4,8 @@
 <meta charset="UTF-8"><meta name="referrer" content="strict-origin-when-cross-origin"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>店舗一覧（運営）｜ケーキ屋さんの予約帳</title>
-<link rel="stylesheet" href="operator.css?v=1792647091">
-<script defer src="operator.js?v=1792647091"></script>
+<link rel="stylesheet" href="operator.css?v=1792651415">
+<script defer src="operator.js?v=1792651415"></script>
 </head>
 <body>
 <header class="toolbar"><a href="index.html">← 管理画面</a><h1>店舗一覧（運営）</h1><button id="reload" type="button" hidden>更新</button></header>
@@ -18,7 +18,8 @@
    <option value="all">すべての店</option>
    <option value="trial">お試し中</option>
    <option value="paid">有料契約中</option>
-   <option value="stopped">止まっている（お試し終了・解約・支払い遅れ）</option>
+   <option value="stopped">止まっている（解約・支払い遅れ・未契約）</option>
+   <option value="setup">「はじめにやること」が途中</option>
   </select></label>
   <label>プラン<select id="plan">
    <option value="">すべて</option>
@@ -30,13 +31,13 @@
  <p class="count" id="count"></p>
  <div class="table-wrap"><table id="list">
   <thead><tr>
-   <th scope="col">店名</th><th scope="col">プラン</th><th scope="col">状態</th><th scope="col">お試し期限</th>
-   <th scope="col">登録日</th><th scope="col">店主のログイン</th><th scope="col">商品<br><small>公開／全部</small></th>
+   <th scope="col">店名</th><th scope="col">プラン</th><th scope="col">状態</th><th scope="col">お試し</th>
+   <th scope="col">登録日</th><th scope="col">はじめにやること</th><th scope="col">店主のログイン</th><th scope="col">商品<br><small>公開／全部</small></th>
    <th scope="col">予約<br><small>今月受取／累計</small></th><th scope="col">最後の予約</th>
   </tr></thead>
   <tbody id="rows"></tbody>
  </table></div>
- <p class="hint">予約の件数は本予約だけ（キャンセルを除く）。お試し中のテスト予約は保存されないので数に入りません。日時は日本時間。</p>
+ <p class="hint">予約の件数は本予約だけ（キャンセルを除く）。お試し中のテスト予約は保存されないので数に入りません。日時は日本時間。「はじめにやること」は店の管理画面に出る5つの手順と同じ判定です（受取時間 → ケーキを公開 → キャンセルポリシー・特商法 → テスト予約 → 有料契約）。テスト予約は2026-10-20以降に通したものだけ記録されます。</p>
 </main>
 </body>
 </html>

@@ -187,14 +187,15 @@ function renderBillingBanner(t) {
   state.billingStatus = status;
   const lite=t.reservation_plan==='lite';
   const amount=lite?'1,980':'4,980';
-  const intro=lite&&status==='setup_trial'&&new Date(t.trial_ends_at)>new Date()&&!t.first_paid_at;
+  // 初回割引は初めての契約ならいつでも（2026-10-22 受付開始まで無料に切り替え）
+  const intro=lite&&!t.first_paid_at&&!['active','trialing','past_due','exempt'].includes(status);
   const priceText=intro?'最初の３か月は月額1,480円（税込）、４か月目から月額1,980円（税込）':`月額${amount}円（税込）`;
   $('btn-billing-page-checkout').textContent=`有料契約へ（${priceText}）`;
   renderLiteUsage(t);
   globalThis.ReservationUpgrade?.render(t);
-  const labels = { setup_trial: "カード不要のお試し中", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
+  const labels = { setup_trial: "お試し中（受付開始まで無料）", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
   $("billing-page-status").textContent = status === "active" ? `${lite ? "Lite" : "Standard"}でご契約中` : labels[status] || "ご契約状況を確認してください";
-  $("billing-page-trial").textContent = ["trialing", "setup_trial"].includes(status) && t.trial_ends_at
+  $("billing-page-trial").textContent = status === "trialing" && t.trial_ends_at
     ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}` : "";
   $("billing-page-help").textContent = status === "exempt"
     ? "この店舗は課金対象外です。お支払い登録は不要です。"
@@ -204,11 +205,11 @@ function renderBillingBanner(t) {
   const portalBtn = `<button type="button" class="pill" id="btn-billing-portal">お支払い管理</button>`;
   let html = "";
   if (status === "setup_trial") {
-    const expired = !t.trial_ends_at || new Date(t.trial_ends_at) <= new Date();
-    $("billing-page-status").textContent = expired ? "お試し終了・休止中" : "カード不要のお試し中";
+    // 受付開始まで無料（期限なし・2026-10-22）
+    $("billing-page-status").textContent = "お試し中（受付開始まで無料）";
     $("billing-page-help").textContent = `有料契約の決済完了から${priceText}で、本予約の受付を開始します。`;
-    html = expired ? "14日間のお試しが終了しました。設定は保存されています。" : "カード不要の14日間お試し中です。本予約は受け付けません。";
-    if (!expired) html += ` <a class="pill" href="/lp/product-demo/?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
+    html = "お試し中です。設定とテスト予約は、受付を始めるまで無料・期限なしで使えます。本予約は有料契約から受け付けます。";
+    html += ` <a class="pill" href="/lp/product-demo/?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
     html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;
   } else if (status === "none") {
     html = `⚠️ お支払い登録が未完了のため、予約フォームはまだ公開されていません。

@@ -1466,7 +1466,8 @@ function drawAnimalToppingLayers(ctx, entries) {
 function messagePlateLayout(img, url, mode) {
   const b=imageAlphaBounds(img,url),product=state.sel.product?.name;
   // サイド寄せでは、まりほ作成の配置見本どおり左側へ大きく置く。
-  // ナンバー大は中央を使うため、従来どおり左端へ小さく逃がす。
+  // ナンバー大と一緒のときは、数字の下（上面の手前の真ん中）に実寸大で置く（2026-10-22 まりほ「普段は真ん中・実寸大で」。
+  // 以前は左端・半分の大きさで、文字が読めなかった）。
   if(!mode){const o=layerDrawRect(img).x;return {b,cx:b.x+b.w/2+o,cy:b.y+b.h/2+o,w:b.w,h:b.h};}
   // わんこホイップと一緒：上面の上側（犬の上・まりほ判断）。犬は少し下げる（drawPlannedDog）
   if(mode==='dog'){
@@ -1481,8 +1482,8 @@ function messagePlateLayout(img, url, mode) {
     :product==='フルーツタルト'?{cx:150,cy:440,w:180}
     :product==='バスクチーズケーキ'&&mode==='number-large'?{cx:570,cy:370,w:370}
     :product==='バスクチーズケーキ'?{cx:150,cy:360,w:180}
-    // ナンバー大＋動物のトッピング：左端は動物とぶつかるので、上面の手前の真ん中へ（2026-10-20 まりほ指定「この辺」）
-    :mode==='number-large'&&selectedAnimalToppingCount()>0?{cx:395,cy:505,w:215}
+    // ナンバー大：数字の下・上面の手前の真ん中に、ナンバーなしのときと同じ大きさ（実寸大）で
+    :mode==='number-large'?{cx:395,cy:520,w:b.w}
     :{cx:155,cy:350,w:215};
   const {cx,cy,w}=layout,h=w*b.h/b.w;
   return {b,cx:cx+LEGACY_LAYER_OFFSET,cy:cy+LEGACY_LAYER_OFFSET,w,h};

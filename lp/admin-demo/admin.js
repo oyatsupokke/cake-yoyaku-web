@@ -193,6 +193,7 @@ function renderBillingBanner(t) {
   $('btn-billing-page-checkout').textContent=`有料契約へ（${priceText}）`;
   renderLiteUsage(t);
   globalThis.ReservationUpgrade?.render(t);
+  globalThis.TrialPlan?.render(t);
   const labels = { setup_trial: "お試し中（受付開始まで無料）", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
   $("billing-page-status").textContent = status === "active" ? `${lite ? "Lite" : "Standard"}でご契約中` : labels[status] || "ご契約状況を確認してください";
   $("billing-page-trial").textContent = status === "trialing" && t.trial_ends_at

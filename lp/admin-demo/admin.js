@@ -190,7 +190,9 @@ function renderBillingBanner(t) {
   // 初回割引は初めての契約ならいつでも（2026-10-22 受付開始まで無料に切り替え）
   const intro=lite&&!t.first_paid_at&&!['active','trialing','past_due','exempt'].includes(status);
   const priceText=intro?'最初の３か月は月額1,480円（税込）、４か月目から月額1,980円（税込）':`月額${amount}円（税込）`;
-  $('btn-billing-page-checkout').textContent=`有料契約へ（${priceText}）`;
+  const planName=lite?'Lite':'Standard';
+  // お試し中は金額を説明文に出し、ボタンは短く（スマホで1行に収める）
+  $('btn-billing-page-checkout').textContent=status==='setup_trial'?`${planName}で有料契約へ進む`:`有料契約へ（${priceText}）`;
   renderLiteUsage(t);
   globalThis.ReservationUpgrade?.render(t);
   globalThis.TrialPlan?.render(t);
@@ -208,10 +210,10 @@ function renderBillingBanner(t) {
   if (status === "setup_trial") {
     // 受付開始まで無料（期限なし・2026-10-22）
     $("billing-page-status").textContent = "お試し中（受付開始まで無料）";
-    $("billing-page-help").textContent = `有料契約の決済完了から${priceText}で、本予約の受付を開始します。`;
+    $("billing-page-help").textContent = `${planName}：${priceText}。有料契約の決済が終わると、本予約の受付が始まります。`;
     html = "お試し中です。設定とテスト予約は、受付を始めるまで無料・期限なしで使えます。本予約は有料契約から受け付けます。";
     html += ` <a class="pill" href="/lp/product-demo/?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
-    html += ` <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;
+    html += ` <button type="button" class="pill" id="btn-billing-checkout">${planName}で有料契約へ進む</button>`;
   } else if (status === "none") {
     html = `⚠️ お支払い登録が未完了のため、予約フォームはまだ公開されていません。
       <button type="button" class="pill" id="btn-billing-checkout">有料契約へ（${priceText}）</button>`;

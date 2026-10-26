@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1793011466">
-<link rel="stylesheet" href="admin.css?v=1793011466">
-<link rel="stylesheet" href="admin-layout.css?v=1793011466">
-<link rel="stylesheet" href="support.css?v=1793011466">
-<link rel="stylesheet" href="help-panel.css?v=1793011466">
+<link rel="stylesheet" href="../styles.css?v=1793012954">
+<link rel="stylesheet" href="admin.css?v=1793012954">
+<link rel="stylesheet" href="admin-layout.css?v=1793012954">
+<link rel="stylesheet" href="support.css?v=1793012954">
+<link rel="stylesheet" href="help-panel.css?v=1793012954">
 </head>
 <body>
 <div id="app" class="admin">
@@ -453,21 +453,34 @@
         <h3>ご契約状況</h3>
         <p id="billing-page-status"></p>
         <p id="billing-page-trial" class="small"></p>
+        <!-- お試し中だけ：2つのプランを並べて選ぶ（2026-10-26 まりほ指摘「わかりづらい」で箱を分けずにここへ） -->
+        <div id="trial-plan" class="hidden">
+          <p>プランを選んで、有料契約へ進んでください。有料契約の前なら、何度でも無料で選び直せます。</p>
+          <div class="plan-cards">
+            <div class="plan-card" data-plan="lite">
+              <p class="plan-name">Lite</p>
+              <p class="plan-price">月額1,980円<span>初めての契約は最初の３か月1,480円</span></p>
+              <ul><li>予約は月30台まで</li><li>30日先まで受付</li><li>季節商品・飾りの選択グループ・LINE通知はなし</li></ul>
+              <p class="plan-current">✓ いま選んでいるプラン</p>
+              <button type="button" class="pill plan-pick">Liteにする</button>
+            </div>
+            <div class="plan-card" data-plan="standard">
+              <p class="plan-name">Standard</p>
+              <p class="plan-price">月額4,980円</p>
+              <ul><li>予約の台数に上限なし</li><li>90日先まで受付</li><li>季節商品・飾りの選択グループ・LINE通知が使える</li></ul>
+              <p class="plan-current">✓ いま選んでいるプラン</p>
+              <button type="button" class="pill plan-pick">Standardにする</button>
+            </div>
+          </div>
+          <div id="trial-plan-blockers" class="hidden">
+            <p class="small">次の設定はStandardの機能です。はずすとLiteにできます。</p>
+            <ul class="small"></ul>
+          </div>
+          <p id="trial-plan-status" role="status" aria-live="polite"></p>
+        </div>
         <p id="billing-page-help" class="small"></p>
         <button type="button" class="pill hidden" id="btn-billing-page-checkout">有料契約へ進む（月額4,980円）</button>
         <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
-      </div>
-      <div class="confirm-box hidden" id="trial-plan">
-        <h3>プランを選び直す</h3>
-        <p>いまのプラン：<strong id="trial-plan-current"></strong></p>
-        <p class="small">有料契約の前なので、何度でも無料で選び直せます。商品・設定・予約ページのURLはそのまま引き継ぎます。</p>
-        <p class="small" id="trial-plan-note"></p>
-        <button type="button" class="pill" id="trial-plan-switch"></button>
-        <div id="trial-plan-blockers" class="hidden">
-          <p class="small">次の設定はStandardの機能です。はずすとLiteに変更できます。</p>
-          <ul class="small"></ul>
-        </div>
-        <p id="trial-plan-status" role="status" aria-live="polite"></p>
       </div>
       <div class="confirm-box hidden" id="billing-upgrade">
         <h3>Standardへアップグレード</h3>
@@ -579,23 +592,23 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1793011466"></script>
-<script src="edit-drafts.js?v=1793011466"></script>
-<script src="report-core.js?v=1793011466"></script>
-<script src="line-settings.js?v=1793011466"></script>
-<script src="billing-upgrade.js?v=1793011466"></script>
-<script src="trial-plan.js?v=1793011466"></script>
-<script src="../crop.js?v=1793011466"></script>
-<script src="order-gallery.js?v=1793011466"></script>
-<script src="option-counts.js?v=1793011466"></script>
-<script src="kitchen-breakdown.js?v=1793011466"></script>
-<script src="limit-check.js?v=1793011466"></script>
-<script src="date-limits.js?v=1793011466"></script>
-<script src="admin.js?v=1793011466"></script>
-<script src="order-calendar.js?v=1793011466"></script>
-<script src="onboarding.js?v=1793011466"></script>
-<script src="reports.js?v=1793011466"></script>
-<script src="support.js?v=1793011466"></script>
-<script src="navigation.js?v=1793011466"></script>
+<script src="tips.js?v=1793012954"></script>
+<script src="edit-drafts.js?v=1793012954"></script>
+<script src="report-core.js?v=1793012954"></script>
+<script src="line-settings.js?v=1793012954"></script>
+<script src="billing-upgrade.js?v=1793012954"></script>
+<script src="trial-plan.js?v=1793012954"></script>
+<script src="../crop.js?v=1793012954"></script>
+<script src="order-gallery.js?v=1793012954"></script>
+<script src="option-counts.js?v=1793012954"></script>
+<script src="kitchen-breakdown.js?v=1793012954"></script>
+<script src="limit-check.js?v=1793012954"></script>
+<script src="date-limits.js?v=1793012954"></script>
+<script src="admin.js?v=1793012954"></script>
+<script src="order-calendar.js?v=1793012954"></script>
+<script src="onboarding.js?v=1793012954"></script>
+<script src="reports.js?v=1793012954"></script>
+<script src="support.js?v=1793012954"></script>
+<script src="navigation.js?v=1793012954"></script>
 </body>
 </html>

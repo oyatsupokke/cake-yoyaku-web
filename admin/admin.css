@@ -665,3 +665,16 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .qq-img { position: relative; display: inline-block; margin: 2px 0 6px; }
 .qq-img img { max-width: 220px; max-height: 160px; border-radius: 8px; border: 1px solid var(--line, #e5dce0); display: block; }
 .qq-img .qi-del { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px; padding: 0; }
+
+/* お試し中のプラン選び（ご契約・お支払い・2026-10-26） */
+.plan-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0 16px; }
+.plan-card { border: 2px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; background: var(--boxbg, #fff); }
+.plan-card.is-current { border-color: var(--selbox); background: var(--sel); }
+.plan-card .plan-name { font-weight: 700; font-size: 1.1rem; margin: 0; }
+.plan-card .plan-price { font-weight: 700; margin: 4px 0 8px; }
+.plan-card .plan-price span { display: block; font-weight: 400; font-size: .82rem; color: var(--mute); }
+.plan-card ul { margin: 0 0 10px; padding-left: 1.2em; font-size: .9rem; line-height: 1.7; }
+.plan-card .plan-current { display: none; margin: 0; font-weight: 700; color: var(--selbox); }
+.plan-card.is-current .plan-current { display: block; }
+.plan-card.is-current .plan-pick { display: none; }
+@media (max-width: 640px) { .plan-cards { grid-template-columns: 1fr; } }

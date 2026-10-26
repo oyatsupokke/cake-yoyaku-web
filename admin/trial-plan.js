@@ -1,12 +1,14 @@
-/* お試し中（有料契約の前）のプランの選び直し（2026-10-26）。処理は Edge Function `trial-plan`。 */
+/* お試し中（有料契約の前）のプランの選び直し（2026-10-26）。処理は Edge Function `trial-plan`。
+   「ご契約状況」の中に2つのプランを並べ、いま選んでいる方に印を付ける。 */
 globalThis.TrialPlan = (() => {
   const el = id => document.getElementById(id);
   let tenant = null, busy = false, generation = 0;
   const NAMES = { lite: 'Lite（月額1,980円）', standard: 'Standard（月額4,980円）' };
-  const NOTES = {
-    lite: 'Standardにすると、受付台数の上限がなくなり、最大90日先までの予約・季節商品（販売期間）・飾りなどの選択グループ・LINE通知が使えます。',
-    standard: 'Liteは月30台・30日先までの予約です。季節商品（販売期間）・飾りなどの選択グループ・LINE通知は使えません。商品ごとの締切は、設定の「締切」にそろいます。',
+  const CONFIRM = {
+    lite: 'Liteにしますか？\n\n・予約は月30台・30日先までになります\n・商品ごとの締切は、予約設定の「締切」にそろいます\n・LINE通知は止まります\n\n有料契約の前なので料金はかかりません。あとからStandardに戻せます。',
+    standard: 'Standardにしますか？\n\n有料契約の前なので料金はかかりません。あとからLiteに戻せます。',
   };
+  const cards = () => [...document.querySelectorAll('#trial-plan .plan-card')];
   async function request(body) {
     const response = await fetch(`${CONFIG.url}/functions/v1/trial-plan`, {
       method: 'POST',
@@ -33,20 +35,19 @@ globalThis.TrialPlan = (() => {
     box.classList.toggle('hidden', !show);
     if (!show) return;
     const plan = t.reservation_plan === 'lite' ? 'lite' : 'standard';
-    const other = plan === 'lite' ? 'standard' : 'lite';
-    el('trial-plan-current').textContent = NAMES[plan];
-    el('trial-plan-note').textContent = NOTES[plan];
-    el('trial-plan-switch').textContent = `${NAMES[other]}に変更する`;
+    for (const card of cards()) card.classList.toggle('is-current', card.dataset.plan === plan);
     el('trial-plan-status').textContent = '';
     showBlockers([]);
   }
-  async function change() {
-    if (busy || !tenant) return;
-    const target = tenant.reservation_plan === 'lite' ? 'standard' : 'lite';
-    if (!confirm(`プランを ${NAMES[target]} に変更しますか？\n（有料契約の前なので料金はかかりません。あとから戻せます）`)) return;
+  async function change(target) {
+    if (busy || !tenant || target === tenant.reservation_plan) return;
+    if (!confirm(CONFIRM[target])) return;
     const version = generation;
-    busy = true; el('trial-plan-switch').disabled = true;
+    busy = true;
+    const buttons = document.querySelectorAll('#trial-plan .plan-pick');
+    buttons.forEach(b => { b.disabled = true; });
     el('trial-plan-status').textContent = '変更しています…';
+    showBlockers([]);
     try {
       const data = await request({ action: 'switch', plan: target });
       if (version !== generation) return;
@@ -55,15 +56,16 @@ globalThis.TrialPlan = (() => {
         showBlockers(data.blockers);
         return;
       }
-      el('trial-plan-status').textContent = `${NAMES[data.plan]}に変更しました。画面を読み込み直します…`;
+      el('trial-plan-status').textContent = `${NAMES[data.plan]}にしました。画面を読み込み直します…`;
       // 商品設定・受付日数など、プランで変わる表示をまとめて出し直す
       setTimeout(() => { location.href = `${location.pathname}?tab=billing`; }, 800);
     } catch (error) {
       if (version === generation) el('trial-plan-status').textContent = error.message;
     } finally {
-      busy = false; el('trial-plan-switch').disabled = false;
+      busy = false;
+      buttons.forEach(b => { b.disabled = false; });
     }
   }
-  el('trial-plan-switch')?.addEventListener('click', change);
+  for (const card of cards()) card.querySelector('.plan-pick')?.addEventListener('click', () => change(card.dataset.plan));
   return { render };
 })();

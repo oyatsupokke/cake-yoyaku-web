@@ -678,3 +678,10 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .plan-card.is-current .plan-current { display: block; }
 .plan-card.is-current .plan-pick { display: none; }
 @media (max-width: 640px) { .plan-cards { grid-template-columns: 1fr; } }
+
+/* Standardの支払いの間隔（2026-10-26） */
+.billing-term { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 10px 16px 4px; margin: 0 0 14px; }
+.billing-term legend { font-weight: 700; padding: 0 4px; }
+.billing-term label { display: block; padding: 6px 0; cursor: pointer; }
+.billing-term label input { margin-right: 8px; }
+.billing-term label span { display: block; margin-left: 1.9em; font-size: .85rem; color: var(--mute); }

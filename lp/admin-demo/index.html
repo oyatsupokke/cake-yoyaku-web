@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1793012954">
-<link rel="stylesheet" href="admin.css?v=1793012954">
-<link rel="stylesheet" href="admin-layout.css?v=1793012954">
-<link rel="stylesheet" href="support.css?v=1793012954">
-<link rel="stylesheet" href="help-panel.css?v=1793012954">
-<link rel="stylesheet" href="demo-banner.css?v=1793012954">
+<link rel="stylesheet" href="styles.css?v=1793016183">
+<link rel="stylesheet" href="admin.css?v=1793016183">
+<link rel="stylesheet" href="admin-layout.css?v=1793016183">
+<link rel="stylesheet" href="support.css?v=1793016183">
+<link rel="stylesheet" href="help-panel.css?v=1793016183">
+<link rel="stylesheet" href="demo-banner.css?v=1793016183">
 </head>
 <body>
 <div id="app" class="admin">
@@ -480,6 +480,14 @@
           </div>
           <p id="trial-plan-status" role="status" aria-live="polite"></p>
         </div>
+        <!-- Standardの支払いの間隔（半年・年間のまとめ払い・2026-10-26） -->
+        <fieldset id="billing-term" class="billing-term hidden">
+          <legend>お支払いの間隔（Standard）</legend>
+          <label><input type="radio" name="billing-term" value="month" checked>月払い<span>月額4,980円</span></label>
+          <label><input type="radio" name="billing-term" value="half">半年ごとにまとめ払い<span>28,080円／6か月（月4,680円相当・6か月で1,800円お得）</span></label>
+          <label><input type="radio" name="billing-term" value="year">1年ごとにまとめ払い<span>53,760円／年（月4,480円相当・1年で6,000円お得）</span></label>
+          <p class="small">まとめ払いは期間のはじめに一括でお支払いいただき、期間が終わると同じ間隔で自動更新します。途中で解約しても返金はありませんが、期間の終わりまでご利用いただけます。</p>
+        </fieldset>
         <p id="billing-page-help" class="small"></p>
         <button type="button" class="pill hidden" id="btn-billing-page-checkout">有料契約へ進む（月額4,980円）</button>
         <button type="button" class="pill hidden" id="btn-billing-page-portal">お支払い管理をひらく</button>
@@ -594,23 +602,23 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="demo-runtime.js?v=1793012954"></script>
-<script src="tips.js?v=1793012954"></script>
-<script src="edit-drafts.js?v=1793012954"></script>
-<script src="report-core.js?v=1793012954"></script>
-<script src="line-settings.js?v=1793012954"></script>
-<script src="billing-upgrade.js?v=1793012954"></script>
-<script src="trial-plan.js?v=1793012954"></script>
-<script src="order-gallery.js?v=1793012954"></script>
-<script src="option-counts.js?v=1793012954"></script>
-<script src="kitchen-breakdown.js?v=1793012954"></script>
-<script src="limit-check.js?v=1793012954"></script>
-<script src="date-limits.js?v=1793012954"></script>
-<script src="admin.js?v=1793012954"></script>
-<script src="order-calendar.js?v=1793012954"></script>
-<script src="onboarding.js?v=1793012954"></script>
-<script src="reports.js?v=1793012954"></script>
-<script src="support.js?v=1793012954"></script>
-<script src="navigation.js?v=1793012954"></script>
+<script src="demo-runtime.js?v=1793016183"></script>
+<script src="tips.js?v=1793016183"></script>
+<script src="edit-drafts.js?v=1793016183"></script>
+<script src="report-core.js?v=1793016183"></script>
+<script src="line-settings.js?v=1793016183"></script>
+<script src="billing-upgrade.js?v=1793016183"></script>
+<script src="trial-plan.js?v=1793016183"></script>
+<script src="order-gallery.js?v=1793016183"></script>
+<script src="option-counts.js?v=1793016183"></script>
+<script src="kitchen-breakdown.js?v=1793016183"></script>
+<script src="limit-check.js?v=1793016183"></script>
+<script src="date-limits.js?v=1793016183"></script>
+<script src="admin.js?v=1793016183"></script>
+<script src="order-calendar.js?v=1793016183"></script>
+<script src="onboarding.js?v=1793016183"></script>
+<script src="reports.js?v=1793016183"></script>
+<script src="support.js?v=1793016183"></script>
+<script src="navigation.js?v=1793016183"></script>
 </body>
 </html>

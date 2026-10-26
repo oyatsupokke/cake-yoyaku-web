@@ -133,7 +133,7 @@ async function showApp() {
   if (!tu.length) { toast("店舗が紐付いていません"); logout(); return; }
   state.tenantId = tu[0].tenant_id;
   const t = await api("GET",
-    `/rest/v1/tenants?id=eq.${state.tenantId}&select=id,name,subdomain,billing_status,trial_ends_at,theme,reservation_plan,first_paid_at`);
+    `/rest/v1/tenants?id=eq.${state.tenantId}&select=id,name,subdomain,billing_status,trial_ends_at,theme,reservation_plan,first_paid_at,billing_term,billing_period_end,billing_cancel_at_period_end`);
   state.tenantName = t[0]?.name || "";
   // 管理画面の基調色は店の色（見出し・選んだタブ・保存ボタン）。無ければ admin.css の既定色
   const accent = t[0]?.theme?.accent || t[0]?.theme?.primary;
@@ -170,18 +170,28 @@ async function showApp() {
 }
 
 /* ---------- 課金状態バナー（SaaS） ---------- */
-async function callBillingFn(name) {
+async function callBillingFn(name, body) {
   const res = await fetch(`${CONFIG.url}/functions/v1/${name}`, {
     method: "POST",
-    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}` },
+    headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.url) throw new Error(json.error || "処理に失敗しました");
   location.href = json.url;
 }
+// 支払いの間隔（Standardの半年・年間まとめ払い・2026-10-26）
+const TERM_NAMES = { month: "月払い", half: "半年契約", year: "年間契約" };
+const TERM_PRICES = { half: "半年ごとに28,080円（税込・一括）", year: "1年ごとに53,760円（税込・一括）" };
+const checkoutTerm = () => $("billing-term")?.classList.contains("hidden") ? "month"
+  : document.querySelector('input[name="billing-term"]:checked')?.value || "month";
+const startCheckout = () => callBillingFn("create-checkout-session", { term: checkoutTerm() });
+document.querySelectorAll('input[name="billing-term"]').forEach((input) =>
+  input.addEventListener("change", () => renderBillingBanner(state.billingTenant)));
 function renderBillingBanner(t) {
   const el = $("billing-banner");
   if (!el || !t) return;
+  state.billingTenant = t;
   const status = t.billing_status || "exempt";
   state.billingStatus = status;
   const lite=t.reservation_plan==='lite';
@@ -190,15 +200,24 @@ function renderBillingBanner(t) {
   const intro=lite&&!t.first_paid_at&&!['active','trialing','past_due','exempt'].includes(status);
   const priceText=intro?'最初の３か月は月額1,480円（税込）、４か月目から月額1,980円（税込）':`月額${amount}円（税込）`;
   const planName=lite?'Lite':'Standard';
+  const canCheckout=["setup_trial", "none", "canceled", "incomplete_expired"].includes(status);
+  $("billing-term").classList.toggle("hidden", lite || !canCheckout);
+  const term=checkoutTerm();
+  const termText=TERM_PRICES[term]||priceText;
   // お試し中は金額を説明文に出し、ボタンは短く（スマホで1行に収める）
-  $('btn-billing-page-checkout').textContent=status==='setup_trial'?`${planName}で有料契約へ進む`:`有料契約へ（${priceText}）`;
+  $('btn-billing-page-checkout').textContent=status==='setup_trial'?`${planName}で有料契約へ進む`:`有料契約へ（${termText}）`;
   renderLiteUsage(t);
   globalThis.ReservationUpgrade?.render(t);
   globalThis.TrialPlan?.render(t);
   const labels = { setup_trial: "お試し中（受付開始まで無料）", exempt: "課金対象外", none: "お支払い未登録", trialing: "無料トライアル中", active: "ご契約中", past_due: "お支払いの確認が必要です", unpaid: "未払いのため利用停止中", canceled: "解約済み", incomplete: "お支払い手続き中", incomplete_expired: "お支払い手続きの期限切れ", paused: "ご契約を一時停止中" };
-  $("billing-page-status").textContent = status === "active" ? `${lite ? "Lite" : "Standard"}でご契約中` : labels[status] || "ご契約状況を確認してください";
+  const contractTerm = t.billing_term && t.billing_term !== "month" ? `（${TERM_NAMES[t.billing_term]}）` : "";
+  $("billing-page-status").textContent = status === "active" ? `${lite ? "Lite" : "Standard"}${contractTerm}でご契約中` : labels[status] || "ご契約状況を確認してください";
+  const periodEnd = t.billing_period_end ? new Date(t.billing_period_end).toLocaleDateString("ja-JP") : "";
   $("billing-page-trial").textContent = status === "trialing" && t.trial_ends_at
-    ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}` : "";
+    ? `無料期間の終了日：${new Date(t.trial_ends_at).toLocaleDateString("ja-JP")}`
+    : ["active", "past_due"].includes(status) && periodEnd
+      ? (t.billing_cancel_at_period_end ? `解約の手続き済みです。${periodEnd}までご利用いただけます。` : `次回の更新日：${periodEnd}`)
+      : "";
   $("billing-page-help").textContent = status === "exempt"
     ? "この店舗は課金対象外です。お支払い登録は不要です。"
     : "カードの変更・請求書の確認・解約は、Stripeのお支払い管理で行えます。";
@@ -209,7 +228,7 @@ function renderBillingBanner(t) {
   if (status === "setup_trial") {
     // 受付開始まで無料（期限なし・2026-10-22）
     $("billing-page-status").textContent = "お試し中（受付開始まで無料）";
-    $("billing-page-help").textContent = `${planName}：${priceText}。有料契約の決済が終わると、本予約の受付が始まります。`;
+    $("billing-page-help").textContent = `${planName}：${termText}。有料契約の決済が終わると、本予約の受付が始まります。`;
     html = "お試し中です。設定とテスト予約は、受付を始めるまで無料・期限なしで使えます。本予約は有料契約から受け付けます。";
     html += ` <a class="pill" href="../?shop=${encodeURIComponent(t.subdomain)}&trial=1" target="_blank">テスト予約を試す</a>`;
     html += ` <button type="button" class="pill" id="btn-billing-checkout">${planName}で有料契約へ進む</button>`;
@@ -232,7 +251,7 @@ function renderBillingBanner(t) {
   el.innerHTML = html;
   el.classList.remove("hidden");
   const co = $("btn-billing-checkout");
-  if (co) co.onclick = () => callBillingFn("create-checkout-session").catch((e) => toast(e.message));
+  if (co) co.onclick = () => startCheckout().catch((e) => toast(e.message));
   const po = $("btn-billing-portal");
   if (po) po.onclick = () => callBillingFn("create-portal-session").catch((e) => toast(e.message));
 }
@@ -2103,7 +2122,7 @@ $("btn-account-reset").onclick = async () => {
 for (const [id, name] of [["btn-billing-page-checkout", "create-checkout-session"], ["btn-billing-page-portal", "create-portal-session"]]) {
   $(id).onclick = async () => {
     $(id).disabled = true;
-    try { await callBillingFn(name); }
+    try { await (name === "create-checkout-session" ? startCheckout() : callBillingFn(name)); }
     catch (e) { toast(e.message); }
     finally { $(id).disabled = false; }
   };

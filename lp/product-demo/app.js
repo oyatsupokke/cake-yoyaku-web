@@ -2147,10 +2147,11 @@ function openOptionSamplePhoto(url, optionName) {
   else window.open(src,'_blank','noopener,noreferrer');
 }
 
-// 選択肢がすべて「期間外は表示しない」で隠れているグループは、見出しごと出さない
+// 選択肢がすべて「期間外は表示しない」で隠れているグループ、選べる選択肢が1つも無い（全部停止した）グループは、見出しごと出さない。
+// サーバーの fn_group_visible も選べる選択肢が無いグループを必須にしない
 function groupAllHidden(g) {
   const live = (g.options || []).filter((o) => o.is_available && !(o.shared_list_item_id && !o.shared_list_items));
-  return live.length > 0 && live.every((o) => hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id));
+  return live.length === 0 || live.every((o) => hiddenOutsidePeriod(o, optionPickupPeriod(o)) && !state.sel.options.has(o.id));
 }
 function renderGroups() {
   pruneHiddenQuestions();
@@ -3355,6 +3356,8 @@ $("btn-submit").onclick = async () => {
     }
     if (r.review_state === "requested" && !TRIAL_MODE) {
       $("view-done").querySelector("h2").textContent = "追加希望を受け付けました（予約未確定）";
+      // まだ予約は確定していないので、お祝いの🎉は出さない（2026-10-28 まりほ指摘）
+      $("view-done").querySelector(".done-emoji").classList.add("hidden");
       $("done-total").textContent = yen(r.total_amount) + "［選択分・追加希望分は未確定］";
       $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取希望として受け付けました。対応内容と金額をご案内します。専用ページで承諾すると予約が確定します。`;
     }

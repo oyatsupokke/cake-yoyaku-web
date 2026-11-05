@@ -264,6 +264,12 @@ async function api(method, path, body, opts = {}) {
   }
   return method === "GET" && table ? drafts.overlay(table, data) : data;
 }
+// 関数（rpc）で消した行は api() の DELETE と違って行が返らないので、下書きと入力欄の登録をここで外す
+function forgetDeleted(table, ids) {
+  if (!ids.length) return;
+  drafts.forget(table, ids);
+  state.fields = state.fields.filter(f => f.table !== table || !ids.includes(f.id));
+}
 function showLogin() {
   $("view-login").classList.remove("hidden");
   $("view-app").classList.add("hidden");
@@ -1708,8 +1714,8 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     row.querySelector(".c-del").onclick = async () => {
       try {
         await api("DELETE", `/rest/v1/common_question_choices?id=eq.${c.id}`);
-      } catch {
-        toast("すでに回答がある選択肢のため消せません");
+      } catch (e) {
+        toast(e.code === "23514" ? e.message : "すでに回答がある選択肢のため消せません");
       }
       reloadAll();
     };
@@ -2201,7 +2207,7 @@ function renderLiteQuestions(p) {
       regField('common_question_choices',c.id,'is_available',row.querySelector('[type=checkbox]'));choices.appendChild(row);
     }
     add.onclick=async()=>{try{await api('POST','/rest/v1/common_question_choices',[{tenant_id:state.tenantId,question_id:q.id,label:'新しい選択肢',price_delta:0,display_order:qChoices(q).length}]);await reloadAll();}catch(e){toast(e.message);}};
-    box.querySelector('.lite-question-delete').onclick=async()=>{try{await api('DELETE',`/rest/v1/common_questions?id=eq.${q.id}`);await reloadAll();}catch(e){toast('予約で使われている質問は削除できません：'+e.message);}};
+    box.querySelector('.lite-question-delete').onclick=async()=>{try{await api('POST','/rest/v1/rpc/fn_delete_question',{p_question:q.id});forgetDeleted('common_questions',[q.id]);await reloadAll();}catch(e){toast('予約で使われている質問は削除できません：'+e.message);}};
     wrap.appendChild(box);
   }
 }
@@ -2494,19 +2500,14 @@ function buildGroupBox(p, g) {
     const scope = isGlobal
       ? `\n（共通で使っている質問です。対象のケーキすべてから消えます）` : "";
     if (!confirm(`質問「${nameEl.value.trim() || g.name}」と中の選択肢を削除しますか？\n中の選択肢${g.options.length}件と、それぞれの質問・回答の選択肢も削除されます。${scope}`)) return;
+    // 1回の呼び出しで消す（途中で止まったら何も消えない）。キャンセル済み・受取日が過ぎた予約だけなら消せる
     try {
-      const ids = g.options.map((o) => o.id).join(",");
-      if (ids) {
-        await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.in.(${ids}),option_b.in.(${ids}))`);
-        const questionIds = g.options.flatMap((option) => questionsOf(option.id)).map((q) => q.id).join(",");
-        if (questionIds) await api("DELETE", `/rest/v1/common_question_choices?question_id=in.(${questionIds})`);
-        await api("DELETE", `/rest/v1/common_questions?option_id=in.(${ids})`);
-      }
-      await api("DELETE", `/rest/v1/options?group_id=eq.${g.id}`);
-      await api("DELETE", `/rest/v1/option_groups?id=eq.${g.id}`);
+      await api("POST", "/rest/v1/rpc/fn_delete_option_group", { p_group: g.id });
+      forgetDeleted("option_groups", [g.id]);
+      forgetDeleted("options", g.options.map((o) => o.id));
       toast("削除しました");
-    } catch {
-      toast("予約で使用されている選択肢があるため削除できません（各選択肢の停止をお使いください）");
+    } catch (e) {
+      toast(e.code === "23514" ? e.message : `削除できませんでした：${e.message}`);
     }
     reloadAll();
   };
@@ -2793,11 +2794,11 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     item.querySelector(".o-qdel").onclick = async () => {
       if (!confirm(`質問「${q.label || "（未入力）"}」を削除しますか？`)) return;
       try {
-        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
-        await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+        await api("POST", "/rest/v1/rpc/fn_delete_question", { p_question: q.id });
+        forgetDeleted("common_questions", [q.id]);
       } catch {
         await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: false });
-        toast("すでに回答がある質問のため、削除ではなく停止しました");
+        toast("これから受け取りの予約で回答がある質問のため、削除ではなく停止しました");
       }
       reloadAll();
     };
@@ -2840,15 +2841,12 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
     if (dependents.length) { toast(`「${dependents.join('」「')}」の表示条件に使われています。先にその条件を変更してください。`); return; }
     if (!confirm(`「${optDisplayName(o)}」を削除しますか？`)) return;
     try {
-      await api("DELETE", `/rest/v1/option_exclusions?or=(option_a.eq.${o.id},option_b.eq.${o.id})`);
-      for (const question of qs) {
-        await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${question.id}`);
-        await api("DELETE", `/rest/v1/common_questions?id=eq.${question.id}`);
-      }
-      await api("DELETE", `/rest/v1/options?id=eq.${o.id}`);
+      await api("POST", "/rest/v1/rpc/fn_delete_option", { p_option: o.id });
+      forgetDeleted("options", [o.id]);
+      forgetDeleted("common_questions", qs.map((q) => q.id));
       toast("削除しました");
-    } catch {
-      toast("予約で使用されているため削除できません（停止をお使いください）");
+    } catch (e) {
+      toast(e.code === "23514" ? e.message : `削除できませんでした：${e.message}`);
     }
     reloadAll();
   };
@@ -3043,13 +3041,12 @@ function buildQuestionBox(q) {
   box.querySelector(".q-del").onclick = async () => {
     if (!confirm(`質問「${q.label}」を削除しますか？`)) return;
     try {
-      await api("DELETE", `/rest/v1/common_question_choices?question_id=eq.${q.id}`);
-      await api("DELETE", `/rest/v1/common_question_products?question_id=eq.${q.id}`);
-      await api("DELETE", `/rest/v1/common_questions?id=eq.${q.id}`);
+      await api("POST", "/rest/v1/rpc/fn_delete_question", { p_question: q.id });
+      forgetDeleted("common_questions", [q.id]);
       toast("削除しました");
     } catch {
       await api("PATCH", `/rest/v1/common_questions?id=eq.${q.id}`, { is_active: false });
-      toast("すでに回答がある質問のため、削除ではなく停止しました");
+      toast("これから受け取りの予約で回答がある質問のため、削除ではなく停止しました");
     }
     reloadAll();
   };

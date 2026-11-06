@@ -421,6 +421,13 @@ function renderQuote(o, list, btn) {
     const err = el('p', 'quote-error'); form.append(err);
     agree.onchange = () => { if (agree.checked) err.textContent = ''; };
     box.append(form);
+    // 修正のお願いでも同じ回答を送る（2026-11-06）。並びは質問と同じ・未回答は null
+    o._quoteForm = {
+      answers: () => questions.map((qq, i) => qq.type === 'choice' ? picked[i] : qq.type === 'multi' ? [...picked[i]].sort((a, b) => a - b)
+        : qq.type === 'image' ? (photos[i].length ? photos[i].map((p) => p.id) : null) : (texts[i].value.trim() || null)),
+      missing: (i) => { const f = form.querySelectorAll('.quote-q')[i]; f.classList.add('missing'); f.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+      questions,
+    };
     acceptBtn = btn('', 'btn-primary', '押した時点で、上の内容と金額でご予約が確定します。', async () => {
       err.textContent = '';
       // いくつでも（multi）は0個も可。写真（image）は1枚以上
@@ -524,13 +531,17 @@ function renderChangeRequest(o, list) {
   const pl = el('div', 'quote-comment'); pl.append(el('span', null, '写真（任意・3枚まで）'), photoPicker(3, (list) => { shots = list; })); box.append(pl);
   const err = el('p', 'quote-error'); box.append(err);
   const send = el('button', 'btn-primary', 'お店に修正をお願いする'); send.type = 'button'; box.append(send);
-  box.append(el('p', 'action-hint', 'お店がお見積もりを作り直してお送りします。ご予約は確定前のままです。'));
+  box.append(el('p', 'action-hint', `${o._quoteForm?.questions.some((qq) => qq.type === 'choice') ? '上の「お店からのご質問」への回答も一緒に送ります。' : ''}お店がお見積もりを作り直してお送りします。ご予約は確定前のままです。`));
   open.onclick = () => { box.classList.remove('hidden'); open.classList.add('hidden'); };
   send.onclick = async () => {
     const reasons = checks.filter(c => c.checked).map(c => c.value);
     if (!reasons.length) { err.textContent = '直してほしいところを選んでください。'; return; }
     err.textContent = '';
-    await quoteAction('fn_request_quote_change', { p_token: TOKEN, p_quote: q.id, p_reasons: reasons, p_comment: comment.value.trim() || null, p_images: shots.length ? shots.map((p) => p.id) : null });
+    // お店は質問の答えも見て作り直すので、「選ぶ」質問は修正のお願いでも答えてもらう（2026-11-06 まりほ指摘）
+    const qf = o._quoteForm, answers = qf && qf.questions.length ? qf.answers() : null;
+    const miss = answers ? qf.questions.findIndex((qq, i) => qq.type === 'choice' && answers[i] == null) : -1;
+    if (miss >= 0) { err.textContent = `上の「お店からのご質問」の ${miss + 1} にお答えください。`; qf.missing(miss); return; }
+    await quoteAction('fn_request_quote_change', { p_token: TOKEN, p_quote: q.id, p_reasons: reasons, p_comment: comment.value.trim() || null, p_images: shots.length ? shots.map((p) => p.id) : null, ...(answers ? { p_answers: answers } : {}) });
   };
   list.append(open, box);
 }

@@ -289,7 +289,7 @@ async function loadOrders() {
     (filter === "new" ? `&status=eq.new&review_state=eq.none`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
-    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
   const orders = [];
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
@@ -818,17 +818,55 @@ function renderQuoteEditor(el,o) {
   const box = document.createElement('div'); box.className = 'confirm-box quote-editor';
   const q = o.quote;
   const ch = pendingChange(o);
+  // 修正のお願い／今の見積もり／質問と回答を、それぞれ見出し付きのまとまりで出す（2026-11-06 まりほ指摘「どうなってるかわからん」）
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const kv = (k, v) => { const r = mk('div', 'qv-kv'); r.append(mk('span', 'qv-k', k), mk('span', 'qv-v', v)); return r; };
+  const when = (iso) => new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   if (ch) {
-    const p = document.createElement('div'); p.className = 'quote-change-note';
-    p.textContent = `お客様から修正のお願い（${new Date(ch.created_at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}）\n直してほしいところ：${(ch.reasons || []).join('・')}${ch.comment ? `\nひとこと：「${ch.comment}」` : ''}${(ch.images || []).length ? `\n写真：${ch.images.length}枚（下の「添付画像」）` : ''}\n下のお見積もりを直して、もう一度送ってください。`;
+    const p = mk('div', 'quote-change-note');
+    p.append(mk('p', 'qv-title', `お客様から修正のお願い（${when(ch.created_at)}）`));
+    p.append(kv('直してほしいところ', (ch.reasons || []).join('・')));
+    if (ch.comment) p.append(kv('ひとこと', ch.comment));
+    if ((ch.images || []).length) p.append(kv('写真', `${ch.images.length}枚（下の「添付画像」）`));
+    p.append(mk('p', 'qv-foot', '↓ 下の「お見積もりを作り直して送る」で直して、もう一度送ってください。'));
     box.appendChild(p);
   }
   if (q) {
-    const detail = document.createElement('p'); detail.style.whiteSpace = 'pre-wrap';
-    // 質問はお客様が答えるまで description に入らないので、ここで並べる（2026-10-20）
-    const qs = Array.isArray(q.questions) && !q.accepted_at ? '\n\nお客様への質問：\n' + q.questions.map((x, i) => `${i + 1}. ${x.text}${['choice', 'multi'].includes(x.type) ? '（' + (x.type === 'multi' ? 'いくつでも：' : '') + x.choices.map(c => c.label + (c.amount ? `${c.amount > 0 ? '＋' : '−'}${yen(Math.abs(c.amount))}` : '')).join('／') + '）' : x.type === 'image' ? '（写真で回答）' : '（自由に書く）'}${x.image_url ? '［見本画像あり］' : ''}`).join('\n') : '';
-    detail.textContent = `見積もり ${q.revision}：${yen(q.amount)}（税込総額${q.quoted_amount != null && q.quoted_amount !== q.amount ? `・提示 ${yen(q.quoted_amount)}＋ご回答の分` : ''}）\n${q.description}${qs}\n回答期限：${new Date(q.expires_at).toLocaleString('ja-JP')}\n${q.accepted_at ? '承諾日時：'+new Date(q.accepted_at).toLocaleString('ja-JP') : '未承諾・製造に進めないでください'}`;
-    box.appendChild(detail);
+    const v = mk('div', 'quote-view');
+    const head = mk('div', 'qv-head');
+    head.append(mk('p', 'qv-title', `今のお見積もり（${q.revision}回目）`));
+    head.append(mk('span', q.accepted_at ? 'qv-state qv-ok' : 'qv-state qv-wait', q.accepted_at ? `承諾済み ${when(q.accepted_at)}` : '未承諾・製造に進めないでください'));
+    v.append(head);
+    if (Array.isArray(q.items)) {
+      const t = mk('div', 'qv-lines');
+      for (const it of q.items) { const r = mk('div', 'qv-line'); r.append(mk('span', null, it.label), mk('span', null, it.amount == null ? '' : yen(it.amount))); t.append(r); }
+      for (const a of (q.answers || []).filter(a => a.amount)) { const r = mk('div', 'qv-line'); r.append(mk('span', null, `${a.answer}（ご回答）`), mk('span', null, yen(a.amount))); t.append(r); }
+      const r = mk('div', 'qv-line qv-total'); r.append(mk('span', null, '税込総額'), mk('span', null, yen(q.amount))); t.append(r);
+      v.append(t);
+      if ((q.shop_message || '').trim()) v.append(kv('お客様へのひとこと', q.shop_message));
+      if ((q.note || '').trim()) v.append(kv('仕上がりの条件', q.note));
+      if ((q.customer_comment || '').trim()) v.append(kv('お客様からのひとこと', q.customer_comment));
+    } else {
+      v.append(mk('p', 'qv-desc', `${yen(q.amount)}（税込総額）\n${q.description}`));
+    }
+    // 質問ごとに「回答」を並べる。承諾後は確定した回答、承諾前は修正のお願いと一緒に届いた回答
+    const qs = Array.isArray(q.questions) ? q.questions : [];
+    const ans = q.accepted_at ? (q.answers || []) : (ch?.answers || []);
+    if (qs.length) {
+      v.append(mk('p', 'qv-sub', 'お客様への質問と回答'));
+      const ol = mk('ol', 'qv-qs');
+      qs.forEach((x, i) => {
+        const li = mk('li');
+        const opts = ['choice', 'multi'].includes(x.type) ? x.choices.map(c => c.label + (c.amount ? `（${c.amount > 0 ? '＋' : '−'}${yen(Math.abs(c.amount))}）` : '')).join('／') : x.type === 'image' ? '写真で回答' : '自由に書く';
+        li.append(mk('span', 'qv-q', x.text), mk('span', 'qv-opts', `選択肢：${opts}${x.type === 'multi' ? '（いくつでも）' : ''}${x.image_url ? '・見本画像あり' : ''}`));
+        const a = ans[i];
+        li.append(a && a.answer != null ? mk('span', 'qv-a', `回答：${a.answer}`) : mk('span', 'qv-a qv-none', q.accepted_at ? '回答：なし' : '回答：まだありません（お客様が確定するときに答えます）'));
+        ol.append(li);
+      });
+      v.append(ol);
+    }
+    if (!q.accepted_at) v.append(kv('回答期限', new Date(q.expires_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })));
+    box.appendChild(v);
   }
   // SELECTTYPEから移した承認待ち（見積もりの話ではない）。旧側で承認したら、ここで確定にするだけ（2026-09-30）
   if (!q && o.review_state === 'requested' && o.status === 'new' && String(o.internal_memo || '').startsWith('SELECTTYPE')) {
@@ -857,7 +895,7 @@ function renderQuoteEditor(el,o) {
     const base = first ? `${first.product_name_snapshot || 'ケーキ'} ${first.variant_label_snapshot || ''}（予約時の選択分）`.replace(/\s+（/, '（') : '予約時の選択分';
     const items = Array.isArray(q?.items) && q.items.length ? q.items : [{ label: base, amount: o.total_amount }];
     const questions = Array.isArray(q?.questions) ? q.questions : [];
-    form.innerHTML = `<p>追加希望を確認し、内訳と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>
+    form.innerHTML = `<p class="qv-title">${q ? 'お見積もりを作り直して送る' : 'お見積もりを作って送る'}</p><p>追加希望を確認し、内訳と税込総額をお客様へ提示します。承諾前も枠は仮押さえ中です。回答期限が過ぎても自動キャンセルされません。</p>
       <p class="field-label">お見積もりの内訳（1行ずつ・税込）</p>
       <div class="qi-rows"></div>
       <button type="button" class="btn-secondary qi-add">＋ 行を足す</button>
@@ -1013,7 +1051,7 @@ async function loadKitchenRange() {
   try {
     const orders = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
       orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }

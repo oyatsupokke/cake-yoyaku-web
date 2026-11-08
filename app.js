@@ -1028,10 +1028,6 @@ function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
         : cakeLayerAsset(file))
     : url;
 }
-// バスクの既存イラストは専用の合成を使う。タルトの果物は通常の選択肢レイヤーで登録する。
-const OYATSU_PRODUCT_EXTRA_LAYERS = {
-  "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
-};
 const OYATSU_FIG_DECORATION_LAYERS = {
   "フルーツ1周": "fruit-ring-fig.png",
   "フルーツサイド寄せ": "fruit-side-fig.png",
@@ -1755,17 +1751,6 @@ function currentLayers() {
   if (!baseUrl) return null;
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
-  if (CONFIG.shop === "pokke") {
-    const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
-    for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
-      let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
-        ? "basque-fruit-mix.png"
-        : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
-        ? "basque-fruit-fig.png"
-        : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
-      layers.push({ url: cakeLayerAsset(file), z: x.z });
-    }
-  }
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set((ownPreview ? [...state.sel.options.keys()] : []).map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
@@ -1791,9 +1776,6 @@ function currentLayers() {
         const name=optName(o);
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
-        // 専用の盛り絵ができるまでは、いちじくの上にマスカットを重ねない。
-        if(ownPreview && p.name==="バスクチーズケーキ" && selectedNames.has("いちじく")
-          && name==="フルーツ盛り" && !comboLayer(o))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
         const rawLayerUrl=CONFIG.shop==="pokke" && p.name==="デコレーションケーキ"
           && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]

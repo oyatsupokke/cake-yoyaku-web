@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1794202099">
-<link rel="stylesheet" href="admin.css?v=1794202099">
-<link rel="stylesheet" href="products.css?v=1794202099">
-<link rel="stylesheet" href="admin-layout.css?v=1794202099">
-<link rel="stylesheet" href="help-panel.css?v=1794202099">
+<link rel="stylesheet" href="../styles.css?v=1794213709">
+<link rel="stylesheet" href="admin.css?v=1794213709">
+<link rel="stylesheet" href="products.css?v=1794213709">
+<link rel="stylesheet" href="admin-layout.css?v=1794213709">
+<link rel="stylesheet" href="help-panel.css?v=1794213709">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -105,6 +105,19 @@
           <div class="text-field-heading"><span class="text-field-label">注意書き</span><button type="button" class="tip" data-tip="アレルギーの案内などに。お客様の画面で商品説明の下に表示されます。「目立たせる」にチェックすると赤・太字になります。">？</button></div>
           <textarea id="p-note" rows="3"></textarea>
           <label class="radio-line" style="margin:4px 0 0; font-size:.8rem"><input type="checkbox" id="p-note-accent">目立たせる（赤・太字）</label>
+        </div>
+        <div class="field">
+          <label for="p-fulfillment">受け取り方</label>
+          <select id="p-fulfillment" aria-describedby="p-fulfillment-help">
+            <option value="pickup">店頭受取</option>
+            <option value="delivery">配送</option>
+          </select>
+          <p class="help" id="p-fulfillment-help">配送の商品は、お客様がお届け先とお届け日を選び、ご注文のときにカードで支払います。同じケーキを店頭と配送の両方で売るときは、「この商品をコピー」で配送用の商品を作ってください（値段・飾り・締切・説明を配送用に変えられます）。お店に店頭受取と配送の両方の商品があると、お客様は最初に「店頭で受け取る／配送で届けてもらう」を選びます。配送する地域・送料は<a href="./#settings-delivery">予約設定の「配送」</a>、Stripeの接続は<a href="./#settings-card">予約設定の「カード払い」</a>で行います（つながるまでお客様には配送が出ません）。</p>
+        </div>
+        <div class="field product-limit-field" id="p-lead-field">
+          <label for="p-lead">この商品だけ発送を早める日数（配送）</label>
+          <div class="product-unit-row"><input type="number" id="p-lead" min="0" max="7" step="1" placeholder="空欄=早めない" aria-describedby="p-lead-help"><span>日</span></div>
+          <p class="help" id="p-lead-help">※ふだんは空欄のままで大丈夫です。発送日は、予約設定の「配送」で地域ごとに決めた「届くまでの日数」で決まります。箱詰めや乾燥などで、この商品だけ1日早く発送したいときに「1」と入れてください（どの地域でもその分早く発送します）。</p>
         </div>
         <div class="field product-limit-field">
           <label for="p-deadline">締切（受取日の何日前まで受け付けるか）</label>
@@ -240,17 +253,17 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1794202099"></script>
-<script src="edit-drafts.js?v=1794202099"></script>
-<script src="products-menu.js?v=1794202099"></script>
-<script src="pickup-schedule.js?v=1794202099"></script>
-<script src="../question-flow.js?v=1794202099"></script>
-<script src="../crop.js?v=1794202099"></script>
-<script src="limit-check.js?v=1794202099"></script>
-<script src="date-limits.js?v=1794202099"></script>
-<script src="products.js?v=1794202099"></script>
-<script type="module" src="product-assistant.js?v=1794202099"></script>
-<script src="products-outline.js?v=1794202099"></script>
-<script src="navigation.js?v=1794202099"></script>
+<script src="tips.js?v=1794213709"></script>
+<script src="edit-drafts.js?v=1794213709"></script>
+<script src="products-menu.js?v=1794213709"></script>
+<script src="pickup-schedule.js?v=1794213709"></script>
+<script src="../question-flow.js?v=1794213709"></script>
+<script src="../crop.js?v=1794213709"></script>
+<script src="limit-check.js?v=1794213709"></script>
+<script src="date-limits.js?v=1794213709"></script>
+<script src="products.js?v=1794213709"></script>
+<script type="module" src="product-assistant.js?v=1794213709"></script>
+<script src="products-outline.js?v=1794213709"></script>
+<script src="navigation.js?v=1794213709"></script>
 </body>
 </html>

@@ -33,6 +33,8 @@ const STATUS = {
 };
 const REVIEW = {requested:"追加希望・確認待ち",quoted:"見積もり・承諾待ち",accepted:"追加希望・承諾済み"};
 const reviewPending = o => ['requested','quoted'].includes(o.review_state);
+// 配送のカード払い待ち（払われると確定・30分で自動取り消し）。確認済にするのは払われてから
+const awaitingPay = o => o.fulfillment === "delivery" && o.payment_status !== "paid";
 
 const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "calendar",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
@@ -286,10 +288,11 @@ async function loadOrders() {
   const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
   $("tab-kitchen").classList.toggle("hidden", !!filter);
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
-    (filter === "new" ? `&status=eq.new&review_state=eq.none`
+    // 支払い待ちの配送（30分で自動取り消し）は「未確認」に入れない（2026-10-05）
+    (filter === "new" ? `&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
-    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)`;
+    `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at),order_payments!order_payments_order_id_fkey(provider,status)`;
   const orders = [];
   for (;;) {
     const page = await api("GET",path + `&limit=500&offset=${orders.length}`);
@@ -319,7 +322,7 @@ async function refreshUnconfirmedCount() {
   const opt = $("review-filter")?.querySelector('option[value="new"]');
   if (!opt || !state.tenantId) return;
   const generation = ++unconfirmedCountGeneration, tenant = state.tenantId;
-  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${tenant}&status=eq.new&review_state=eq.none&select=id`, {
+  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${tenant}&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)&select=id`, {
     method: "HEAD",
     headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, Prefer: "count=exact" },
   });
@@ -347,7 +350,7 @@ $("bulk-confirm-btn").onclick = async () => {
   try {
     // 画面に出ている予約だけを対象にする。読み込み後に状態が変わった分（キャンセル等）は条件で外れる
     const ids = targets.map((o) => o.id).join(",");
-    done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none`, { status: "confirmed" });
+    done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)`, { status: "confirmed" });
   } catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); btn.disabled = false; return; }
   toast(`${Array.isArray(done) ? done.length : targets.length}件を「確認済」にしました`);
   // 更新は済んでいるので、再読み込みの失敗は別の案内にする（一覧が古いままなのを伝える）
@@ -385,6 +388,20 @@ $("order-sort").onchange = () => {
 /* ---------- 受取リスト ---------- */
 // 旧予約フォーム（SELECTTYPE）から移したご予約。管理メモの先頭で見分ける（2026-09-28の移行時の印）
 const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE");
+/* 送り状CSV（2026-10-05）：選んだ日に発送する配送の予約（支払い済み）があるときだけ出す */
+function renderShipCsv() {
+  const box = $("ship-csv");
+  const list = !$("review-filter")?.value && !$("kitchen-range-mode").checked && window.ShippingCsv ? ShippingCsv.targets(state.orders) : [];
+  box.classList.toggle("hidden", !list.length);
+  if (!list.length) return;
+  $("ship-csv-note").textContent = `この日に発送する配送 ${list.length}件`;
+  $("ship-csv-btn").onclick = async () => {
+    try {
+      const [t] = await api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=name,phone,address`);
+      await ShippingCsv.download(list, t || { name: state.tenantName }, state.date);
+    } catch { toast("送り状CSVを作れませんでした。もう一度お試しください"); }
+  };
+}
 // 「期間を指定してまとめる」を使っている間は、下の予約一覧も同じ期間を出す
 // （2026-10-15 まりほ指摘「期間を指定しても明らかに少ない数しか並ばない」＝一覧だけ1日分のままだった）。
 const pickupRange = () => !$("review-filter")?.value && $("kitchen-range-mode").checked && kitchenRange ? kitchenRange : null;
@@ -395,6 +412,7 @@ function renderPickup() {
   $("pickup-heading").textContent = (receivedFirst() ? "予約が入った順の予約" : "受取時間順の予約") +
     (range ? `（受取日 ${range.from} 〜 ${range.to}）` : "");
   renderBulkConfirm();
+  renderShipCsv();
   if (!range && !$("review-filter")?.value && $("kitchen-range-mode").checked) {
     // 期間の読み込み中・読み込めなかったときに、1日分を期間の一覧と取り違えないようにする
     wrap.innerHTML = '<p class="empty-note">期間の予約を読み込むと、ここに並びます</p>';
@@ -427,12 +445,13 @@ function renderPickup() {
         ${pendingChange(o) ? `<span class="status-badge st-change">修正のお願いあり</span>` : ""}
         ${legacyOrder(o) ? `<span class="status-badge st-legacy" title="旧予約フォーム（SELECTTYPE）で受けたご予約">旧フォーム</span>`
           : o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
+        ${deliveryBadges(o)}
         ${prepayBadge(o)}
         ${(o.order_images || []).length ? `<button type="button" class="status-badge st-image photo-badge" aria-label="お客様の添付画像を見る（${o.order_images.length}枚）">📷${o.order_images.length}</button>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
         ${staffNoteBadge(o)}
       </div>
-      ${o.status === "new" && !reviewPending(o) ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
+      ${o.status === "new" && !reviewPending(o) && !awaitingPay(o) ? '<div class="order-actions"><button type="button" class="pill confirm-order-btn">→ 確認済にする</button></div>' : ''}
       <div class="order-body hidden"></div>`;
     card.querySelector('.confirm-order-btn')?.addEventListener('click', async (e) => {
       const button = e.currentTarget;
@@ -593,6 +612,13 @@ function fillOrderBody(el, o) {
     if (o.price_lock) row("価格", "ご予約時の価格のまま（お客様が内容を変更しても、前に選んだ分は同じ価格）");
     rows.push(`<div class="confirm-row"><span class="k">移行時の記録</span><span class="v pre">${esc(o.internal_memo)}</span></div>`);
   }
+  if (o.fulfillment === "delivery") {
+    row("受け取り方", "配送");
+    row("お届け日", `${o.delivery_date} ${o.delivery_time || "指定なし"}（発送日 ${o.pickup_date}）`);
+    row("お届け先", `〒${o.ship_postal_code || ""} ${o.ship_prefecture || ""}${o.ship_address || ""}`);
+    row("お届け先のお名前", `${o.ship_name || ""} 様（${o.ship_phone || ""}）`);
+    row("送料", yen(o.shipping_fee || 0));
+  }
   const phone = String(o.customer_phone ?? "");
   const tel = phone.replace(/[^0-9+*#,;]/g, "");
   rows.push(`<div class="confirm-row"><span class="k">電話</span><span><a href="tel:${esc(tel)}">${esc(phone)}</a></span></div>`);
@@ -605,15 +631,18 @@ function fillOrderBody(el, o) {
   else row("メール", email);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) {
     const p = prepayNumbers(o);
-    row("支払い", `事前払い ${yen(o.paid_amount)}（Square）`);
-    row("当日のお支払い", p.over > 0 ? `なし（${yen(p.over)} の返金が必要）` : p.due > 0 ? `${yen(p.due)}（差額）` : "なし");
+    row("支払い", o.fulfillment === "delivery" ? `カード払い ${yen(o.paid_amount)}（Stripe）` : `事前払い ${yen(o.paid_amount)}（${PAY_PROVIDER(o)}）`);
+    if (o.fulfillment !== "delivery")
+      row("当日のお支払い", p.over > 0 ? `なし（${yen(p.over)} の返金が必要）` : p.due > 0 ? `${yen(p.due)}（差額）` : "なし");
   } else {
-    row("支払い", (o.payment_method === "store" ? "店頭払い" : o.payment_method) +
+    row("支払い", o.fulfillment === "delivery" ? (o.status === "canceled" ? "お支払いなし（期限切れで取り消し）" : "支払い待ち（カード）") :
+      (o.payment_method === "store" ? "店頭払い" : o.payment_method) +
       (legacyOrder(o) ? "（旧フォームでのお支払い済みかは未照合）" : ""));
   }
   let actions = "";
   // 店側からの変更（2026-10-03）。未確認・確認済で、追加希望（見積もり）の途中でないものだけ
-  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none";
+  // 配送の予約は日時・内容を変えない（キャンセル＝返金して入れ直す・2026-10-05）
+  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none" && o.fulfillment !== "delivery";
   if (staffEditable) {
     actions += `<button type="button" class="pill slot-btn">受取日時を変更</button>` +
                `<button type="button" class="pill content-btn">内容を変更</button>`;
@@ -636,7 +665,7 @@ function fillOrderBody(el, o) {
   if (hasImages) paintOrderImages(el.querySelector(".order-images"), o);
   if (hasPreview) paintOrderPreview(el.querySelector(".order-preview"), o);
   // 詳細を下まで読んだら、そのまま確認済にできるように一番下にも置く（上に戻らなくてよい・2026-10-04 まりほ要望）
-  if (o.status === "new" && !reviewPending(o)) {
+  if (o.status === "new" && !reviewPending(o) && !awaitingPay(o)) {
     const bottom = document.createElement("div");
     bottom.className = "order-actions order-confirm-bottom";
     bottom.innerHTML = `<button type="button" class="pill confirm-order-btn">→ 確認済にする</button>`;
@@ -666,7 +695,10 @@ function fillOrderBody(el, o) {
     renderSlotChange(el, o).catch(() => { toast("受取時間の一覧を読み込めませんでした"); button.disabled = false; });
   });
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
-    if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）`))
+    // カードで払われている予約は、キャンセルだけでは返金されない（返金ボタンは別。キャンセル料を引くこともあるため）
+    const paidNote = o.paid_amount > 0
+      ? `\n\n⚠️ カードで ${yen(o.paid_amount)} 払われています。キャンセルだけでは返金されません。キャンセルのあと、詳細の「${PAY_PROVIDER(o)}で返金する」から返金してください。` : "";
+    if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）${paidNote}`))
       updateStatus(o, "canceled");
   });
 }
@@ -712,7 +744,7 @@ function renderStaffNote(el, o) {
 let activeSlotsCache = null;
 async function activeSlots() {
   if (activeSlotsCache?.tenant === state.tenantId) return activeSlotsCache.rows;
-  const rows = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_active=is.true&select=id,label,start_time&order=start_time`);
+  const rows = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_active=is.true&is_delivery=is.false&select=id,label,start_time&order=start_time`);
   activeSlotsCache = { tenant: state.tenantId, rows };
   return rows;
 }
@@ -767,11 +799,22 @@ function prepayNumbers(o) {
   const paid = o.paid_amount || 0;
   return { due: Math.max(total - paid, 0), over: Math.max(paid - total, 0) };
 }
+// 支払いの決済会社：配送は Stripe。店頭受取の事前払いは、実際の支払いの記録で決める（Square の店・Stripe の店がある）
+const PAY_PROVIDER = (o) => o.fulfillment === "delivery" || (o.order_payments || []).some((p) => p.provider === "stripe" && p.status === "completed") ? "Stripe" : "Square";
+/* 配送の予約（2026-10-05）。一覧の受取日の欄は「発送日」（＝作る日）。カードの印でお届け日・支払い待ちが分かるように */
+function deliveryBadges(o) {
+  if (o.fulfillment !== "delivery") return "";
+  const [, m, d] = String(o.delivery_date || "").split("-").map(Number);
+  return `<span class="status-badge st-delivery" title="配送のご予約。一覧の日付は発送日です">🚚 配送・お届け ${m}/${d} ${esc(o.delivery_time || "")}</span>` +
+    (o.payment_status !== "paid" && o.status !== "canceled" ? `<span class="status-badge st-unpaid" title="お客様がカードで支払うと確定します。30分で払われなければ自動で取り消されます">支払い待ち</span>` : "");
+}
 function prepayBadge(o) {
   const refunding = (o.order_refunds || []).some((r) => r.status === "pending");
   if (!(o.paid_amount > 0)) return refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "";
+  if (o.fulfillment === "delivery") return `<span class="status-badge st-prepaid" title="お客様がご注文のときにカード（Stripe）でお支払い済み">💳 カード払い済み</span>` +
+    (refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "");
   const p = prepayNumbers(o);
-  return `<span class="status-badge st-prepaid" title="Squareで事前にお支払い済み">💳 事前払い ${yen(o.paid_amount)}</span>` +
+  return `<span class="status-badge st-prepaid" title="${PAY_PROVIDER(o)}で事前にお支払い済み">💳 事前払い ${yen(o.paid_amount)}</span>` +
     (p.over > 0 ? `<span class="status-badge st-refund">返金 ${yen(p.over)} 未対応</span>`
       : p.due > 0 ? `<span class="status-badge st-prepaid">当日 ${yen(p.due)}</span>` : "") +
     (refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "");
@@ -787,17 +830,18 @@ function renderRefundBox(el, o) {
   box.innerHTML = (lines ? `<p>返金の記録</p><ul class="refund-list">${lines}</ul>` : "") +
     (o.paid_amount > 0 ? `<label class="field">返金する金額（円）
         <input class="refund-amount" type="number" min="1" max="${esc(o.paid_amount)}" step="1" value="${esc(p.over || o.paid_amount)}"></label>
-      <button type="button" class="pill danger refund-btn">Squareで返金する</button>
+      <button type="button" class="pill danger refund-btn">${PAY_PROVIDER(o)}で返金する</button>
       <p class="small">お客様のカードへ返金されます。取り消しはできません。</p>` : "");
   el.appendChild(box);
   box.querySelector(".refund-btn")?.addEventListener("click", async (e) => {
     const button = e.currentTarget;
     const amount = Number(box.querySelector(".refund-amount").value);
     if (!Number.isInteger(amount) || amount < 1 || amount > o.paid_amount) { toast(`1〜${o.paid_amount}円で入れてください`); return; }
-    if (!confirm(`No.${o.order_number} ${o.customer_name}様に ${yen(amount)} を返金しますか？\n（Squareからお客様のカードへ返金されます。取り消しはできません）`)) return;
+    if (!confirm(`No.${o.order_number} ${o.customer_name}様に ${yen(amount)} を返金しますか？\n（${PAY_PROVIDER(o)}からお客様のカードへ返金されます。取り消しはできません）`)) return;
     button.disabled = true;
     try {
-      const res = await fetch(`${CONFIG.url}/functions/v1/square-payments`, {
+      // 配送のカード払いは Stripe（delivery-payments）、店頭予約の事前払いは Square（square-payments）
+      const res = await fetch(`${CONFIG.url}/functions/v1/${PAY_PROVIDER(o) === "Stripe" ? "delivery-payments" : "square-payments"}`, {
         method: "POST",
         headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ action: "refund", order_id: o.id, amount }),
@@ -1051,7 +1095,7 @@ async function loadKitchenRange() {
   try {
     const orders = [];
     for (;;) {
-      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at)&limit=500&offset=${orders.length}`);
+      const page = await api("GET", `/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.asc,pickup_slot_label.asc,id.asc&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at),order_payments!order_payments_order_id_fkey(provider,status)&limit=500&offset=${orders.length}`);
       if (generation !== kitchenGeneration || tenant !== state.tenantId || !$("kitchen-range-mode").checked) return;
       orders.push(...page.map(normalizeOrder)); if (page.length < 500) break;
     }
@@ -1390,6 +1434,11 @@ async function saveAll() {
       input.focus(); input.reportValidity(); toast("店名・メールアドレスの入力を確認してください"); return;
     }
   }
+  const dl = window.deliverySettingsProblem?.();   // 配送する地域の送料の入れ忘れ（2026-11-09）
+  if (dl) {
+    document.querySelector('.tab[data-tab="settings"]').click();
+    dl.input.focus(); dl.input.scrollIntoView({ block: "center" }); toast(dl.message); return;
+  }
   const changes = collectChanges();
   if (!changes.length) { toast("変更はありません"); return; }
   const btn = $("btn-save-all");
@@ -1681,6 +1730,7 @@ async function loadTenantForm() {
   // 特定の日だけ時間帯の上限を変える＝日ごとの上限と同じくStandard（2026-10-10）
   $('slot-date-limits').classList.toggle('hidden',t.reservation_plan==='lite');
   initLineSettings(t);
+  window.initDeliverySettings?.(t);
   $("t-name").value = t.name || "";
   $("t-email").value = t.contact_email || "";
   $("t-shop-phone").value = t.phone || "";
@@ -1798,6 +1848,9 @@ async function loadTenantForm() {
   if (frame.getAttribute("src") !== src) frame.src = src;
   frame.onload = pushThemePreview;
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
+  // 配送の設定（delivery-settings.js が1つのjsonbにまとめる）
+  regField("tenants", T, "delivery_settings", $("dl-enabled"), { get: () => window.deliverySettingsValue?.() ?? null });
+  regField("tenants", T, "stripe_prepay_enabled", $("dl-prepay"));   // 店頭受取の事前カード払い（任意・2026-10-05）
   // メール文面は4種ぶんを1つのjsonbにまとめて持つ（tokushoho・customer_form と同じ形）。
   // 代表の欄として「はじめの文」を登録し、値は mailTextsValue が4種ぶん組み立てる
   regField("tenants", T, "email_texts", $("t-mail-intro"), { get: mailTextsValue });
@@ -1921,7 +1974,7 @@ const hm = (t) => t.slice(0, 5); // "11:00:00" -> "11:00"
 async function loadSlots() {
   drafts.capture(state.fields);
   const slots = await api("GET",
-    `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&order=start_time`);
+    `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_delivery=is.false&order=start_time`);
   const wrap = $("slots-list");
   wrap.innerHTML = slots.length ? "" : `<p class="small">枠がありません。上の「まとめて追加」で作成してください。</p>`;
   for (const s of slots) {

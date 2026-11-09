@@ -45,7 +45,7 @@
     const t = state.tenantId;
     const one = (path) => api("GET", path).then((rows) => rows.length > 0);
     const [slots, products, orders, tenant] = await Promise.all([
-      one(`/rest/v1/pickup_time_slots?tenant_id=eq.${t}&is_active=eq.true&select=id&limit=1`),
+      one(`/rest/v1/pickup_time_slots?tenant_id=eq.${t}&is_active=eq.true&is_delivery=is.false&select=id&limit=1`),
       one(`/rest/v1/products?tenant_id=eq.${t}&is_published=eq.true&deleted_at=is.null&select=id&limit=1`),
       one(`/rest/v1/orders?tenant_id=eq.${t}&select=id&limit=1`),
       api("GET", `/rest/v1/tenants?id=eq.${t}&select=cancel_policy,tokushoho,billing_status,trial_ends_at,subdomain,trial_tested_at`).then((r) => r[0] || {}),

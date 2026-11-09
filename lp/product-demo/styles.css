@@ -537,3 +537,17 @@ label.pick .pick-sample { flex: 0 0 auto; margin: -4px 0; }
 .selfcheck-warn li { margin: 3px 0; }
 .selfcheck-warn .small { display: block; color: var(--mute); font-size: .8rem; }
 .selfcheck-warn strong ~ strong { display: block; margin-top: 12px; }
+
+/* 配送（2026-10-05）：受け取り方・お届け先 */
+.fulfill-area { margin: 0 0 14px; }
+.fulfill-area .pill-row { margin-bottom: 4px; }
+.fulfill-area .delivery-fee { margin: 4px 0 0; }
+.cal-grid .cal-wait { grid-column: 1 / -1; padding: 18px 8px; color: var(--mute); font-weight: normal; }
+.ship-box { margin: 18px 0 8px; padding: 14px 14px 4px; border: 1px solid var(--line, #e6e0da); border-radius: var(--r); background: var(--boxbg, #fff); }
+.ship-box h3 { margin: 0 0 8px; }
+.ship-box > label.check { display: flex; align-items: center; gap: 8px; font-size: .95rem; cursor: pointer; }
+.ship-box > label.check input { width: 20px; height: 20px; flex: none; }
+.ship-addr-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.ship-addr-row .ship-pref-label { flex: none; font-weight: normal; }
+.ship-addr-row input { flex: 1 1 auto; min-width: 0; }
+.delivery-note { white-space: pre-line; margin-top: 8px; }

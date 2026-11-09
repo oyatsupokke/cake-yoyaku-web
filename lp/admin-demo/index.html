@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1794202099">
-<link rel="stylesheet" href="admin.css?v=1794202099">
-<link rel="stylesheet" href="admin-layout.css?v=1794202099">
-<link rel="stylesheet" href="support.css?v=1794202099">
-<link rel="stylesheet" href="help-panel.css?v=1794202099">
-<link rel="stylesheet" href="demo-banner.css?v=1794202099">
+<link rel="stylesheet" href="styles.css?v=1794213709">
+<link rel="stylesheet" href="admin.css?v=1794213709">
+<link rel="stylesheet" href="admin-layout.css?v=1794213709">
+<link rel="stylesheet" href="support.css?v=1794213709">
+<link rel="stylesheet" href="help-panel.css?v=1794213709">
+<link rel="stylesheet" href="demo-banner.css?v=1794213709">
 </head>
 <body>
 <div id="app" class="admin">
@@ -143,6 +143,7 @@
       <label class="field no-print">並び順<select id="order-sort" class="order-sort"><option value="pickup">受取時間順</option><option value="received">予約が入った順</option></select></label>
       <label class="field no-print">表示する予約<select id="review-filter"><option value="">選んだ日のすべて</option><option value="new">全日の未確認</option><option value="requested">全日の追加希望・確認待ち</option><option value="quoted">全日の見積もり・承諾待ち</option></select></label>
       <div id="bulk-confirm" class="bulk-confirm no-print hidden"><span id="bulk-confirm-note"></span><button type="button" class="pill" id="bulk-confirm-btn">→ 表示中の未確認をまとめて確認済にする</button></div>
+      <div id="ship-csv" class="bulk-confirm no-print hidden"><span id="ship-csv-note"></span><button type="button" class="pill" id="ship-csv-btn">🚚 送り状CSV（ヤマトB2クラウド）</button></div>
       <div id="pickup-list"></div>
     </section>
 
@@ -190,6 +191,8 @@
           <a href="#settings-shop">予約通知・定休日</a>
           <a href="#settings-deadline">締切・上限</a>
           <a href="#settings-pickup">受取日時</a>
+          <a href="#settings-card">カード払い</a>
+          <a href="#settings-delivery">配送</a>
           <a href="#settings-customer">お客様設定</a>
           <a href="#settings-notifications">通知文面</a>
           <a href="#settings-line">LINE連携</a>
@@ -269,6 +272,44 @@
           <button type="button" class="pill" id="btn-ov-add">追加</button>
         </div>
         <div id="overrides-list"></div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-card">
+        <h3>カード払い（Stripe）<button type="button" class="tip" data-tip="お客様にカードで払ってもらうための設定です。&#10;店頭受取のご予約の事前払い（任意）と、配送のご注文で使います。&#10;売上はお店のStripe口座に直接入ります。">？</button></h3>
+        <p class="small">お客様にカードで払ってもらうための設定です。店頭受取のご予約の事前払い（任意）と、配送のご注文で使います。</p>
+        <div class="field">Stripeをつなぐ
+          <p id="dl-stripe-status" class="dl-stripe-status" role="status">確認中…</p>
+          <button type="button" class="pill" id="dl-stripe-connect">Stripeをつなぐ</button>
+          <button type="button" class="pill" id="dl-stripe-refresh">状態を更新</button>
+          <span class="help">売上はお店のStripe口座に直接入ります（決済手数料はStripeからお店へ。CakeBookは手数料をいただきません）。つなげるのは店舗のオーナーだけです。</span>
+        </div>
+        <div class="field">店頭受取のご予約の事前カード払い（任意）
+          <label class="cf-check"><input type="checkbox" id="dl-prepay"> お客様が事前にカードで払えるようにする</label>
+          <span class="help" id="dl-prepay-help">予約は今までどおりすぐ成立し、払いたいお客様だけが予約のあとカードで払います。払わなければ店頭払いのまま。お客様が期限内に自分でキャンセルしたときは自動で全額返金されます。</span>
+          <span class="help warn hidden" id="dl-prepay-not-ready">⚠️ Stripeがつながるまで、お客様には事前のカード払いが出ません。</span>
+        </div>
+      </div>
+      <div class="confirm-box settings-anchor" id="settings-delivery">
+        <h3>配送<button type="button" class="tip" data-tip="冷凍便などでケーキをお届けする場合の設定です。&#10;どの商品を配送するかは、商品の設定の「受け取り方」（店頭のみ／配送のみ／両方）で決めます。&#10;配送のご注文は、お客様がご注文のときにカードで支払います（先に「カード払い」でStripeをつなぎます）。">？</button></h3>
+        <p class="small">冷凍便などでケーキをお届けする場合の設定です。どの商品を配送するかは<a href="./products.html">商品の設定</a>の「受け取り方」で決めます。</p>
+        <div class="dl-need-stripe hidden" id="dl-not-ready">
+          <p class="help warn">⚠️ 配送のご注文は、お客様がご注文のときにカードで支払います。先に「カード払い（Stripe）」でStripeをつないでください（つながるまで、お客様の予約ページに配送は出ません）。</p>
+          <a class="pill" href="#settings-card">カード払いの設定へ</a>
+        </div>
+        <div class="field">配送を受け付ける
+          <label class="cf-check"><input type="checkbox" id="dl-enabled"> 配送のご注文を受け付ける</label>
+        </div>
+        <div class="field">配送する地域・送料・届くまでの日数<button type="button" class="tip" data-tip="「配送する」にチェックを付けた地域だけに配送します。&#10;届くまでの日数＝お届け日の何日前に発送するかです（翌日に届く地域は1日）。&#10;1日の上限・製造表・締切は、発送日（＝作る日）で数えます。">？</button>
+          <div class="dl-fee-tools"><button type="button" class="pill" id="dl-all-on">すべての地域にチェック</button></div>
+          <table class="dl-fees"><thead><tr><th>配送する</th><th>地域</th><th>送料（円）</th><th>届くまでの日数</th></tr></thead><tbody id="dl-fee-rows"></tbody></table>
+          <span class="help">届くまでの日数＝お届け日の何日前に発送するか、です（翌日に届く地域は1日）。送料無料の地域は 0 と入れてください。</span>
+        </div>
+        <label class="field">送料無料になる金額（任意）
+          <span><input type="number" id="dl-free" min="0" step="1" placeholder="なし" style="width:110px"> 円以上のご注文は送料無料</span>
+        </label>
+        <div class="field">お客様が選べるお届け時間帯<div class="dl-windows" id="dl-windows"></div></div>
+        <label class="field">配送についての注意書き（予約ページ・確認画面に出ます）
+          <textarea id="dl-note" rows="2" maxlength="1000" placeholder="例: 冷凍便でお届けします。冷蔵庫で6時間ほど解凍してお召し上がりください。"></textarea>
+        </label>
       </div>
       <div class="confirm-box settings-anchor" id="settings-customer">
         <h3>お客様情報の入力項目</h3>
@@ -602,23 +643,25 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="demo-runtime.js?v=1794202099"></script>
-<script src="tips.js?v=1794202099"></script>
-<script src="edit-drafts.js?v=1794202099"></script>
-<script src="report-core.js?v=1794202099"></script>
-<script src="line-settings.js?v=1794202099"></script>
-<script src="billing-upgrade.js?v=1794202099"></script>
-<script src="trial-plan.js?v=1794202099"></script>
-<script src="order-gallery.js?v=1794202099"></script>
-<script src="option-counts.js?v=1794202099"></script>
-<script src="kitchen-breakdown.js?v=1794202099"></script>
-<script src="limit-check.js?v=1794202099"></script>
-<script src="date-limits.js?v=1794202099"></script>
-<script src="admin.js?v=1794202099"></script>
-<script src="order-calendar.js?v=1794202099"></script>
-<script src="onboarding.js?v=1794202099"></script>
-<script src="reports.js?v=1794202099"></script>
-<script src="support.js?v=1794202099"></script>
-<script src="navigation.js?v=1794202099"></script>
+<script src="demo-runtime.js?v=1794213709"></script>
+<script src="tips.js?v=1794213709"></script>
+<script src="edit-drafts.js?v=1794213709"></script>
+<script src="report-core.js?v=1794213709"></script>
+<script src="line-settings.js?v=1794213709"></script>
+<script src="delivery-settings.js?v=1794213709"></script>
+<script src="shipping-csv.js?v=1794213709"></script>
+<script src="billing-upgrade.js?v=1794213709"></script>
+<script src="trial-plan.js?v=1794213709"></script>
+<script src="order-gallery.js?v=1794213709"></script>
+<script src="option-counts.js?v=1794213709"></script>
+<script src="kitchen-breakdown.js?v=1794213709"></script>
+<script src="limit-check.js?v=1794213709"></script>
+<script src="date-limits.js?v=1794213709"></script>
+<script src="admin.js?v=1794213709"></script>
+<script src="order-calendar.js?v=1794213709"></script>
+<script src="onboarding.js?v=1794213709"></script>
+<script src="reports.js?v=1794213709"></script>
+<script src="support.js?v=1794213709"></script>
+<script src="navigation.js?v=1794213709"></script>
 </body>
 </html>

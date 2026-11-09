@@ -559,6 +559,26 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
   .oc-new .narrow { display: inline; }
 }
 
+/* 配送（2026-10-05） */
+.st-delivery { background: #eef8f1; color: #24723f; }
+.st-unpaid { background: #fff1e6; color: #b45309; }
+.dl-stripe-status { font-weight: normal; margin: 6px 0; }
+.dl-stripe-status.ok { color: #24723f; }
+.dl-fees { width: 100%; border-collapse: collapse; margin-top: 6px; font-weight: normal; }
+.dl-fees th, .dl-fees td { padding: 6px 4px; border-bottom: 1px solid var(--line, #e6e0da); text-align: left; vertical-align: middle; }
+.dl-fees thead th { font-size: .8rem; color: var(--mute); white-space: nowrap; }
+.dl-fees tbody th { font-weight: bold; }
+.dl-fees .dl-region { display: block; }
+.dl-fees .dl-prefs { display: block; font-size: .72rem; font-weight: normal; color: var(--mute); }
+.dl-fees input[data-fee] { width: 90px; }
+.dl-fees td { white-space: nowrap; }
+.field .dl-fees td input:not([type="checkbox"]) { display: inline-block; width: 90px; margin-right: 4px; }
+.field .dl-fees td input[data-days] { width: 60px; }
+.dl-fees tr.dl-off th, .dl-fees tr.dl-off td:not(:first-child) { color: var(--mute); opacity: .55; }
+.dl-fee-tools { margin: 6px 0 2px; }
+.dl-need-stripe { margin: 4px 0 10px; }
+.dl-windows { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-weight: normal; }
+#settings-delivery .warn { display: block; color: #b45309; }
 /* 製造カード「A4に6件」（2026-10-10）：2列×3段のマス・切り取り線つき・マスをまたがない（admin.js の layoutKitchenCards） */
 .print-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
 .card-size-field { display: flex; align-items: center; gap: 6px; font-size: .82rem; white-space: nowrap; }

@@ -352,7 +352,7 @@ async function restoreSaved() {
     updatePriceBar();
     // 受取日: 過去日になっていたら日付だけ諦める（他は残す）
     const todayKey = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-    if (saved.date && saved.date >= todayKey) {
+    if (saved.date && saved.date >= todayKey && state.sel.fulfill === "pickup") {   // 配送の日付は下書きに戻さない
       await selectDate(saved.date);
       const slot = state.slots.find((x) => x.id === saved.slot_id);
       if (slot && !state.slotFull?.[slot.id]) { state.sel.slot = slot; renderSlots(); }
@@ -385,7 +385,8 @@ function prepayAutoOnce(orderNumber) {
  * 予約が成立したあと予約確認ページ（?pay=1）経由でそのままSquareの支払い画面へ進む。
  * 予約を先に成立させるので、払わずに閉じても店頭払いの予約として残る。 */
 function prepayOffered() {
-  return !!state.tenant?.square_prepay_enabled && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
+  // Square（pokke）か、Stripe をつないで事前払いをONにした店（card_prepay・2026-10-05）
+  return !!(state.tenant?.square_prepay_enabled || state.tenant?.card_prepay) && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
 }
 function setupPayChoice() {
   const box = $("pay-note");
@@ -395,7 +396,7 @@ function setupPayChoice() {
     `<div class="pay-title">お支払い方法</div>` +
     `<label class="pick"><input type="radio" name="pay-method" value="store" checked> 店頭でお支払い（受取時）</label>` +
     `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にカードでお支払い</label>` +
-    `<p class="small pay-card-note hidden">ご予約のあと、Squareのお支払い画面に進みます（事前のお支払いは受取日の前日までです）。</p>`;
+  `<p class="small pay-card-note hidden">ご予約のあと、カードのお支払い画面に進みます（事前のお支払いは受取日の前日までです）。</p>`;
   box.addEventListener("change", () => {
     box.querySelector(".pay-card-note").classList.toggle("hidden", payChoice() !== "card");
   });
@@ -406,8 +407,168 @@ function prepayDateOk() {
   return !state.sel?.date || state.sel.date > BookingWindow.bounds(windowTenant()).today;
 }
 function payChoice() {
+  if (isDelivery()) return "store";   // 配送は注文のあと必ずカード（Stripe）。Squareの事前払いの選択は出さない
   return prepayOffered() && prepayDateOk() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
 }
+
+/* ---------- 配送（2026-10-05・設計＝kaihatsu/haisou-card-sekkei-2026-10-05.md） ----------
+ * 商品ごとに「店頭のみ／配送のみ／両方」。配送ではお客様はお届け日を選び、台数・締切は発送日（＝作る日）で
+ * 判定する。カレンダーは fn_get_delivery_availability（発送日の空きを地域の日数だけずらしたもの）。
+ * 選択肢の「選べない日」などの判定は発送日で行うので、state.sel.date には発送日を入れ、
+ * お届け日は state.sel.deliveryDate に持つ。送料の正本はサーバー（ここの計算は表示用）。
+ * 店のStripeがつながっていない店・代行登録・内容変更・テスト予約では出さない（MVP）。 */
+const DELIVERY_REGIONS = [
+  ["hokkaido", ["北海道"]], ["kita_tohoku", ["青森県", "岩手県", "秋田県"]],
+  ["minami_tohoku", ["宮城県", "山形県", "福島県"]],
+  ["kanto", ["茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県", "山梨県"]],
+  ["shinetsu", ["新潟県", "長野県"]], ["hokuriku", ["富山県", "石川県", "福井県"]],
+  ["chubu", ["岐阜県", "静岡県", "愛知県", "三重県"]],
+  ["kansai", ["滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"]],
+  ["chugoku", ["鳥取県", "島根県", "岡山県", "広島県", "山口県"]],
+  ["shikoku", ["徳島県", "香川県", "愛媛県", "高知県"]],
+  ["kyushu", ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"]], ["okinawa", ["沖縄県"]],
+];
+const REGION_EXTRA_DEFAULT = { hokkaido: 1, okinawa: 1 };
+const prefRegion = (pref) => DELIVERY_REGIONS.find(([, ps]) => ps.includes(pref))?.[0] || null;
+function deliverySettings() {
+  return (!STAFF_MODE && !EDIT_MODE && !TRIAL_MODE && !EDITOR_PREVIEW && state.tenant?.delivery_settings?.enabled)
+    ? state.tenant.delivery_settings : null;
+}
+// 商品は「店頭受取」か「配送」のどちらか（2026-11-09 まりほ決定：配送の商品は配送用に別に作る）。開発中の "both" は店頭受取として扱う
+const productFulfillment = (p) => p?.fulfillment === "delivery" ? "delivery" : "pickup";
+function isDelivery() { return state.sel?.fulfill === "delivery"; }
+/** 店が「配送する」にした地域か（開発中の古い形＝on なしは送料の有無で見る。DBの fn_delivery_region_rule と同じ） */
+const regionOn = (r) => !!r && r.fee != null && ("on" in r ? !!r.on : true);
+/** 送料（表示用）。配送できない地域は null */
+function regionFee(pref, subtotal) {
+  const s = deliverySettings();
+  const r = s?.regions?.[prefRegion(pref)];
+  if (!regionOn(r)) return null;
+  if (s.free_over != null && subtotal >= s.free_over) return 0;
+  return r.fee;
+}
+function shippingFee() {
+  if (!isDelivery() || !state.sel.pref) return 0;
+  return regionFee(state.sel.pref, currentSubtotal() ?? 0) ?? 0;
+}
+const prefShippable = (pref) => regionOn(deliverySettings()?.regions?.[prefRegion(pref)]);
+function setupDelivery() {
+  const sel = $("ship-pref");
+  if (!sel || !deliverySettings()) return;
+  for (const [, prefs] of DELIVERY_REGIONS) for (const pf of prefs) {
+    const o = document.createElement("option");
+    o.value = pf;
+    o.textContent = pf + (prefShippable(pf) ? "" : "（配送できません）");
+    o.disabled = !prefShippable(pf);
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => {
+    state.sel.pref = sel.value || null;
+    resetDeliveryDate();
+    renderFulfill();
+    loadCalendar();
+    updatePriceBar();
+  });
+  $("ship-same").addEventListener("change", () => $("ship-person").classList.toggle("hidden", $("ship-same").checked));
+  // お届け先の郵便番号→住所（都道府県は上で選んだものと照らし合わせる）
+  let lastLooked = "";
+  $("ship-postal").addEventListener("input", async () => {
+    const digits = $("ship-postal").value.replace(/[^0-9]/g, "");
+    if (digits.length !== 7 || digits === lastLooked) return;
+    lastLooked = digits;
+    try {
+      const j = await (await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`)).json();
+      const hit = j?.results?.[0];
+      if (!hit) { $("ship-postal-hint").textContent = "該当する住所が見つかりませんでした。手入力をお願いします"; return; }
+      if (state.sel.pref && hit.address1 !== state.sel.pref) {
+        $("ship-postal-hint").textContent = `この郵便番号は${hit.address1}です。お届け先の都道府県（${state.sel.pref}）をご確認ください`;
+        return;
+      }
+      const addr = $("ship-address");
+      const auto = `${hit.address2}${hit.address3}`;
+      if (!addr.value.trim() || addr.value === addr.dataset.autofilled) {
+        addr.value = auto; addr.dataset.autofilled = auto;
+        $("ship-postal-hint").textContent = "続けて番地・建物名をご記入ください";
+        addr.focus();
+      }
+    } catch { /* 検索できなくても手入力できる */ }
+  });
+}
+function resetDeliveryDate() {
+  state.sel.deliveryDate = null;
+  state.sel.date = null;
+  state.sel.slot = null;
+  $("dtime-area")?.classList.add("hidden");
+  $("slot-area").classList.add("hidden");
+  renderGroups();
+  renderQuestions();
+}
+/** 商品を選んだ時の受け取り方＝その商品の受け取り方（店頭受取か配送か） */
+function initFulfill(p) {
+  state.sel.fulfill = deliverySettings() ? productFulfillment(p) : "pickup";
+  state.sel.deliveryTime = null;
+  state.sel.deliveryDate = null;
+}
+function renderFulfill() {
+  const area = $("fulfill-area");
+  if (!area) return;
+  const p = state.sel.product;
+  const f = deliverySettings() ? productFulfillment(p) : "pickup";
+  area.classList.toggle("hidden", f === "pickup");
+  $("date-title").textContent = isDelivery() ? "お届け日を選ぶ" : "受取日を選ぶ";
+  $("field-ship-pref").classList.toggle("hidden", !isDelivery());
+  $("ship-pref").value = state.sel.pref || "";
+  const fee = $("delivery-fee");
+  if (isDelivery() && state.sel.pref) {
+    const s = deliverySettings();
+    const base = regionFee(state.sel.pref, 0);
+    fee.textContent = base == null ? `${state.sel.pref}へは配送していません。`
+      : `送料：${yen(base)}` + (s.free_over != null ? `（${yen(s.free_over)}以上のご注文で送料無料）` : "");
+    fee.classList.remove("hidden");
+  } else fee.classList.add("hidden");
+  // 店頭受取／配送で、下の欄を出し分ける
+  $("ship-box").classList.toggle("hidden", !isDelivery());
+  $("ship-pref-label").textContent = state.sel.pref || "";
+  const note = (deliverySettings()?.note || "").trim();
+  $("delivery-note").textContent = note;
+  $("delivery-note").classList.toggle("hidden", !note || !isDelivery());
+  const pay = $("pay-note");
+  if (isDelivery()) {
+    pay.dataset.saved ??= pay.innerHTML;
+    pay.classList.remove("pay-choice");
+    pay.innerHTML = "お支払い方法：<strong>カード</strong>（ご注文のあと、カードのお支払い画面に進みます。30分以内にお支払いください）";
+  } else if (pay.dataset.saved != null) {
+    pay.innerHTML = pay.dataset.saved;
+    delete pay.dataset.saved;
+    if (prepayOffered()) pay.classList.add("pay-choice");
+  }
+}
+function renderDeliveryTimes() {
+  const wrap = $("dtime-pills");
+  wrap.innerHTML = "";
+  const windows = deliverySettings()?.time_windows?.length ? deliverySettings().time_windows : ["指定なし"];
+  if (!state.sel.deliveryTime && windows.includes("指定なし")) state.sel.deliveryTime = "指定なし";
+  for (const w of windows) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pill" + (state.sel.deliveryTime === w ? " selected" : "");
+    b.textContent = w;
+    b.onclick = () => {
+      state.sel.deliveryTime = w;
+      renderDeliveryTimes();
+      if (!THEME_PREVIEW && !$("sec-groups").classList.contains("hidden"))
+        $("sec-groups").scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    wrap.appendChild(b);
+  }
+}
+async function selectDeliveryDate(key) {
+  const ship = state.delivShip?.[key];
+  if (!ship) return;
+  state.sel.deliveryDate = key;
+  await selectDate(ship);
+}
+const mdLabel = (iso) => { const [, m, d] = String(iso).split("-").map(Number); return `${m}/${d}`; };
 
 /* ---------- 初期ロード ---------- */
 async function load() {
@@ -415,6 +576,7 @@ async function load() {
   if (!tenants.length) { $("shop-name").textContent = "店舗が見つかりません"; return; }
   state.tenant = tenants[0];
   setupPayChoice();
+  setupDelivery();
   if (EDITOR_PREVIEW) {
     const note = document.createElement("p");
     note.className = "confirm-box";
@@ -464,7 +626,7 @@ async function load() {
         `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices!common_question_choices_question_id_fkey(*,choice_availability_overrides!choice_availability_overrides_choice_id_fkey(date)),common_question_products!common_question_products_question_id_fkey(*)`),
-    api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&order=display_order&select=*`),
+    api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&is_delivery=is.false&order=display_order&select=*`),
     // 選択肢の「選べない日」。どの選択肢のせいでその日が選べないかを出すためだけに使う
     // （受付の可否はサーバーが決める）ので、読めなくても予約ページは止めない
     api(`/rest/v1/option_availability_overrides?tenant_id=eq.${T}&date=gte.${jstToday}&select=option_id,date&order=date`).catch(() => []),
@@ -481,6 +643,7 @@ async function load() {
   }));
   state.questions = questions;
   state.slots = slots;
+  renderMode();
   renderProducts();
   if (EDIT_MODE) {
     if (STAFF_EDIT) enterStaffMode();
@@ -669,9 +832,60 @@ const windowTenant = (p) => ({ ...state.tenant, booking_window_days: windowDays(
  *  ・代行登録（お店の入力）は、受付前・受付終了後も店の判断で登録できるので全部出す
  *  ・すでに選んでいる商品は残す＝変更モードで開いた予約の商品が、受付終了後に
  *    消えてお客様が内容変更できなくなるのを防ぐ */
+function listableProducts() {
+  // 配送の商品は、配送を受けられるとき（お客様の予約ページ・Stripe接続済み）だけ出す
+  const fulfillable = (p) => EDITOR_PREVIEW || productFulfillment(p) !== "delivery" || !!deliverySettings();
+  if (STAFF_MODE) return state.products.filter(fulfillable);
+  return state.products.filter((p) => (onSale(p) || p.id === state.sel.product?.id) && fulfillable(p));
+}
+/** 店頭受取の商品と配送の商品の両方がある店だけ、最初に受け取り方を選んでもらう（2026-11-09） */
+function needsModeChoice() {
+  if (STAFF_MODE || EDITOR_PREVIEW || EDIT_TOKEN) return false;
+  const kinds = new Set(listableProducts().map(productFulfillment));
+  return kinds.size > 1;
+}
 function visibleProducts() {
-  if (STAFF_MODE) return state.products;
-  return state.products.filter((p) => onSale(p) || p.id === state.sel.product?.id);
+  const list = listableProducts();
+  if (!needsModeChoice()) return list;
+  if (!state.mode && state.sel.product) state.mode = productFulfillment(state.sel.product);   // 下書きから戻った時
+  return state.mode ? list.filter((p) => productFulfillment(p) === state.mode) : [];
+}
+function renderMode() {
+  const area = $("sec-mode");
+  if (!area) return;
+  const show = needsModeChoice();
+  area.classList.toggle("hidden", !show);
+  $("products-step-no").textContent = show ? "2" : "1";
+  for (const [id, n] of [["size-step-no", 2], ["date-step-no", 3], ["groups-step-no", 4], ["questions-step-no", 5]])
+    if ($(id)) $(id).textContent = String(show ? n + 1 : n);
+  if (!show) return;
+  if (!state.mode && state.sel.product) state.mode = productFulfillment(state.sel.product);
+  const pills = $("mode-pills");
+  pills.innerHTML = "";
+  for (const [val, label] of [["pickup", "店頭で受け取る"], ["delivery", "配送で届けてもらう"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pill" + (state.mode === val ? " selected" : "");
+    b.textContent = label;
+    b.onclick = () => {
+      if (state.mode === val) return;
+      state.mode = val;
+      // 受け取り方を変えたら、選んでいたケーキからやり直し（並ぶ商品が変わるため）
+      state.sel.product = null;
+      state.sel.variant = null;
+      state.sel.options.clear();
+      state.sel.date = null;
+      state.sel.slot = null;
+      state.sel.deliveryDate = null;
+      ["sec-size", "sec-groups", "sec-date", "sec-questions", "sec-customer"].forEach((x) => $(x)?.classList.add("hidden"));
+      renderMode();
+      renderProducts();
+      updatePreview();
+      updatePriceBar();
+      if (!THEME_PREVIEW) $("sec-products").scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    pills.appendChild(b);
+  }
 }
 const optName = (o) => o.name || o.shared_list_items?.name || "";
 function optionPickupPeriod(o) {
@@ -818,6 +1032,11 @@ function requiresReview() {
   return [...state.sel.options.keys()].some(id => findOption(id)?.o.requires_review);
 }
 function currentTotal() {
+  const sub = currentSubtotal();
+  return sub == null ? null : sub + shippingFee();
+}
+/** 送料を除いた合計（送料無料の判定にも使う） */
+function currentSubtotal() {
   if (!state.sel.variant) return null;
   let total = basePrice(state.sel.variant);
   for (const [id, v] of state.sel.options) {
@@ -845,7 +1064,8 @@ function updatePriceBar() {
   } else {
     $("price-summary").textContent =
       `${state.sel.product.name} ${state.sel.variant.size_label}`;
-    $("price-total").textContent = yen(t) + (requiresReview() ? "（選択分・追加希望は別途見積もり）" : "（税込）");
+    $("price-total").textContent = yen(t) + (requiresReview() ? "（選択分・追加希望は別途見積もり）"
+      : isDelivery() && state.sel.pref ? "（税込・送料込）" : "（税込）");
   }  saveState();
 }
 
@@ -855,6 +1075,8 @@ const validVariant = (v) => v.is_available && Number.isInteger(v.price) && v.pri
 function renderProducts() {
   const wrap = $("product-cards");
   wrap.innerHTML = "";
+  const choose = needsModeChoice() && !state.mode;
+  $("sec-products").classList.toggle("hidden", choose);
   for (const p of visibleProducts()) {
     const prices = p.product_variants.filter(validVariant).map((v) => v.price);
     const el = document.createElement("div");
@@ -1977,11 +2199,14 @@ async function updatePreview() {
 function selectProduct(p) {
   if (!p.product_variants.some(validVariant)) { toast("この商品はただいま準備中です"); return; }
   state.sel.product = p;
+  // 下書きから戻った時も、選んだ商品の受け取り方をボタンに反映する（CodeRabbit #31）
+  if (needsModeChoice() && state.mode !== productFulfillment(p)) { state.mode = productFulfillment(p); renderMode(); }
   track("product_selected");
   state.sel.variant = null;
   state.sel.options.clear();
   state.sel.date = null;
   state.sel.slot = null;
+  initFulfill(p);
   renderProducts();
   updatePreview();
   renderSizes();
@@ -2018,6 +2243,9 @@ function selectVariant(v) {
   // 受取日はサイズ確定後に（サイズ別上限があるため）
   state.sel.date = null;
   state.sel.slot = null;
+  state.sel.deliveryDate = null;
+  $("dtime-area")?.classList.add("hidden");
+  renderFulfill();
   // 受取できる期間が先にある商品（クリスマスなど）は、その最初の月から開く。
   // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
   const sp = state.sel.product;
@@ -2337,7 +2565,29 @@ async function loadCalendar() {
   const first = new Date(m.getFullYear(), m.getMonth(), 1);
   const last = new Date(m.getFullYear(), m.getMonth() + 1, 0);
   $("cal-title").textContent = `${m.getFullYear()}年${m.getMonth() + 1}月`;
+  // 両方できる商品で受け取り方がまだ／配送で都道府県がまだ：カレンダーの代わりに案内
+  const waiting = !state.sel.fulfill ? "上で受け取り方を選んでください"
+    : isDelivery() && !state.sel.pref ? "お届け先の都道府県を選ぶと、お届けできる日が出ます" : null;
+  if (waiting) { state.avail = {}; $("cal-grid").innerHTML = `<div class="dow cal-wait">${waiting}</div>`; return false; }
   $("cal-grid").innerHTML = '<div class="dow">読み込み中…</div>';
+  if (isDelivery()) {
+    try {
+      const rows = await rpc("fn_get_delivery_availability", {
+        p_tenant: state.tenant.id, p_product: state.sel.product.id, p_variant: state.sel.variant.id,
+        p_pref: state.sel.pref, p_from: fmtDate(first), p_to: fmtDate(last),
+      });
+      if (request !== calendarRequest) return false;
+      state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
+      state.delivShip = Object.fromEntries(rows.map((r) => [r.d, r.ship_date]));
+      renderCalendar();
+      return true;
+    } catch {
+      if (request !== calendarRequest) return false;
+      state.avail = {};
+      $("cal-grid").innerHTML = '<div class="dow">読み込みに失敗しました</div>';
+      return false;
+    }
+  }
   try {
     const rows = await rpc("fn_get_availability", {
       p_tenant: state.tenant.id,
@@ -2391,9 +2641,9 @@ function renderCalendar() {
     el.className = `cal-day ${st}` +
       ((st === "open" || st === "few") ? " clickable" : "") +
       (staffPick ? " clickable staff-warn" : "") +
-      (state.sel.date === key ? " selected" : "");
+      ((isDelivery() ? state.sel.deliveryDate : state.sel.date) === key ? " selected" : "");
     el.innerHTML = `<span>${day}</span><span class="mark">${staffPick ? "△" : MARK[st]}</span>`;
-    if (st === "open" || st === "few") el.onclick = () => selectDate(key);
+    if (st === "open" || st === "few") el.onclick = () => isDelivery() ? selectDeliveryDate(key) : selectDate(key);
     else if (staffPick) el.onclick = () => {
       toast("この日は通常は受付できない日です（締切・満枠・休業のいずれか）。代行登録なので選べます");
       selectDate(key);
@@ -2441,13 +2691,23 @@ async function selectDate(key) {
   updatePriceBar();
   // 何が外れたかを名前で伝える（「解除しました」だけでは分からない・2026-10-02 まりほ指摘）
   if (cleared.length) {
-    const [, mm, dd] = key.split("-").map(Number);
-    toast(`${mm}/${dd}の受取では選べないため、${cleared.join("、")}の選択を外しました。選び直してください`, 7000);
+    const when = isDelivery() && state.sel.deliveryDate ? `${mdLabel(state.sel.deliveryDate)}のお届け` : `${mdLabel(key)}の受取`;
+    toast(`${when}では選べないため、${cleared.join("、")}の選択を外しました。選び直してください`, 7000);
   }
   track("date_selected");
   state.sel.slot = null;
   renderCalendar();
   updatePreview();
+  if (isDelivery()) {
+    // 配送：受取時間の代わりにお届け時間帯
+    $("slot-area").classList.add("hidden");
+    renderDeliveryTimes();
+    $("dtime-area").classList.remove("hidden");
+    saveState();
+    if (!THEME_PREVIEW && !RESTORING && firstDate) $("dtime-area").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  $("dtime-area")?.classList.add("hidden");
   await loadSlotAvailability(key);
   renderSlots();
   saveState();
@@ -3042,8 +3302,15 @@ async function loadOrderImages(token) {
 function validate() {
   const s = state.sel;
   if (!s.product || !s.variant) return "ケーキとサイズを選んでください";
-  if (!s.date) return "受取日を選んでください";
-  if (!s.slot) return "受取時間を選んでください";
+  if (!s.fulfill) return "受け取り方（店頭／配送）を選んでください";
+  if (isDelivery()) {
+    if (!s.pref) return "お届け先の都道府県をお選びください";
+    if (!s.date || !s.deliveryDate) return "お届け日を選んでください";
+    if (!s.deliveryTime) return "お届け時間帯を選んでください";
+  } else {
+    if (!s.date) return "受取日を選んでください";
+    if (!s.slot) return "受取時間を選んでください";
+  }
   pruneHiddenQuestions();
   const capacityError=toppingCapacityError();
   if(capacityError)return capacityError;
@@ -3102,8 +3369,28 @@ function validate() {
   } else if (!email || !email.includes("@")) {
     return "メールアドレスをご確認ください";
   }
+  if (isDelivery()) {
+    if (!$("ship-same").checked) {
+      if (!$("ship-name").value.trim()) return "「お届け先のお名前」をご記入ください";
+      if (!$("ship-phone").value.trim()) return "「お届け先の電話番号」をご記入ください";
+    }
+    if ($("ship-postal").value.replace(/[^0-9]/g, "").length !== 7) return "「お届け先の郵便番号」を7桁でご記入ください";
+    if (!$("ship-address").value.trim()) return "「お届け先の住所」をご記入ください";
+  }
   return null;
 }
+/** 送るお届け先（ご注文者と同じなら、お名前・電話番号はご注文者のもの） */
+function shipPayload() {
+  const same = $("ship-same").checked;
+  return {
+    name: same ? `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}` : $("ship-name").value.trim(),
+    phone: same ? $("cust-phone").value.trim() : $("ship-phone").value.trim(),
+    postal_code: $("ship-postal").value.trim(),
+    prefecture: state.sel.pref,
+    address: $("ship-address").value.trim(),
+  };
+}
+const fmtJpDate = (iso) => { const [y, m, d] = iso.split("-").map(Number); return `${y}年${m}月${d}日（${"日月火水木金土"[new Date(y, m - 1, d).getDay()]}）`; };
 
 
 /* ---------- エラーの場所まで戻る（2026-10-03 まりほ要望） ----------
@@ -3126,6 +3413,9 @@ function findErrorTarget(msg) {
   }
   const t = msg || "";
   if (/ケーキとサイズ/.test(t)) return $("sec-size").classList.contains("hidden") ? $("sec-products") : $("sec-size");
+  if (/受け取り方|都道府県/.test(t)) return $("fulfill-area");
+  if (/お届け時間帯/.test(t)) return $("dtime-area");
+  if (/お届け日/.test(t)) return $("sec-date");
   if (/受取時間/.test(t)) return $("slot-area");
   if (/受取日/.test(t)) return $("sec-date");
   if (/お名前/.test(t)) return $("cust-sei");
@@ -3177,12 +3467,15 @@ function renderConfirm() {
   $("btn-submit").textContent = review && !TRIAL_MODE ? "この内容で見積もりを依頼する" : SUBMIT_LABEL;
   document.querySelector("#view-confirm .preview-note").textContent = review
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
-    : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。" : "この内容で注文すると、ご注文が確定します。";
+    : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。"
+    : isDelivery() ? "「カードで支払う」を押すとお支払い画面に進みます。お支払いが済んだ時点でご注文が確定します。"
+    : "この内容で注文すると、ご注文が確定します。";
+  if (isDelivery() && !review) $("btn-submit").textContent = "カードで支払う";
   // 確認画面で止めて「予約したつもり」になる人がいるので、まだ終わっていないことを赤字で出す
   const doneWord = TRIAL_MODE ? "これはお試しのテスト予約です（予約は保存されません）。"
     : review ? "まだお見積もりの依頼は送信されていません。" : STAFF_MODE ? "まだ登録されていません。"
-    : EDIT_MODE ? "まだご予約の変更は完了していません。" : "まだご予約は完了していません。";
-  const doneVerb = TRIAL_MODE ? "テスト予約の流れを最後まで確認できます" : review ? "送信されます" : STAFF_MODE ? "登録されます" : EDIT_MODE ? "変更が確定します" : "ご予約が確定します";
+    : EDIT_MODE ? "まだご予約の変更は完了していません。" : isDelivery() ? "まだご注文は完了していません。" : "まだご予約は完了していません。";
+  const doneVerb = TRIAL_MODE ? "テスト予約の流れを最後まで確認できます" : review ? "送信されます" : STAFF_MODE ? "登録されます" : EDIT_MODE ? "変更が確定します" : isDelivery() ? "お支払い画面に進みます（お支払いが済むとご注文が確定します）" : "ご予約が確定します";
   $("confirm-not-done").innerHTML = `${esc(doneWord)}<br>ページの一番下の「${esc($("btn-submit").textContent)}」を押すと、${esc(doneVerb)}。`;
   const rows = [];
   // 見出しが長い行（質問文など）は上下2段に組む＝スマホで値の列が潰れない（2026-10-03）
@@ -3228,9 +3521,17 @@ function renderConfirm() {
       rows.push(`<div class="${rowCls(q.label)}"><span class="k">${esc(q.label)}</span><span>${answerValueHtml(v)}</span></div>`);
     } else if (v) row(q.label, v);
   }
-  const [y, m, d] = s.date.split("-");
-  row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);
-  if ((state.tenant.pickup_note || "").trim()) row("受取時間について", state.tenant.pickup_note.trim());
+  if (isDelivery()) {
+    const sp = shipPayload();
+    row("受け取り方", "配送");
+    row("お届け日", `${fmtJpDate(s.deliveryDate)} ${s.deliveryTime}`);
+    row("お届け先", `〒${sp.postal_code} ${sp.prefecture}${sp.address}　${sp.name} 様（${sp.phone}）`);
+    if ((deliverySettings()?.note || "").trim()) row("配送について", deliverySettings().note.trim());
+  } else {
+    const [y, m, d] = s.date.split("-");
+    row("受取日時", `${y}年${+m}月${+d}日 ${s.slot.label}`);
+    if ((state.tenant.pickup_note || "").trim()) row("受取時間について", state.tenant.pickup_note.trim());
+  }
   row("お名前", `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`);
   const kana = `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`.trim();
   if (kana || !STAFF_MODE) row("フリガナ", kana);
@@ -3239,9 +3540,11 @@ function renderConfirm() {
     (STAFF_MODE ? "（なし・確認メールは送られません）" : ""));
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
-  row("お支払い", payChoice() !== "card" ? "店頭でのお支払い"
+  if (isDelivery()) row("送料", yen(shippingFee()));
+  row("お支払い", isDelivery() ? "カード（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご注文は取り消されます）"
+    : payChoice() !== "card" ? "店頭でのお支払い"
     : review ? "事前にカード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
-    : "事前にカード（このあとSquareのお支払い画面に進みます）");
+    : "事前にカード（このあとカードのお支払い画面に進みます）");
   rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
@@ -3269,8 +3572,9 @@ $("btn-submit").onclick = async () => {
         product_id: s.product.id,
         variant_id: s.variant.id,
         quantity: EDIT_MODE && EDIT_ORDER?.quantity > 1 ? EDIT_ORDER.quantity : 1,   // 変更は元の数量を保つ
-        pickup_date: s.date,
-        pickup_slot_id: s.slot.id,
+        ...(isDelivery()
+          ? { fulfillment: "delivery", delivery_date: s.deliveryDate, delivery_time: s.deliveryTime, ship: shipPayload() }
+          : { pickup_date: s.date, pickup_slot_id: s.slot.id }),
         customer: {
           name: `${$("cust-sei").value.trim()} ${$("cust-mei").value.trim()}`,
           kana: `${$("cust-sei-kana").value.trim()} ${$("cust-mei-kana").value.trim()}`,
@@ -3309,7 +3613,7 @@ $("btn-submit").onclick = async () => {
       },
     };
     if (RETRY_ENABLED && !pending) {
-      pending = retryStore().begin(payload, s.slot.label);
+      pending = retryStore().begin(payload, isDelivery() ? `配送（お届け ${s.deliveryTime}）` : s.slot.label);
       payload = pending.payload;
     }
     const r = STAFF_EDIT
@@ -3344,7 +3648,7 @@ $("btn-submit").onclick = async () => {
     }
     $("done-number").textContent = `No.${r.order_number}`;
     $("done-total").textContent = yen(r.total_amount);
-    const [y, m, d] = payload.p.pickup_date.split("-");
+    const [y, m, d] = (payload.p.pickup_date || payload.p.delivery_date).split("-");
     $("done-pickup").textContent =
       `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} に${state.tenant.name}でお渡しします。` +
       (STAFF_EDIT ? (r.notified ? "「確認済」のまま変更しました。お客様に変更のご案内をお送りします。"
@@ -3366,6 +3670,14 @@ $("btn-submit").onclick = async () => {
       $("done-total").textContent = yen(r.total_amount) + "［選択分・追加希望分は未確定］";
       $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取希望として受け付けました。対応内容と金額をご案内します。専用ページで承諾すると予約が確定します。`;
     }
+    if (r.payment_required) {
+      // 配送：お支払いが済むまで予約は確定しない。予約確認ページ経由でカードのお支払い画面へ
+      $("view-done").querySelector("h2").textContent = "お支払いに進んでください";
+      $("view-done").querySelector(".done-emoji").textContent = "💳";
+      $("done-total").parentElement.lastChild.textContent = "（送料込み・カード払い）";
+      $("done-pickup").textContent = `${fmtJpDate(payload.p.delivery_date)} ${payload.p.delivery_time} のお届けで承りました。` +
+        "30分以内にカードでお支払いいただくと、ご注文が確定し確認メールをお送りします。お支払いがない場合、ご注文は自動で取り消されます。";
+    }
     $("view-confirm").classList.add("hidden");
     if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
     if (STAFF_MODE && !$("done-staff-back")) {
@@ -3384,7 +3696,7 @@ $("btn-submit").onclick = async () => {
       $("view-done").querySelector(".done-box").appendChild(p2);
     }
     // Squareでの事前払い（任意・2026-10-02）。払う処理は予約確認ページに寄せ、?pay=1 でそのまま支払い画面へ進む
-    if (!STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && r.manage_token && state.tenant.square_prepay_enabled &&
+    if (!STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && r.manage_token && prepayOffered() && !r.payment_required &&
         r.review_state !== "requested" && r.total_amount > 0 && prepayDateOk() && !$("done-prepay")) {
       const div = document.createElement("div");
       div.id = "done-prepay";
@@ -3413,7 +3725,14 @@ $("btn-submit").onclick = async () => {
     // 自動で移るのは1回だけ。Squareからブラウザの「戻る」でこの画面に戻ってきたときに、
     // また自動で飛ぶとSquareの認証コード（SMS）が送り直されるため（2026-10-03 まりほ指摘・iPhone）。
     // 戻ってきた人には「事前にカードでお支払いする」のボタンだけを出す。
-    if (payChoice() === "card" && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
+    if (r.payment_required && r.manage_token && !$("done-prepay")) {
+      const div = document.createElement("div");
+      div.id = "done-prepay";
+      div.className = "done-prepay";
+      div.innerHTML = `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">カードでお支払いする</a>`;
+      $("view-done").querySelector(".done-box").appendChild(div);
+    }
+    if ((payChoice() === "card" || r.payment_required) && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
       const link = $("done-prepay")?.querySelector("a");
       const label = link?.textContent;
       if (prepayAutoOnce(r.order_number)) {

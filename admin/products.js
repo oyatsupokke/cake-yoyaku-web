@@ -1043,7 +1043,7 @@ function renderEditor() {
   document.dispatchEvent(new Event("product-editor-rendered"));
   if (!p) return;
   const lite = state.tenant?.reservation_plan === 'lite';
-  for (const id of ['p-deadline','p-cap-daily','p-window']) $(id).closest('.field').classList.toggle('hidden',lite);
+  for (const id of ['p-deadline','p-cap-daily','p-window','p-fulfillment']) $(id).closest('.field').classList.toggle('hidden',lite);   // 受け取り方（配送）もStandardの機能
   $('p-date-limits').classList.toggle('hidden', lite);  // 特定の日だけの上限もStandard（設定ページと同じ）
   const saleCard = $('p-sale-start').closest('.confirm-box');
   if (saleCard) saleCard.classList.toggle("hidden",lite);
@@ -1057,6 +1057,12 @@ function renderEditor() {
   $("p-note").value = p.note || "";
   $("p-note-accent").checked = !!p.note_accent;
   $("p-deadline").value = p.order_deadline_days ?? "";
+  $("p-fulfillment").value = p.fulfillment || "pickup";
+  $("p-lead").value = p.delivery_extra_days ?? "";
+  // 発送を早める日数は配送する商品だけ（店頭受取のみなら出さない・Liteも出さない）
+  const showLead = () => $("p-lead-field").classList.toggle("hidden", state.tenant?.reservation_plan === "lite" || $("p-fulfillment").value === "pickup");
+  showLead();
+  $("p-fulfillment").onchange = showLead;
   $("p-window").value = p.booking_window_days ?? "";
   $("p-window").placeholder = `空欄=店の設定（${state.tenant?.booking_window_days ?? 90}日）`;
   // 状態の表示と、押したらどうなるかのボタンを分ける（兼用は分かりにくいため）
@@ -1087,6 +1093,8 @@ function renderEditor() {
   regField("products", p.id, "note", $("p-note"));
   regField("products", p.id, "note_accent", $("p-note-accent"));
   regField("products", p.id, "order_deadline_days", $("p-deadline"), { number: true });
+  regField("products", p.id, "fulfillment", $("p-fulfillment"));   // 店頭のみ／配送のみ／両方（2026-10-05）
+  regField("products", p.id, "delivery_extra_days", $("p-lead"), { number: true });   // 空欄＝早めない（2026-11-09）
   // Lite は店の設定だけ（欄も出さない）。小数は切り捨てずに保存前のチェックで止める
   if (state.tenant?.reservation_plan !== "lite") regField("products", p.id, "booking_window_days", $("p-window"), {
     get: () => { const v = $("p-window").value.trim(); return v === "" ? null : Number(v); },
@@ -3158,7 +3166,7 @@ $("draft-preview-open").onclick = async () => {
     const groups = allGroups.filter(g => g.product_id === null);
     const questions = drafts.overlay("common_questions", state.questions).map(q => q._product_ids ? {...q,
       common_question_products:q._product_ids.map(product_id=>({product_id}))} : q);
-    const slots = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&order=display_order&select=*`);
+    const slots = await api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_delivery=is.false&order=display_order&select=*`);
     const catalog = {tenant:state.tenant, products:[product], globalGroups:groups, questions, slots};
     const dialog = document.createElement("dialog");
     dialog.className = "draft-preview-dialog";

@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1794213709">
-<link rel="stylesheet" href="admin.css?v=1794213709">
-<link rel="stylesheet" href="products.css?v=1794213709">
-<link rel="stylesheet" href="admin-layout.css?v=1794213709">
-<link rel="stylesheet" href="help-panel.css?v=1794213709">
-<link rel="stylesheet" href="demo-banner.css?v=1794213709">
+<link rel="stylesheet" href="styles.css?v=1794221085">
+<link rel="stylesheet" href="admin.css?v=1794221085">
+<link rel="stylesheet" href="products.css?v=1794221085">
+<link rel="stylesheet" href="admin-layout.css?v=1794221085">
+<link rel="stylesheet" href="help-panel.css?v=1794221085">
+<link rel="stylesheet" href="demo-banner.css?v=1794221085">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -174,12 +174,8 @@
         </div>
         <p class="small">日付指定では、定休日・臨時休業日も、確認後にこの商品だけ受け付けられます。この商品の受付停止日は選べません。</p>
         <div class="field" style="margin-top:8px">この商品だけ受け付けない日
-          <p class="small">お店は営業する日でも、この商品だけ予約を止めたい日を追加します。</p>
-          <div class="override-add">
-            <input type="date" id="p-stop-date">
-            <button type="button" class="pill" id="btn-p-stop-add">日付を追加</button>
-          </div>
-          <div id="p-stops-list"></div>
+          <p class="small">お店は営業する日でも、この商品だけ予約を止めたい日を追加します。続けて休むときは終了日も入れると、期間でまとめて登録できます。</p>
+          <div id="p-stops"></div>
         </div>
       </div>
 
@@ -255,17 +251,17 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="demo-runtime.js?v=1794213709"></script>
-<script src="tips.js?v=1794213709"></script>
-<script src="edit-drafts.js?v=1794213709"></script>
-<script src="products-menu.js?v=1794213709"></script>
-<script src="pickup-schedule.js?v=1794213709"></script>
-<script src="question-flow.js?v=1794213709"></script>
-<script src="limit-check.js?v=1794213709"></script>
-<script src="date-limits.js?v=1794213709"></script>
-<script src="products.js?v=1794213709"></script>
-<script type="module" src="product-assistant.js?v=1794213709"></script>
-<script src="products-outline.js?v=1794213709"></script>
-<script src="navigation.js?v=1794213709"></script>
+<script src="demo-runtime.js?v=1794221085"></script>
+<script src="tips.js?v=1794221085"></script>
+<script src="edit-drafts.js?v=1794221085"></script>
+<script src="products-menu.js?v=1794221085"></script>
+<script src="pickup-schedule.js?v=1794221085"></script>
+<script src="question-flow.js?v=1794221085"></script>
+<script src="limit-check.js?v=1794221085"></script>
+<script src="date-limits.js?v=1794221085"></script>
+<script src="products.js?v=1794221085"></script>
+<script type="module" src="product-assistant.js?v=1794221085"></script>
+<script src="products-outline.js?v=1794221085"></script>
+<script src="navigation.js?v=1794221085"></script>
 </body>
 </html>

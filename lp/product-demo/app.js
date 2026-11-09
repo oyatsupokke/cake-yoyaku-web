@@ -2578,6 +2578,9 @@ async function loadCalendar() {
       });
       if (request !== calendarRequest) return false;
       state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
+      // お届け日＝発送日＋届くまでの日数。受付の範囲（発送日で数える）をお届け日に直して案内するため
+      state.deliveryOffset = null;
+      if (rows.length) state.deliveryOffset = Math.round((new Date(rows[0].d) - new Date(rows[0].ship_date)) / 86400000);
       state.delivShip = Object.fromEntries(rows.map((r) => [r.d, r.ship_date]));
       renderCalendar();
       return true;
@@ -2652,6 +2655,15 @@ function renderCalendar() {
   }
   // 前月ボタンは今月まで
   const bounds = BookingWindow.update(windowTenant(), m, STAFF_MODE);
+  // 配送：受付の範囲は発送日で数えるので、案内と次の月ボタンはお届け日（発送日＋届くまでの日数）に直す
+  if (isDelivery() && state.deliveryOffset != null) {
+    const lastDelivery = new Date(bounds.end + "T00:00:00Z");
+    lastDelivery.setUTCDate(lastDelivery.getUTCDate() + state.deliveryOffset);
+    const lastKey = lastDelivery.toISOString().slice(0, 10);
+    const monthKey = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
+    $("cal-next").disabled = monthKey >= lastKey.slice(0, 7);
+    $("booking-window-note").textContent = `${lastKey.replaceAll("-", "/")}のお届けまで予約できます。締切・定休日・満枠の日は選べません。`;
+  }
   const product = state.sel.product;
   const start = product.pickup_mode === 'dates' ? [...(product.pickup_dates || [])].sort()[0] : product.pickup_start_date;
   if (!STAFF_MODE && start && start > bounds.end) {

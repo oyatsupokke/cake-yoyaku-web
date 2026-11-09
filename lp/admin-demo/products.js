@@ -593,7 +593,7 @@ function buildComboLayerFields({ groups, rules, sizes, comboKey, onComboChange }
 /* 「選べない日」の入力と一覧（選択肢・回答の選択肢で共通・2026-10-02）。
  * 開始日〜終了日で入れると間の日を1日ずつ登録する（DBは1日1行のまま＝予約ページ・サーバーは無改修）。
  * 一覧は続いた日を「12/20〜12/31（12日）」の1行にまとめ、まとめて解除できる。その場で保存 */
-function stopDatesEditor({ table, keyCol, keyId, name }) {
+function stopDatesEditor({ table, keyCol, keyId, name, filter = "", extra = {}, suffix = "を選べません" }) {
   const box = document.createElement("div");
   box.innerHTML = `<div class="override-add stop-range">
       <label class="mini">開始日<input type="date" class="sd-from"></label>
@@ -608,7 +608,7 @@ function stopDatesEditor({ table, keyCol, keyId, name }) {
   let current = [];
   const render = async () => {
     try {
-      current = await api("GET", `/rest/v1/${table}?${keyCol}=eq.${keyId}&order=date`);
+      current = await api("GET", `/rest/v1/${table}?${keyCol}=eq.${keyId}${filter}&order=date`);
       list.innerHTML = current.length ? "" : `<span class="mini">登録なし</span>`;
       // 続いた日を1つの期間にまとめる
       const runs = [];
@@ -640,11 +640,11 @@ function stopDatesEditor({ table, keyCol, keyId, name }) {
     for (let d = from; d <= to && dates.length <= 366; d = nextDay(d)) dates.push(d);
     if (dates.length > 366) { toast("一度に登録できるのは1年分までです"); return; }
     const have = new Set(current.map((st) => st.date));
-    const rows = dates.filter((d) => !have.has(d)).map((date) => ({ tenant_id: state.tenantId, [keyCol]: keyId, date }));
+    const rows = dates.filter((d) => !have.has(d)).map((date) => ({ tenant_id: state.tenantId, [keyCol]: keyId, date, ...extra }));
     if (!rows.length) { toast("その日はもう登録されています"); return; }
     try {
       await api("POST", `/rest/v1/${table}`, rows);
-      toast(from === to ? `${label(from)} は「${name}」を選べません` : `${label(from)}〜${label(to)} は「${name}」を選べません`);
+      toast(`${from === to ? label(from) : `${label(from)}〜${label(to)}`} は「${name}」${suffix}`);
       box.querySelector(".sd-from").value = "";
       box.querySelector(".sd-to").value = "";
       render();
@@ -1322,38 +1322,19 @@ $("btn-p-delete").onclick = async () => {
 };
 
 /* ---------- この商品だけ受け付けない日 ---------- */
-async function renderProductStops(p) {
+// 選択肢の「選べない日」と同じ部品で、期間でも登録できる（2026-11-09）。過ぎた日は一覧に出さない
+function renderProductStops(p) {
   const today = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-  const stops = await api("GET",
-    `/rest/v1/availability_overrides?product_id=eq.${p.id}&variant_id=is.null&is_available=eq.false&date=gte.${todayStr}&order=date`);
-  const wrap = $("p-stops-list");
-  wrap.innerHTML = stops.length ? "" : `<p class="small">登録なし</p>`;
-  for (const s of stops) {
-    const row = document.createElement("div");
-    row.className = "sl-item";
-    row.innerHTML = `<span style="flex:1">${esc(s.date)} は受け付けない</span>
-      <button type="button" class="pill danger">解除</button>`;
-    row.querySelector("button").onclick = async () => {
-      await api("DELETE", `/rest/v1/availability_overrides?id=eq.${s.id}`);
-      toast("解除しました");
-      renderProductStops(p);
-    };
-    wrap.appendChild(row);
-  }
+  const editor = stopDatesEditor({
+    table: "availability_overrides", keyCol: "product_id", keyId: p.id, name: p.name || "この商品",
+    filter: `&variant_id=is.null&is_available=eq.false&date=gte.${todayStr}`,
+    extra: { is_available: false }, suffix: "を受け付けません",
+  });
+  $("p-stops").replaceChildren(editor);
+  editor.load();
 }
-$("btn-p-stop-add").onclick = async () => {
-  const p = state.current;
-  const date = $("p-stop-date").value;
-  if (!date) { toast("日付を選んでください"); return; }
-  await api("POST", "/rest/v1/availability_overrides", [{
-    tenant_id: state.tenantId, product_id: p.id, date, is_available: false,
-  }]);
-  $("p-stop-date").value = "";
-  toast(`${date} はこの商品を受け付けません`);
-  renderProductStops(p);
-};
 
 /* ---------- サイズと価格 ---------- */
 // サイズが無いと公開できない（DBの fn_guard_product_publish）。先に案内して、公開ボタンで初めて止まる形にしない

@@ -388,7 +388,7 @@ function prepayOffered() {
   // Square（pokke）か、Stripe をつないで事前払いをONにした店（card_prepay・2026-10-05）
   return !!(state.tenant?.square_prepay_enabled || state.tenant?.card_prepay) && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
 }
-// 店頭受取も「ご予約のときにカード払いのみ」の店（v_public_tenant.card_required・2026-11-09）。
+// 店頭受取も「事前のカード払いのみ」の店（v_public_tenant.card_required・2026-11-09）。
 // 予約のあとそのまま支払い画面へ。30分以内に払われなければ取り消し（配送と同じ流れ・判定の本体はSQL）
 function cardRequired() {
   return !!state.tenant?.card_required && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;

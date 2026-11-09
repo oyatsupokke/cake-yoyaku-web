@@ -400,13 +400,18 @@ function setupPayChoice() {
     `<div class="pay-title">お支払い方法</div>` +
     `<label class="pick"><input type="radio" name="pay-method" value="store" checked> 店頭でお支払い（受取時）</label>` +
     `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にカードでお支払い</label>` +
-    `<p class="small pay-card-note hidden">ご予約のあと、Squareのお支払い画面に進みます。</p>`;
+    `<p class="small pay-card-note hidden">ご予約のあと、Squareのお支払い画面に進みます（事前のお支払いは受取日の前日までです）。</p>`;
   box.addEventListener("change", () => {
     box.querySelector(".pay-card-note").classList.toggle("hidden", payChoice() !== "card");
   });
 }
+// 事前払いは受取日の前日まで（2026-10-22 まりほ「当日だと紙を出した後に払われるとわからなくなる」）。
+// 当日受取の予約では「事前にカード」を選んでも店頭払いとして扱う（判定の本体はSQLの fn_prepay_state）。
+function prepayDateOk() {
+  return !state.sel?.date || state.sel.date > BookingWindow.bounds(windowTenant()).today;
+}
 function payChoice() {
-  return prepayOffered() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
+  return prepayOffered() && prepayDateOk() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
 }
 
 /* ---------- 初期ロード ---------- */
@@ -1028,6 +1033,10 @@ function sizeSpecificLayerUrl(url, role = "option", optionName = "") {
         : cakeLayerAsset(file))
     : url;
 }
+// バスクの既存イラストは専用の合成を使う。タルトの果物は通常の選択肢レイヤーで登録する。
+const OYATSU_PRODUCT_EXTRA_LAYERS = {
+  "バスクチーズケーキ": [{ file: "basque-fruit-muscat.png", z: 35 }],
+};
 const OYATSU_FIG_DECORATION_LAYERS = {
   "フルーツ1周": "fruit-ring-fig.png",
   "フルーツサイド寄せ": "fruit-side-fig.png",
@@ -1751,6 +1760,17 @@ function currentLayers() {
   if (!baseUrl) return null;
   const ownPreview = CONFIG.shop === "pokke";
   const layers = [{ url: baseUrl, z: 0 }];
+  if (CONFIG.shop === "pokke") {
+    const chosenFruit = new Set([...state.sel.options.keys()].map((id) => optName(findOption(id)?.o || {})));
+    for (const x of OYATSU_PRODUCT_EXTRA_LAYERS[p.name] || []) {
+      let file = p.name === "バスクチーズケーキ" && chosenFruit.has("フルーツミックス")
+        ? "basque-fruit-mix.png"
+        : p.name === "バスクチーズケーキ" && chosenFruit.has("いちじく")
+        ? "basque-fruit-fig.png"
+        : chosenFruit.has("ナガノパープル") ? x.file.replace("-muscat.png", "-kyoho.png") : x.file;
+      layers.push({ url: cakeLayerAsset(file), z: x.z });
+    }
+  }
   const detachedNames=detachedToppingNames();
   const selectedNames = new Set((ownPreview ? [...state.sel.options.keys()] : []).map((id) => findOption(id)?.o).filter(Boolean).map(optName)
     .filter(name=>name!==DETACHED_TOPPING_OPTION&&!detachedNames.has(name)));
@@ -1776,6 +1796,9 @@ function currentLayers() {
         const name=optName(o);
         // 個別に別添えを選んだものだけ、注文内容には残してケーキ上から外す。
         if(name===DETACHED_TOPPING_OPTION||detachedNames.has(name))continue;
+        // 専用の盛り絵ができるまでは、いちじくの上にマスカットを重ねない。
+        if(ownPreview && p.name==="バスクチーズケーキ" && selectedNames.has("いちじく")
+          && name==="フルーツ盛り" && !comboLayer(o))continue;
         // サイド寄せの果物には1周ハーブではなく、同じ片側へ寄せた専用レイヤーを使う。
         const rawLayerUrl=CONFIG.shop==="pokke" && p.name==="デコレーションケーキ"
           && selectedNames.has("いちじく") && OYATSU_FIG_DECORATION_LAYERS[name]
@@ -3367,13 +3390,13 @@ $("btn-submit").onclick = async () => {
     }
     // Squareでの事前払い（任意・2026-10-02）。払う処理は予約確認ページに寄せ、?pay=1 でそのまま支払い画面へ進む
     if (!STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && r.manage_token && state.tenant.square_prepay_enabled &&
-        r.review_state !== "requested" && r.total_amount > 0 && !$("done-prepay")) {
+        r.review_state !== "requested" && r.total_amount > 0 && prepayDateOk() && !$("done-prepay")) {
       const div = document.createElement("div");
       div.id = "done-prepay";
       div.className = "done-prepay";
       div.innerHTML =
         `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">事前にカードでお支払いする（任意）</a>` +
-        `<p class="small">ご希望の方だけ。お支払いがなければ、受取の際に店頭でお支払いください。あとでご予約の確認ページからもお支払いいただけます。</p>`;
+        `<p class="small">ご希望の方だけ。お支払いがなければ、受取の際に店頭でお支払いください。受取日の前日までなら、あとでご予約の確認ページからもお支払いいただけます。</p>`;
       $("view-done").querySelector(".done-box").appendChild(div);
     }
     // LINE通知の案内（店側でONのときだけ。メールは変わらず届く。代行登録では出さない）

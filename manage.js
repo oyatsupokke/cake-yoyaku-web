@@ -263,7 +263,13 @@ function renderOrder() {
   };
   if (o.payment?.can_prepay)
     btn(`事前にカードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
-      "ご希望の方だけ。Squareのお支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
+      "ご希望の方だけ。受取日の前日までお支払いいただけます。Squareのお支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
+  else if (o.payment?.enabled && o.payment.reason === "past" && !(o.payment.paid_amount > 0)) {
+    // 事前払いは受取日の前日まで（2026-10-22）。当日はボタンを出さず、店頭払いの案内だけ
+    const p = document.createElement("p");
+    p.className = "action-hint"; p.textContent = "事前のカードでのお支払いは受取日の前日までです。受取時に店頭でお支払いください。";
+    list.appendChild(p);
+  }
   if (allowed.slot)
     btn("受取日時を変更する", "btn-secondary", `${deadlines.slot}受け付けています`, openSlotView);
   if (allowed.content)

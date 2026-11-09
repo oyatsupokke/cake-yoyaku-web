@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1794221085">
-<link rel="stylesheet" href="admin.css?v=1794221085">
-<link rel="stylesheet" href="admin-layout.css?v=1794221085">
-<link rel="stylesheet" href="support.css?v=1794221085">
-<link rel="stylesheet" href="help-panel.css?v=1794221085">
+<link rel="stylesheet" href="../styles.css?v=1794227836">
+<link rel="stylesheet" href="admin.css?v=1794227836">
+<link rel="stylesheet" href="admin-layout.css?v=1794227836">
+<link rel="stylesheet" href="support.css?v=1794227836">
+<link rel="stylesheet" href="help-panel.css?v=1794227836">
 </head>
 <body>
 <div id="app" class="admin">
@@ -272,18 +272,20 @@
         <div id="overrides-list"></div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-card">
-        <h3>カード払い（Stripe）<button type="button" class="tip" data-tip="お客様にカードで払ってもらうための設定です。&#10;店頭受取のご予約の事前払い（任意）と、配送のご注文で使います。&#10;売上はお店のStripe口座に直接入ります。">？</button></h3>
-        <p class="small">お客様にカードで払ってもらうための設定です。店頭受取のご予約の事前払い（任意）と、配送のご注文で使います。</p>
+        <h3>カード払い（Stripe）<button type="button" class="tip" data-tip="お客様にカードで払ってもらうための設定です。&#10;店頭受取のご予約のカード払いと、配送のご注文で使います。&#10;売上はお店のStripe口座に直接入ります。">？</button></h3>
+        <p class="small">お客様にカードで払ってもらうための設定です。店頭受取のご予約のカード払いと、配送のご注文で使います。</p>
         <div class="field">Stripeをつなぐ
           <p id="dl-stripe-status" class="dl-stripe-status" role="status">確認中…</p>
           <button type="button" class="pill" id="dl-stripe-connect">Stripeをつなぐ</button>
           <button type="button" class="pill" id="dl-stripe-refresh">状態を更新</button>
           <span class="help">売上はお店のStripe口座に直接入ります（決済手数料はStripeからお店へ。CakeBookは手数料をいただきません）。つなげるのは店舗のオーナーだけです。</span>
         </div>
-        <div class="field">店頭受取のご予約の事前カード払い（任意）
-          <label class="cf-check"><input type="checkbox" id="dl-prepay"> お客様が事前にカードで払えるようにする</label>
-          <span class="help" id="dl-prepay-help">予約は今までどおりすぐ成立し、払いたいお客様だけが予約のあとカードで払います。払わなければ店頭払いのまま。お客様が期限内に自分でキャンセルしたときは自動で全額返金されます。</span>
-          <span class="help warn hidden" id="dl-prepay-not-ready">⚠️ Stripeがつながるまで、お客様には事前のカード払いが出ません。</span>
+        <div class="field dl-paymode" id="dl-paymode">店頭受取のご予約のお支払い
+          <label><input type="radio" name="dl-paymode" value="store"> 店頭払いのみ</label>
+          <label><input type="radio" name="dl-paymode" value="optional"> 店頭払いか事前のカード払いを、お客様が選ぶ</label>
+          <label><input type="radio" name="dl-paymode" value="required"> ご予約のときにカード払いのみ</label>
+          <span class="help" id="dl-prepay-help"></span>
+          <span class="help warn hidden" id="dl-prepay-not-ready">⚠️ Stripeがつながるまで、お客様にはカード払いが出ません（店頭払いのご予約になります）。</span>
         </div>
       </div>
       <div class="confirm-box settings-anchor" id="settings-delivery">
@@ -641,25 +643,25 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1794221085"></script>
-<script src="edit-drafts.js?v=1794221085"></script>
-<script src="report-core.js?v=1794221085"></script>
-<script src="line-settings.js?v=1794221085"></script>
-<script src="delivery-settings.js?v=1794221085"></script>
-<script src="shipping-csv.js?v=1794221085"></script>
-<script src="billing-upgrade.js?v=1794221085"></script>
-<script src="trial-plan.js?v=1794221085"></script>
-<script src="../crop.js?v=1794221085"></script>
-<script src="order-gallery.js?v=1794221085"></script>
-<script src="option-counts.js?v=1794221085"></script>
-<script src="kitchen-breakdown.js?v=1794221085"></script>
-<script src="limit-check.js?v=1794221085"></script>
-<script src="date-limits.js?v=1794221085"></script>
-<script src="admin.js?v=1794221085"></script>
-<script src="order-calendar.js?v=1794221085"></script>
-<script src="onboarding.js?v=1794221085"></script>
-<script src="reports.js?v=1794221085"></script>
-<script src="support.js?v=1794221085"></script>
-<script src="navigation.js?v=1794221085"></script>
+<script src="tips.js?v=1794227836"></script>
+<script src="edit-drafts.js?v=1794227836"></script>
+<script src="report-core.js?v=1794227836"></script>
+<script src="line-settings.js?v=1794227836"></script>
+<script src="delivery-settings.js?v=1794227836"></script>
+<script src="shipping-csv.js?v=1794227836"></script>
+<script src="billing-upgrade.js?v=1794227836"></script>
+<script src="trial-plan.js?v=1794227836"></script>
+<script src="../crop.js?v=1794227836"></script>
+<script src="order-gallery.js?v=1794227836"></script>
+<script src="option-counts.js?v=1794227836"></script>
+<script src="kitchen-breakdown.js?v=1794227836"></script>
+<script src="limit-check.js?v=1794227836"></script>
+<script src="date-limits.js?v=1794227836"></script>
+<script src="admin.js?v=1794227836"></script>
+<script src="order-calendar.js?v=1794227836"></script>
+<script src="onboarding.js?v=1794227836"></script>
+<script src="reports.js?v=1794227836"></script>
+<script src="support.js?v=1794227836"></script>
+<script src="navigation.js?v=1794227836"></script>
 </body>
 </html>

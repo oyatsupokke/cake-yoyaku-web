@@ -167,9 +167,9 @@ async function loadOrderImages() {
 /* ---------- Squareでの事前払い（任意・2026-10-02） ----------
  * 予約は先に成立している。払いたい人だけ Square の支払い画面へ移り、終わるとここへ戻る。
  * あとで金額が上がった分は当日払い、下がった分・キャンセル分はお店が返金する。 */
-function paymentRows(pay) {
+function paymentRows(pay, label = "事前のお支払い") {
   if (!pay?.enabled || !(pay.paid_amount > 0)) return [];
-  const out = [`<div class="confirm-row"><span class="k">事前のお支払い</span><span>${yen(pay.paid_amount)}（お支払い済み）</span></div>`];
+  const out = [`<div class="confirm-row"><span class="k">${label}</span><span>${yen(pay.paid_amount)}（お支払い済み）</span></div>`];
   if (pay.due_amount > 0)
     out.push(`<div class="confirm-row"><span class="k">当日のお支払い</span><span>${yen(pay.due_amount)}（差額）</span></div>`);
   else if (pay.over_amount > 0)
@@ -215,8 +215,12 @@ async function deliveryPayments(body) {
   }).catch(() => null);
   return res ? res.json().catch(() => ({ ok: false })) : { ok: false };
 }
-const deliveryUnpaid = (o) => !!o?.delivery && o.delivery.payment_status !== "paid" && o.status !== "canceled";
-async function startDeliveryPay(e) {
+// 注文直後の支払い待ち：配送と、店頭受取の「カード払いのみ」の店（支払い期限あり・2026-11-09）。
+// カード払いのみの店でも、見積もりの承諾後の支払い（期限なし）は事前払い（o.payment）の流れで払う
+const cardUnpaid = (o) => o?.status !== "canceled" &&
+  (o?.delivery ? o.delivery.payment_status !== "paid"
+    : !!o?.card_required && o.card_required.payment_status !== "paid" && !!o.card_required.payment_due_at);
+async function startCardPay(e) {
   const b = e?.currentTarget;
   if (b) { b.disabled = true; b.textContent = "お支払い画面を準備しています…"; }
   const nonce = makeNonce();
@@ -261,7 +265,7 @@ function renderOrder() {
 
   const chip = $("status-chip");
   chip.textContent = o.status === 'canceled' ? STATUS_LABEL[o.status] : ({requested:'追加希望の確認待ち・予約未確定',quoted:'見積もりへの承諾待ち・予約未確定',accepted:'追加希望・予約確定'}[o.review_state] || STATUS_LABEL[o.status] || o.status);
-  if (deliveryUnpaid(o)) chip.textContent = "お支払い待ち";
+  if (cardUnpaid(o)) chip.textContent = "お支払い待ち";
   chip.classList.toggle("canceled", o.status === "canceled");
 
   const rows = [];
@@ -293,7 +297,12 @@ function renderOrder() {
   if (dl) row("お支払い", dl.payment_status === "paid" ? "カードでお支払い済み"
     : o.status === "canceled" ? "お支払いがなかったため、ご注文は取り消されました"
     : `まだお支払いいただいていません（${dl.payment_due_at ? hhmm(dl.payment_due_at) + "まで" : "ご注文から30分以内"}にお支払いください）`);
-  else rows.push(...paymentRows(o.payment));
+  else if (o.card_required && o.card_required.payment_status !== "paid") row("お支払い",
+    o.status === "canceled" ? (o.card_required.payment_due_at ? "お支払いがなかったため、ご予約は取り消されました" : "なし")
+    : o.card_required.payment_due_at ? `まだお支払いいただいていません（${hhmm(o.card_required.payment_due_at)}までにお支払いください）`
+    : o.review_state === "accepted" ? "カード払い（まだお支払いいただいていません）"
+    : "カード払い（お見積もりの承諾後にお支払いいただきます）");
+  else rows.push(...paymentRows(o.payment, o.card_required ? "カードでのお支払い" : undefined));
   $("order-detail").innerHTML = rows.join("");
   loadOrderImages();
 
@@ -311,9 +320,12 @@ function renderOrder() {
     }
     return b;
   };
-  if (deliveryUnpaid(o))
+  if (cardUnpaid(o))
     btn(`カードでお支払いする（${yen(o.total_amount)}）`, "btn-primary",
-      "お支払いが済むと、ご注文が確定し確認メールが届きます。", startDeliveryPay);
+      dl ? "お支払いが済むと、ご注文が確定し確認メールが届きます。" : "お支払いが済むと、ご予約が確定し確認メールが届きます。", startCardPay);
+  else if (o.payment?.can_prepay && o.card_required)
+    btn(`カードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
+      "このお店のお支払いはカードです。カードのお支払い画面に移ります。", startPrepay);
   else if (o.payment?.can_prepay)
     btn(`事前にカードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
       "ご希望の方だけ。受取日の前日までお支払いいただけます。カードのお支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
@@ -891,11 +903,13 @@ async function load() {
     if (q.get("pay") === "1") {
       q.delete("pay");
       history.replaceState(null, "", `${location.pathname}?${q}`);
-      if (deliveryUnpaid(r.order)) { startDeliveryPay(); return; }
+      if (cardUnpaid(r.order)) { startCardPay(); return; }
       if (r.order.payment?.can_prepay) { startPrepay(); return; }
     }
-    const paidNow = r.order.delivery ? r.order.delivery.payment_status === "paid" : r.order.payment?.paid_amount > 0;
-    if (returned) toast(paidNow ? (r.order.delivery ? "お支払いを確認しました。ご注文が確定しました。確認メールをお送りします" : "お支払いを確認しました。ありがとうございます")
+    const paidNow = r.order.delivery ? r.order.delivery.payment_status === "paid"
+      : r.order.card_required ? r.order.card_required.payment_status === "paid" : r.order.payment?.paid_amount > 0;
+    if (returned) toast(paidNow ? (r.order.delivery ? "お支払いを確認しました。ご注文が確定しました。確認メールをお送りします"
+        : r.order.card_required ? "お支払いを確認しました。ご予約が確定しました。確認メールをお送りします" : "お支払いを確認しました。ありがとうございます")
       : "お支払いの確認に少し時間がかかっています。しばらくしてから開き直してください");
     if (returned && paidNow) kickMailWorker();
   } catch (e) {

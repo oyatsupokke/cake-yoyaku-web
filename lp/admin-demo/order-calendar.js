@@ -28,7 +28,7 @@
     $("cal-summary").textContent = "読み込み中…";
     const [orders, tenants, overrides, rules] = await Promise.all([
       getAll(`/rest/v1/orders?tenant_id=eq.${tenant}&pickup_date=gte.${from}&pickup_date=lte.${to}&status=neq.canceled` +
-        `&select=id,pickup_date,status,review_state,order_items!order_items_order_id_fkey(quantity)&order=id`),
+        `&select=id,pickup_date,status,review_state,payment_due_at,order_items!order_items_order_id_fkey(quantity)&order=id`),
       api("GET", `/rest/v1/tenants?id=eq.${tenant}&select=closed_weekdays`),
       api("GET", `/rest/v1/date_overrides?tenant_id=eq.${tenant}&date=gte.${from}&date=lte.${to}&select=date,kind`),
       api("GET", `/rest/v1/capacity_rules?tenant_id=eq.${tenant}&scope=eq.all&is_active=eq.true&select=id,daily_limit`),
@@ -44,7 +44,8 @@
       const x = day(o.pickup_date);
       x.orders += 1;
       x.cakes += (o.order_items || []).reduce((n, i) => n + (i.quantity || 0), 0);
-      if (o.status === "new" || reviewPending(o)) x.unconfirmed += 1;
+      // 支払い待ち（配送・カード払いのみの店＝30分で取り消されうる）は一覧の「未確認」と同じく数えない
+      if ((o.status === "new" && !o.payment_due_at) || reviewPending(o)) x.unconfirmed += 1;
     }
     const closedWeekdays = tenants[0]?.closed_weekdays || [];
     const overrideKind = new Map(overrides.map((o) => [o.date, o.kind]));

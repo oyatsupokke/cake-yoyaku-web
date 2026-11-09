@@ -1,7 +1,8 @@
 /* =====================================================================
  * 設定タブ「カード払い（Stripe）」と「配送」（2026-10-05・2026-11-09 に2つの欄へ分けた）
  *   設計＝kaihatsu/haisou-card-sekkei-2026-10-05.md
- * - 店のStripe口座をつなぐ（stripe-connect・オーナーだけ）・店頭受取の事前カード払い
+ * - 店のStripe口座をつなぐ（stripe-connect・オーナーだけ）・店頭受取のお支払い
+ *   （店頭払いのみ／お客様が選ぶ＝stripe_prepay_enabled／カード払いのみ＝card_required・2026-11-09）
  * - 配送の設定は tenants.delivery_settings（jsonb 1列）。保存は画面下の保存バー（admin.js の regField）
  *   形：{enabled, regions:{地域:{on,fee,days}}, free_over, time_windows[], note}
  *   on＝配送する（送料必須・0円＝送料無料）、days＝届くまでの日数＝お届け日の何日前に発送するか
@@ -33,8 +34,24 @@
     el("dl-stripe-connect").textContent = ready ? "Stripeの登録内容を確認する" : tenant?.stripe_account_id ? "Stripeの登録を続ける" : "Stripeをつなぐ";
     // 配送の欄：つながるまでは「先にカード払いでStripeをつなぐ」の案内。カード払いの欄：事前払いにチェックしたのに未接続なら注意
     el("dl-not-ready").classList.toggle("hidden", ready);
-    el("dl-prepay-not-ready").classList.toggle("hidden", ready || !el("dl-prepay").checked);
+    el("dl-prepay-not-ready").classList.toggle("hidden", ready || window.payModeValue() === "store");
   }
+
+  /* 店頭受取のお支払い（3択）。保存は admin.js が2つの列（stripe_prepay_enabled・card_required）に分けて登録する */
+  const PAY_HELP = {
+    store: "お客様には店頭でのお支払いだけをご案内します。",
+    optional: "予約は今までどおりすぐ成立し、払いたいお客様だけが予約のあとカードで払います（受取日の前日まで）。払わなければ店頭払いのまま。お客様が期限内に自分でキャンセルしたときは自動で全額返金されます。",
+    required: "お客様はご予約のあと、そのままカードで払います。払うとご予約が確定し、確認メールが届きます。30分以内に払われなければ自動で取り消されます（その間は枠を押さえます）。" +
+      "お客様ご自身での内容の変更はできなくなります（受取日時の変更と、期限内のキャンセル＝自動で全額返金はできます）。追加希望（お見積もり）は、承諾のあとお客様が確認ページから払います。予約の直接登録は店頭払いのままです。",
+  };
+  window.payModeValue = () => document.querySelector('input[name="dl-paymode"]:checked')?.value || "store";
+  function paintPayMode() {
+    el("dl-prepay-help").textContent = tenant?.square_prepay_enabled
+      ? "このお店は Square で事前のカード払いを受け付けています（こちらの設定は使いません）。"
+      : PAY_HELP[window.payModeValue()];
+    paintStripe();
+  }
+  el("dl-paymode").addEventListener("change", paintPayMode);
 
   /** 「配送する」を外した行は送料・日数を灰色にして触れないようにする（値は残す＝付け直したら戻る） */
   function paintRow(tr) {
@@ -114,11 +131,13 @@
     const s = t.delivery_settings || {};
     el("dl-enabled").checked = !!s.enabled;
     // 店頭受取の事前カード払い（任意）。Square で事前払いを受けている店（pokke）は Square のまま（2026-10-05 まりほ）
-    el("dl-prepay").checked = !!t.stripe_prepay_enabled;
-    el("dl-prepay").disabled = !!t.square_prepay_enabled;
-    el("dl-prepay-help").textContent = t.square_prepay_enabled
-      ? "このお店は Square で事前のカード払いを受け付けています（こちらの設定は使いません）。"
-      : "予約は今までどおりすぐ成立し、払いたいお客様だけが予約のあとカードで払います。払わなければ店頭払いのまま。お客様が期限内に自分でキャンセルしたときは自動で全額返金されます。";
+    // Square で事前払いを受けている店（pokke）は Square のまま（2026-10-05 まりほ）
+    const mode = t.card_required && t.stripe_prepay_enabled ? "required" : t.stripe_prepay_enabled ? "optional" : "store";
+    for (const r of document.querySelectorAll('input[name="dl-paymode"]')) {
+      r.checked = r.value === mode;
+      r.disabled = !!t.square_prepay_enabled;
+    }
+    paintPayMode();
     el("dl-free").value = s.free_over ?? "";
     el("dl-note").value = s.note || "";
     const rows = el("dl-fee-rows");

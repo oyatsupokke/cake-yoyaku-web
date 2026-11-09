@@ -33,8 +33,8 @@ const STATUS = {
 };
 const REVIEW = {requested:"追加希望・確認待ち",quoted:"見積もり・承諾待ち",accepted:"追加希望・承諾済み"};
 const reviewPending = o => ['requested','quoted'].includes(o.review_state);
-// 配送のカード払い待ち（払われると確定・30分で自動取り消し）。確認済にするのは払われてから
-const awaitingPay = o => o.fulfillment === "delivery" && o.payment_status !== "paid";
+// 配送・店頭受取の「カード払いのみ」の店の、注文直後の支払い待ち（払われると確定・30分で自動取り消し）。確認済にするのは払われてから
+const awaitingPay = o => o.payment_status !== "paid" && (o.fulfillment === "delivery" || (o.card_required && !!o.payment_due_at));
 
 const state = { session: null, tenantId: null, tenantName: "", date: null, orders: [], tab: "calendar",
   // お客様へのメール文面（設定タブ）。編集中の種類と、種類ごとの下書き
@@ -288,8 +288,8 @@ async function loadOrders() {
   const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
   $("tab-kitchen").classList.toggle("hidden", !!filter);
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
-    // 支払い待ちの配送（30分で自動取り消し）は「未確認」に入れない（2026-10-05）
-    (filter === "new" ? `&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)`
+    // 支払い待ち（配送・カード払いのみの店の店頭受取＝支払い期限あり・30分で自動取り消し）は「未確認」に入れない（2026-10-05・11-09）
+    (filter === "new" ? `&status=eq.new&review_state=eq.none&payment_due_at=is.null`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
     `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
     `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at),order_payments!order_payments_order_id_fkey(provider,status)`;
@@ -322,7 +322,7 @@ async function refreshUnconfirmedCount() {
   const opt = $("review-filter")?.querySelector('option[value="new"]');
   if (!opt || !state.tenantId) return;
   const generation = ++unconfirmedCountGeneration, tenant = state.tenantId;
-  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${tenant}&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)&select=id`, {
+  const res = await fetch(CONFIG.url + `/rest/v1/orders?tenant_id=eq.${tenant}&status=eq.new&review_state=eq.none&payment_due_at=is.null&select=id`, {
     method: "HEAD",
     headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}`, Prefer: "count=exact" },
   });
@@ -350,7 +350,7 @@ $("bulk-confirm-btn").onclick = async () => {
   try {
     // 画面に出ている予約だけを対象にする。読み込み後に状態が変わった分（キャンセル等）は条件で外れる
     const ids = targets.map((o) => o.id).join(",");
-    done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none&or=(fulfillment.eq.pickup,payment_status.eq.paid)`, { status: "confirmed" });
+    done = await api("PATCH", `/rest/v1/orders?tenant_id=eq.${state.tenantId}&id=in.(${ids})&status=eq.new&review_state=eq.none&payment_due_at=is.null`, { status: "confirmed" });
   } catch { toast("確認済みにできませんでした。通信状態を確認して、もう一度お試しください。"); btn.disabled = false; return; }
   toast(`${Array.isArray(done) ? done.length : targets.length}件を「確認済」にしました`);
   // 更新は済んでいるので、再読み込みの失敗は別の案内にする（一覧が古いままなのを伝える）
@@ -631,18 +631,20 @@ function fillOrderBody(el, o) {
   else row("メール", email);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) {
     const p = prepayNumbers(o);
-    row("支払い", o.fulfillment === "delivery" ? `カード払い ${yen(o.paid_amount)}（Stripe）` : `事前払い ${yen(o.paid_amount)}（${PAY_PROVIDER(o)}）`);
+    row("支払い", o.fulfillment === "delivery" || o.card_required ? `カード払い ${yen(o.paid_amount)}（Stripe）` : `事前払い ${yen(o.paid_amount)}（${PAY_PROVIDER(o)}）`);
     if (o.fulfillment !== "delivery")
       row("当日のお支払い", p.over > 0 ? `なし（${yen(p.over)} の返金が必要）` : p.due > 0 ? `${yen(p.due)}（差額）` : "なし");
   } else {
-    row("支払い", o.fulfillment === "delivery" ? (o.status === "canceled" ? "お支払いなし（期限切れで取り消し）" : "支払い待ち（カード）") :
+    row("支払い", o.fulfillment === "delivery" || (o.card_required && o.payment_due_at) ? (o.status === "canceled" ? "お支払いなし（期限切れで取り消し）" : "支払い待ち（カード）") :
+      o.card_required ? (o.status === "canceled" ? "お支払いなし" : "カード払い（まだ払われていません・お客様が確認ページから払います）") :
       (o.payment_method === "store" ? "店頭払い" : o.payment_method) +
       (legacyOrder(o) ? "（旧フォームでのお支払い済みかは未照合）" : ""));
   }
   let actions = "";
   // 店側からの変更（2026-10-03）。未確認・確認済で、追加希望（見積もり）の途中でないものだけ
   // 配送の予約は日時・内容を変えない（キャンセル＝返金して入れ直す・2026-10-05）
-  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none" && o.fulfillment !== "delivery";
+  // 支払い待ち（カード払いのみの店・30分）の間は変えない＝開いている支払い画面の金額とずれるため
+  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none" && o.fulfillment !== "delivery" && !awaitingPay(o);
   if (staffEditable) {
     actions += `<button type="button" class="pill slot-btn">受取日時を変更</button>` +
                `<button type="button" class="pill content-btn">内容を変更</button>`;
@@ -800,7 +802,7 @@ function prepayNumbers(o) {
   return { due: Math.max(total - paid, 0), over: Math.max(paid - total, 0) };
 }
 // 支払いの決済会社：配送は Stripe。店頭受取の事前払いは、実際の支払いの記録で決める（Square の店・Stripe の店がある）
-const PAY_PROVIDER = (o) => o.fulfillment === "delivery" || (o.order_payments || []).some((p) => p.provider === "stripe" && p.status === "completed") ? "Stripe" : "Square";
+const PAY_PROVIDER = (o) => o.fulfillment === "delivery" || o.card_required || (o.order_payments || []).some((p) => p.provider === "stripe" && p.status === "completed") ? "Stripe" : "Square";
 /* 配送の予約（2026-10-05）。一覧の受取日の欄は「発送日」（＝作る日）。カードの印でお届け日・支払い待ちが分かるように */
 function deliveryBadges(o) {
   if (o.fulfillment !== "delivery") return "";
@@ -810,14 +812,21 @@ function deliveryBadges(o) {
 }
 function prepayBadge(o) {
   const refunding = (o.order_refunds || []).some((r) => r.status === "pending");
-  if (!(o.paid_amount > 0)) return refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "";
-  if (o.fulfillment === "delivery") return `<span class="status-badge st-prepaid" title="お客様がご注文のときにカード（Stripe）でお支払い済み">💳 カード払い済み</span>` +
+  if (!(o.paid_amount > 0)) return refunding ? `<span class="status-badge st-refund">返金処理中</span>` : cardRequiredBadge(o);
+  if (o.fulfillment === "delivery" || o.card_required) return `<span class="status-badge st-prepaid" title="お客様がご注文のときにカード（Stripe）でお支払い済み">💳 カード払い済み</span>` +
     (refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "");
   const p = prepayNumbers(o);
   return `<span class="status-badge st-prepaid" title="${PAY_PROVIDER(o)}で事前にお支払い済み">💳 事前払い ${yen(o.paid_amount)}</span>` +
     (p.over > 0 ? `<span class="status-badge st-refund">返金 ${yen(p.over)} 未対応</span>`
       : p.due > 0 ? `<span class="status-badge st-prepaid">当日 ${yen(p.due)}</span>` : "") +
     (refunding ? `<span class="status-badge st-refund">返金処理中</span>` : "");
+}
+/* 店頭受取の「カード払いのみ」の店の予約（2026-11-09）。注文直後は配送と同じ「支払い待ち」、見積もりの承諾後は「カード未払い」 */
+function cardRequiredBadge(o) {
+  if (!o.card_required || o.fulfillment === "delivery" || o.payment_status === "paid" || o.status === "canceled") return "";
+  return o.payment_due_at
+    ? `<span class="status-badge st-unpaid" title="お客様がカードで支払うと確定します。30分で払われなければ自動で取り消されます">支払い待ち</span>`
+    : `<span class="status-badge st-unpaid" title="お客様が予約の確認ページからカードで払います（期限なし）">カード未払い</span>`;
 }
 function renderRefundBox(el, o) {
   const box = document.createElement("div");
@@ -1314,6 +1323,8 @@ function kitchenPayLine(o) {
   if (paid > 0) {
     const due = Math.max(total - paid, 0), over = Math.max(paid - total, 0);
     pay = `<strong>事前払い済 ${yen(paid)}</strong>・` + (over > 0 ? `<strong>返金 ${yen(over)} が必要</strong>` : due > 0 ? `<strong>当日 ${yen(due)}</strong>（差額）` : "当日のお支払いなし");
+  } else if ((o.card_required || o.fulfillment === "delivery") && o.payment_status !== "paid") {
+    pay = `<strong>カード未払い ${yen(total)}</strong>（お客様のカード払い待ち）`;   // 店頭では受け取らない
   } else if (legacyOrder(o)) {
     pay = `旧フォーム（お支払い済みかは未照合）`;
   } else {
@@ -1850,7 +1861,9 @@ async function loadTenantForm() {
   regField("tenants", T, "reminder_enabled", $("t-reminder-enabled"));
   // 配送の設定（delivery-settings.js が1つのjsonbにまとめる）
   regField("tenants", T, "delivery_settings", $("dl-enabled"), { get: () => window.deliverySettingsValue?.() ?? null });
-  regField("tenants", T, "stripe_prepay_enabled", $("dl-prepay"));   // 店頭受取の事前カード払い（任意・2026-10-05）
+  // 店頭受取のお支払い（3択・delivery-settings.js）：お客様が選ぶ＝事前カード払い（任意・2026-10-05）／カード払いのみ（2026-11-09）
+  regField("tenants", T, "stripe_prepay_enabled", $("dl-paymode"), { get: () => window.payModeValue() !== "store" });
+  regField("tenants", T, "card_required", $("dl-paymode"), { get: () => window.payModeValue() === "required" });
   // メール文面は4種ぶんを1つのjsonbにまとめて持つ（tokushoho・customer_form と同じ形）。
   // 代表の欄として「はじめの文」を登録し、値は mailTextsValue が4種ぶん組み立てる
   regField("tenants", T, "email_texts", $("t-mail-intro"), { get: mailTextsValue });

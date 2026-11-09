@@ -393,8 +393,15 @@ function prepayOffered() {
   // Square（pokke）か、Stripe をつないで事前払いをONにした店（card_prepay・2026-10-05）
   return !!(state.tenant?.square_prepay_enabled || state.tenant?.card_prepay) && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
 }
+// 店頭受取も「ご予約のときにカード払いのみ」の店（v_public_tenant.card_required・2026-11-09）。
+// 予約のあとそのまま支払い画面へ。30分以内に払われなければ取り消し（配送と同じ流れ・判定の本体はSQL）
+function cardRequired() {
+  return !!state.tenant?.card_required && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
+}
+const CARD_ONLY_NOTE = "お支払い方法：<strong>カード</strong>（ご予約のあと、カードのお支払い画面に進みます。30分以内にお支払いください）";
 function setupPayChoice() {
   const box = $("pay-note");
+  if (box && cardRequired()) { box.innerHTML = CARD_ONLY_NOTE; return; }
   if (!box || !prepayOffered()) return;
   box.classList.add("pay-choice");
   box.innerHTML =
@@ -413,6 +420,7 @@ function prepayDateOk() {
 }
 function payChoice() {
   if (isDelivery()) return "store";   // 配送は注文のあと必ずカード（Stripe）。Squareの事前払いの選択は出さない
+  if (cardRequired()) return "card";  // 当日受取でも（「前日まで」は任意の事前払いだけ）
   return prepayOffered() && prepayDateOk() && document.querySelector('input[name="pay-method"]:checked')?.value === "card" ? "card" : "store";
 }
 
@@ -545,7 +553,7 @@ function renderFulfill() {
   } else if (pay.dataset.saved != null) {
     pay.innerHTML = pay.dataset.saved;
     delete pay.dataset.saved;
-    if (prepayOffered()) pay.classList.add("pay-choice");
+    if (prepayOffered() && !cardRequired()) pay.classList.add("pay-choice");
   }
 }
 function renderDeliveryTimes() {
@@ -3486,13 +3494,15 @@ function renderConfirm() {
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
     : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。"
     : isDelivery() ? "「カードで支払う」を押すとお支払い画面に進みます。お支払いが済んだ時点でご注文が確定します。"
+    : cardRequired() ? "「カードで支払う」を押すとお支払い画面に進みます。お支払いが済んだ時点でご予約が確定します。"
     : "この内容で注文すると、ご注文が確定します。";
-  if (isDelivery() && !review) $("btn-submit").textContent = "カードで支払う";
+  if ((isDelivery() || cardRequired()) && !review) $("btn-submit").textContent = "カードで支払う";
   // 確認画面で止めて「予約したつもり」になる人がいるので、まだ終わっていないことを赤字で出す
   const doneWord = TRIAL_MODE ? "これはお試しのテスト予約です（予約は保存されません）。"
     : review ? "まだお見積もりの依頼は送信されていません。" : STAFF_MODE ? "まだ登録されていません。"
     : EDIT_MODE ? "まだご予約の変更は完了していません。" : isDelivery() ? "まだご注文は完了していません。" : "まだご予約は完了していません。";
-  const doneVerb = TRIAL_MODE ? "テスト予約の流れを最後まで確認できます" : review ? "送信されます" : STAFF_MODE ? "登録されます" : EDIT_MODE ? "変更が確定します" : isDelivery() ? "お支払い画面に進みます（お支払いが済むとご注文が確定します）" : "ご予約が確定します";
+  const doneVerb = TRIAL_MODE ? "テスト予約の流れを最後まで確認できます" : review ? "送信されます" : STAFF_MODE ? "登録されます" : EDIT_MODE ? "変更が確定します" : isDelivery() ? "お支払い画面に進みます（お支払いが済むとご注文が確定します）"
+    : cardRequired() ? "お支払い画面に進みます（お支払いが済むとご予約が確定します）" : "ご予約が確定します";
   $("confirm-not-done").innerHTML = `${esc(doneWord)}<br>ページの一番下の「${esc($("btn-submit").textContent)}」を押すと、${esc(doneVerb)}。`;
   const rows = [];
   // 見出しが長い行（質問文など）は上下2段に組む＝スマホで値の列が潰れない（2026-10-03）
@@ -3559,6 +3569,8 @@ function renderConfirm() {
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
   if (isDelivery()) row("送料", yen(shippingFee()));
   row("お支払い", isDelivery() ? "カード（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご注文は取り消されます）"
+    : cardRequired() ? (review ? "カード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただきます）"
+      : "カード（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご予約は取り消されます）")
     : payChoice() !== "card" ? "店頭でのお支払い"
     : review ? "事前にカード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
     : "事前にカード（このあとカードのお支払い画面に進みます）");
@@ -3685,15 +3697,22 @@ $("btn-submit").onclick = async () => {
       // まだ予約は確定していないので、お祝いの🎉は出さない（2026-10-28 まりほ指摘）
       $("view-done").querySelector(".done-emoji").classList.add("hidden");
       $("done-total").textContent = yen(r.total_amount) + "［選択分・追加希望分は未確定］";
+      if (r.card_required) $("done-total").parentElement.lastChild.textContent = "（お見積もりの承諾後にカード払い）";
       $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取希望として受け付けました。対応内容と金額をご案内します。専用ページで承諾すると予約が確定します。`;
     }
-    if (r.payment_required) {
-      // 配送：お支払いが済むまで予約は確定しない。予約確認ページ経由でカードのお支払い画面へ
+    if (r.payment_required && !TRIAL_MODE) {   // テスト予約は保存されないので支払いの案内を出さない
+      // 配送・カード払いのみの店：お支払いが済むまで予約は確定しない。予約確認ページ経由でカードのお支払い画面へ
       $("view-done").querySelector("h2").textContent = "お支払いに進んでください";
       $("view-done").querySelector(".done-emoji").textContent = "💳";
-      $("done-total").parentElement.lastChild.textContent = "（送料込み・カード払い）";
-      $("done-pickup").textContent = `${fmtJpDate(payload.p.delivery_date)} ${payload.p.delivery_time} のお届けで承りました。` +
-        "30分以内にカードでお支払いいただくと、ご注文が確定し確認メールをお送りします。お支払いがない場合、ご注文は自動で取り消されます。";
+      if (payload.p.delivery_date) {
+        $("done-total").parentElement.lastChild.textContent = "（送料込み・カード払い）";
+        $("done-pickup").textContent = `${fmtJpDate(payload.p.delivery_date)} ${payload.p.delivery_time} のお届けで承りました。` +
+          "30分以内にカードでお支払いいただくと、ご注文が確定し確認メールをお送りします。お支払いがない場合、ご注文は自動で取り消されます。";
+      } else {
+        $("done-total").parentElement.lastChild.textContent = "（カード払い）";
+        $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取で承りました。` +
+          "30分以内にカードでお支払いいただくと、ご予約が確定し確認メールをお送りします。お支払いがない場合、ご予約は自動で取り消されます。";
+      }
     }
     $("view-confirm").classList.add("hidden");
     if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
@@ -3773,7 +3792,8 @@ $("btn-submit").onclick = async () => {
     btn.disabled = false;
     let pending = false;
     try { pending = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage unavailable */ }
-    btn.textContent = pending ? "前回の送信結果を確認する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する" : SUBMIT_LABEL;
+    btn.textContent = pending ? "前回の送信結果を確認する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する"
+      : (isDelivery() || cardRequired()) ? "カードで支払う" : SUBMIT_LABEL;
     $("btn-back").disabled = pending;
   }
 };

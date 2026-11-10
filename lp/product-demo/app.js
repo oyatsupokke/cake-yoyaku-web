@@ -628,13 +628,15 @@ async function load() {
   const T = state.tenant.id;
   const jstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const [products, globalGroups, questions, slots, optionStops] = await Promise.all([
-    api(`/rest/v1/products?tenant_id=eq.${T}&order=display_order` +
+    // お試し中のテスト予約は店のログインで読むので、非公開・削除した商品、止めた受取時間まで返ってくる。
+    // お客様（anon）にはもともと返らないものなので、ここで同じ条件に絞る
+    api(`/rest/v1/products?tenant_id=eq.${T}&is_published=is.true&deleted_at=is.null&order=display_order` +
         `&select=*,product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
     api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
         `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
         `&select=*,common_question_choices!common_question_choices_question_id_fkey(*,choice_availability_overrides!choice_availability_overrides_choice_id_fkey(date)),common_question_products!common_question_products_question_id_fkey(*)`),
-    api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&is_delivery=is.false&order=display_order&select=*`),
+    api(`/rest/v1/pickup_time_slots?tenant_id=eq.${T}&is_active=is.true&is_delivery=is.false&order=display_order&select=*`),
     // 選択肢の「選べない日」。どの選択肢のせいでその日が選べないかを出すためだけに使う
     // （受付の可否はサーバーが決める）ので、読めなくても予約ページは止めない
     api(`/rest/v1/option_availability_overrides?tenant_id=eq.${T}&date=gte.${jstToday}&select=option_id,date&order=date`).catch(() => []),
@@ -1100,6 +1102,14 @@ function renderProducts() {
     el.setAttribute("aria-disabled", String(!prices.length));
     if (prices.length) el.onclick = () => selectProduct(p);
     wrap.appendChild(el);
+  }
+  // テスト予約で一覧が空のまま黙っていると、店は故障に見える（新しい商品は非公開で作られる）
+  if (TRIAL_MODE && !wrap.children.length) {
+    const none = document.createElement("p");
+    none.className = "confirm-box";
+    none.style.gridColumn = "1 / -1";
+    none.textContent = "いま表示できる商品がありません。商品の画面で「公開する」を押した商品が、ここに並びます（受付期間の外の商品は並びません）。";
+    wrap.appendChild(none);
   }
 }
 /* ---------- プレビュー ----------

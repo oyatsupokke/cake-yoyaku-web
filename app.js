@@ -675,8 +675,8 @@ async function load() {
     if (RETRY_ENABLED && retryStore().pending()) {
       $("view-form").classList.add("hidden");
       $("view-confirm").classList.remove("hidden");
-      $("confirm-detail").textContent = "前回のお申し込みの送信結果を確認します。内容の変更は、確認後に予約の変更ページから行えます。";
-      $("btn-submit").textContent = "前回の送信結果を確認する";
+      $("confirm-detail").textContent = "前回のお申し込みは、送信が完了していません。下のボタンを押して、もう一度送信してください。";
+      $("btn-submit").textContent = "もう一度送信する";
       $("btn-back").disabled = true;
     }
   }
@@ -3793,7 +3793,7 @@ $("btn-submit").onclick = async () => {
     let uncertain = false;
     try { uncertain = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage error */ }
     $("submit-error").textContent = uncertain
-      ? "送信結果を確認できませんでした。もう一度押すと、前回と同じ申し込みの結果を確認します。入力を変更しても、新しい予約は作りません。"
+      ? "送信が完了しませんでした。もう一度ボタンを押してください。"
       : e.message;
     $("submit-error").classList.remove("hidden");
     // サーバーが「どの欄か」を名指しで弾いたときは、入力画面のその欄まで戻る（文だけ残しても直せないため）
@@ -3802,7 +3802,7 @@ $("btn-submit").onclick = async () => {
     btn.disabled = false;
     let pending = false;
     try { pending = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage unavailable */ }
-    btn.textContent = pending ? "前回の送信結果を確認する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する"
+    btn.textContent = pending ? "もう一度送信する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する"
       : (isDelivery() || cardRequired()) ? "カードで支払う" : SUBMIT_LABEL;
     $("btn-back").disabled = pending;
   }

@@ -1037,6 +1037,10 @@ function optionPriceLocked(o) {
   const price = o.size_prices?.[state.sel.variant?.size_label];
   return optionPrice(o) < (Number.isInteger(price) ? price : o.price_delta);
 }
+// 個数の単位は選択肢ごとに店が決める（options.quantity_unit・空欄なら「個」・2026-11-11）
+function optionQuantityUnit(o) {
+  return (o.quantity_unit || "").trim() || "個";
+}
 function optionMaxQuantity(o) {
   // タルト・バスク上に無理なく載せられるナンバークッキー大は2枚まで。
   if (CONFIG.shop === "pokke" && ["フルーツタルト","バスクチーズケーキ"].includes(state.sel.product?.name)
@@ -2455,7 +2459,7 @@ function renderGroups() {
       const selected = state.sel.options.has(o.id);
       const sel = selected ? state.sel.options.get(o.id) : null;
       const maxQty = optionMaxQuantity(o);
-      const quantityUnit = MERINGUE_NAMES.has(optName(o)) ? "個" : "枚";
+      const quantityUnit = optionQuantityUnit(o);
       const price = o.requires_review ? `${optionPrice(o) ? '+'+yen(optionPrice(o))+'・' : ''}別途見積もり` : optionPrice(o) ? `+${yen(optionPrice(o))}` : "無料";
       // 枚数はステッパー（−/＋）で。数字入力欄だけだと枚数と気づけない（まりほ指摘 2026-08-24）
       const qtyUi = maxQty > 1 && selected
@@ -3356,7 +3360,7 @@ function validate() {
   for (const [id, v] of s.options) {
     const f = findOption(id);
     if (f && v.qty > optionMaxQuantity(f.o))
-      return `「${optName(f.o)}」は${optionMaxQuantity(f.o)}枚までです`;
+      return `「${optName(f.o)}」は${optionMaxQuantity(f.o)}${optionQuantityUnit(f.o)}までです`;
     if (f && optName(f.o)===DETACHED_TOPPING_OPTION) {
       const selectedNames=new Set(f.g.options.filter(o=>o.id!==id&&state.sel.options.has(o.id)).map(optName));
       const detached=[...detachedToppingNames()].filter(name=>selectedNames.has(name));

@@ -2385,7 +2385,7 @@ function buildGroupBox(p, g) {
       const qs = questionsOf(o.id);
       return {
         sharedNote:o.shared_list_items?.note || "", sharedFrom:o.shared_list_items?.available_from || "", sharedUntil:o.shared_list_items?.available_until || "",
-        photo:o.photo_url || "", accent:!!o.note_accent, sizePrices:{...o.size_prices}, deadline:o.order_deadline_days, selfCancel:o.self_cancel_days, from:o.pickup_from || "", until:o.pickup_until || "", review:!!o.requires_review, maxQty:o.max_quantity,
+        photo:o.photo_url || "", accent:!!o.note_accent, sizePrices:{...o.size_prices}, deadline:o.order_deadline_days, selfCancel:o.self_cancel_days, from:o.pickup_from || "", until:o.pickup_until || "", review:!!o.requires_review, maxQty:o.max_quantity, unit:o.quantity_unit || "",
         id: o.id, description:o.description || "", note:o.note || "", name: optDisplayName(o), price: o.price_delta, available: optionAvailability(o).available,
         qs: qs.map((q) => ({ id: q.id,
           label: q.label, type: q.input_type, required: q.is_required, active: q.is_active !== false, imageMax: imgMaxOf(q),
@@ -2430,7 +2430,7 @@ function buildGroupBox(p, g) {
         ${o.selfCancel != null ? `<p class="desc">受取日の${esc(o.selfCancel)}日前を過ぎるとキャンセル・内容変更はできません</p>` : ""}
         ${o.description ? `<p class="desc">${esc(o.description)}</p>` : ""}${note ? `<p class="cnote${o.accent ? " accent" : ""}">${esc(note)}</p>` : ""}
         ${from || until ? `<p class="desc">受取日：${esc(from || "制限なし")}〜${esc(until || "制限なし")}</p>` : ""}
-        ${o.maxQty > 1 ? `<p class="desc">数量：1〜${esc(o.maxQty)}個</p>` : ""}
+        ${o.maxQty > 1 ? `<p class="desc">数量：1〜${esc(o.maxQty)}${esc(o.unit || "個")}</p>` : ""}
         ${(o.qs || []).filter(q => q.active !== false).map(q => optionQuestionPreviewHtml(o.id, q)).join("")}
       </div>`;
     }).join("");
@@ -2598,6 +2598,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
       <div class="fb"><span class="k">注意書き</span>
         <textarea class="o-note" rows="2" placeholder="例: ※いちごチョコは酸味があります">${esc(o.note)}</textarea>
         <label class="chk"><input type="checkbox" class="o-note-accent" ${o.note_accent ? "checked" : ""}>目立たせる（赤・太字）</label></div>
+      <div class="fb"><span class="k">個数の単位</span>
+        <input type="text" class="o-unit" maxlength="4" placeholder="個" value="${esc(o.quantity_unit || "")}" aria-label="個数の単位">
+        <span class="mini">個数上限が2以上のとき、予約ページの「− 2個 ＋」に出ます（例：個・枚・本）。空欄なら「個」</span></div>
       <div class="o-photo fb"></div>
       </section>
       <section class="option-detail-section option-detail-pricing">
@@ -2696,6 +2699,9 @@ function buildOptionRow(p, g, o, view, ov, index, paintGroup) {
 
   regField("options", o.id, "max_quantity", row.querySelector(".o-maxq"), { number: true });
   row.querySelector(".o-maxq").addEventListener("input", e => { ov.maxQty = Number(e.target.value); paintGroup(); });
+  const unitEl = row.querySelector(".o-unit");
+  regField("options", o.id, "quantity_unit", unitEl);
+  unitEl.addEventListener("input", () => { ov.unit = unitEl.value.trim(); paintGroup(); });
 
   const deadlineEl = row.querySelector(".o-deadline");
   regField("options", o.id, "order_deadline_days", deadlineEl, {

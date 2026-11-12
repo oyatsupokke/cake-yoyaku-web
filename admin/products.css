@@ -830,3 +830,6 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
 .size-hint { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff6e5; border: 1px solid #f0d49a; font-size: .9rem; line-height: 1.6; }
 .size-hint .pill { margin-left: 4px; }
 #p-sizes-card.size-flash { animation: cat-panel-flash 2.4s ease-out; }
+
+/* 個数の単位（2026-11-11）。1〜4文字なので短い欄にする */
+.products-page .o-unit { width: 5em; }

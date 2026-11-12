@@ -1563,6 +1563,7 @@ function optionQuestionPreviewHtml(optionId, view) {
 /* 質問エディタ（共通の質問・選択肢の質問で同じ部品を使う）
  * 戻り値の要素の中で、ラベル/必須/形式/回答の選択肢を編集できる。
  * ラベル・形式・選択肢名は「まとめて保存」、選択肢の追加・削除はその場で反映する。 */
+const PREVIEW_TEXT_COLORS = [["#49352F", "濃い茶"], ["#FFFFFF", "白"], ["#222222", "黒"]];
 function buildQuestionFields(q, view, onPaint, opts = {}) {
   const box = document.createElement("div");
   box.className = "sub q-fields";
@@ -1571,6 +1572,11 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   const legacyMatches = linkOptions.filter(o => optDisplayName(o) === q.pastel_link_option_name);
   const linkId = q.pastel_link_option_id || (legacyMatches.length === 1 ? legacyMatches[0].id : "");
   const legacyLink = !linkId && !!q.pastel_link_option_name;
+  // 「色見本の答えに合わせる」の候補＝店の色見本の質問（選択肢の質問は どの選択肢の質問か を添える）
+  const paletteQuestions = state.questions.filter(x => x.input_type === "palette" && x.is_active !== false && x.id !== q.id).map(x => {
+    const o = x.option_id && linkOptions.find(o => o.id === x.option_id);
+    return { id: x.id, context: o ? `${o.context}：${optDisplayName(o)} の「${x.label || "質問文未入力"}」` : `共通の質問「${x.label || "質問文未入力"}」` };
+  });
 
   box.innerHTML = `
     <input type="text" class="q-label" value="${esc(q.label)}" placeholder="質問文（お客様に見えます）">
@@ -1579,6 +1585,22 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     <label class="q-placeholder ${["text", "textarea"].includes(q.input_type) ? "" : "hidden"}">入力欄の例文（任意）
       <textarea class="q-placeholder-input" rows="2" maxlength="200" placeholder="例：Happy Birthday（空欄なら既定の例文）">${esc(q.placeholder || "")}</textarea>
     </label>
+    <div class="sub q-preview-text ${["text", "textarea"].includes(q.input_type) ? "" : "hidden"}">
+      <label class="chk"><input type="checkbox" class="qpt-on" ${q.preview_text ? "checked" : ""}>答えをデザインイメージに文字で出す</label>
+      <div class="qpt-detail ${q.preview_text ? "" : "hidden"}">
+        <label>位置<select class="qpt-pos">${[["top", "上面の上寄り"], ["center", "上面の真ん中"], ["bottom", "上面の下寄り"]].map(([v, t]) =>
+          `<option value="${v}" ${(q.preview_text?.position || "center") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label>大きさ<select class="qpt-size">${[["l", "大"], ["m", "中"], ["s", "小"]].map(([v, t]) =>
+          `<option value="${v}" ${(q.preview_text?.size || "m") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label>字体<select class="qpt-font">${[["maru", "丸ゴシック"], ["mincho", "明朝"], ["script", "筆記体（英字だけ。日本語は丸ゴシック）"]].map(([v, t]) =>
+          `<option value="${v}" ${(q.preview_text?.font || "maru") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label>文字の色<select class="qpt-color">${PREVIEW_TEXT_COLORS.map(([v, t]) =>
+          `<option value="${v}" ${(q.preview_text?.color || PREVIEW_TEXT_COLORS[0][0]).toUpperCase() === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label>色見本の答えに合わせる<select class="qpt-colorq"><option value="">合わせない</option>${paletteQuestions.map(x =>
+          `<option value="${esc(x.id)}" ${x.id === q.preview_text?.color_question_id ? "selected" : ""}>${esc(x.context)}</option>`).join("")}</select></label>
+        <p class="small">色見本で色が選ばれていないときは「文字の色」で出ます。長い文は小さくして収めます。見え方は画面上部の「編集内容で予約画面を確認」で確かめられます。</p>
+      </div>
+    </div>
     <label class="chk q-imgmax ${q.input_type === "image" ? "" : "hidden"}">枚数
       <select class="q-imgmax-sel">${[1, 2, 3].map((n) =>
         `<option value="${n}" ${n === imgMaxOf(q) ? "selected" : ""}>${n}枚まで</option>`).join("")}</select>
@@ -1641,6 +1663,17 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
   regField("common_questions", q.id, "placeholder", phEl, { get: () => phEl.value.trim() || null });
   phEl.addEventListener("input", () => { view.placeholder = phEl.value; onPaint(); });
 
+  // 答えをデザインイメージに文字で出す（common_questions.preview_text。オフなら null）
+  const ptBox = box.querySelector(".q-preview-text"), ptOn = box.querySelector(".qpt-on");
+  const ptValue = () => !ptOn.checked ? null : {
+    position: ptBox.querySelector(".qpt-pos").value, size: ptBox.querySelector(".qpt-size").value,
+    font: ptBox.querySelector(".qpt-font").value, color: ptBox.querySelector(".qpt-color").value,
+    color_question_id: ptBox.querySelector(".qpt-colorq").value || null,
+  };
+  regField("common_questions", q.id, "preview_text", ptBox, { get: ptValue });
+  ptBox.addEventListener("change", () => markDirty());
+  ptOn.addEventListener("change", () => ptBox.querySelector(".qpt-detail").classList.toggle("hidden", !ptOn.checked));
+
   const maxEl = box.querySelector(".q-imgmax-sel");
   regField("common_questions", q.id, "image_max", maxEl,
     { get: () => parseInt(maxEl.value, 10) || 3 });
@@ -1662,6 +1695,7 @@ function buildQuestionFields(q, view, onPaint, opts = {}) {
     box.paletteTexts?.();
     box.querySelector(".q-imgmax").classList.toggle("hidden", view.type !== "image");
     box.querySelector(".q-placeholder").classList.toggle("hidden", !["text", "textarea"].includes(view.type));
+    box.querySelector(".q-preview-text").classList.toggle("hidden", !["text", "textarea"].includes(view.type));
     box.querySelector(".q-pastel-link").classList.toggle("hidden", !isColorQuestion(view.type));
     onPaint();
   });

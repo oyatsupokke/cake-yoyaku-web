@@ -1904,6 +1904,76 @@ function drawDirectMessageLayer(ctx, message) {
   ctx.restore();
 }
 
+/* 記入欄の答えを「選択中のケーキ」の絵の上に文字で出す（どの店でも・質問ごとの設定 common_questions.preview_text・2026-11-12）
+ * 位置は960pxの絵の上面（中心480）に対して上寄り・真ん中・下寄り。入りきらない文は oyatsupokke の直書きと同じく小さくして収める。 */
+const PREVIEW_TEXT_FONTS = {
+  maru: '"Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif',
+  mincho: '"Shippori Mincho", "Hiragino Mincho ProN", serif',
+  // 筆記体は英字だけ。日本語は字形が無いので丸ゴシックで出る
+  script: '"Dancing Script", "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif',
+};
+const PREVIEW_TEXT_Y = { top: 330, center: 480, bottom: 630 };
+const PREVIEW_TEXT_SIZE = { l: 72, m: 56, s: 42 };
+const PREVIEW_TEXT_COLOR = "#49352F";
+const LEGACY_MESSAGE_OPTIONS = new Set(["メッセージをケーキに直書き", "クッキープレート"]);
+
+function currentPreviewTexts() {
+  const out = [];
+  for (const q of askedQuestions()) {
+    const cfg = q.preview_text;
+    if (!cfg || typeof cfg !== "object" || !["text", "textarea"].includes(q.input_type)) continue;
+    // oyatsupokke の直書き・クッキープレートは専用の描き方があるので二重に描かない
+    if (CONFIG.shop === "pokke" && LEGACY_MESSAGE_OPTIONS.has(optName(findOption(qOptionId(q))?.o || {}))) continue;
+    const text = String(normAnswer(state.sel.answers.get(q.id)).text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join("\n");
+    if (!text) continue;
+    let color = /^#[0-9A-Fa-f]{6}$/.test(cfg.color || "") ? cfg.color : PREVIEW_TEXT_COLOR;
+    const colorQ = cfg.color_question_id && askedQuestions().find((x) => x.id === cfg.color_question_id);
+    if (colorQ) {
+      const picked = normAnswer(state.sel.answers.get(colorQ.id)).choiceIds;
+      const hex = qChoices(colorQ).find((c) => picked.includes(c.id))?.color_hex;
+      if (/^#[0-9A-Fa-f]{6}$/.test(hex || "")) color = hex;
+    }
+    out.push({ text, color, font: PREVIEW_TEXT_FONTS[cfg.font] ? cfg.font : "maru",
+      y: PREVIEW_TEXT_Y[cfg.position] ?? PREVIEW_TEXT_Y.center, size: PREVIEW_TEXT_SIZE[cfg.size] ?? PREVIEW_TEXT_SIZE.m });
+  }
+  return out;
+}
+
+let scriptFontPromise;
+async function loadPreviewTextFonts(items) {
+  if (!document.fonts?.load) return;
+  if (items.some((t) => t.font === "script")) {
+    scriptFontPromise ||= new Promise((resolve) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap";
+      link.onload = link.onerror = resolve;
+      document.head.appendChild(link);
+    });
+    await scriptFontPromise;
+  }
+  // 日本語の字体は使う文字の分だけ読み込まれるので、描く文字を渡して待つ（待たないと保存画像が既定の字体になる）
+  await Promise.all(items.map((t) => document.fonts.load(`${t.size}px ${PREVIEW_TEXT_FONTS[t.font]}`, t.text).catch(() => [])));
+}
+
+function drawPreviewText(ctx, item) {
+  const maxWidth = 480, maxHeight = item.size * 3.2;
+  let size = item.size, lines = [], lineHeight = size * 1.25;
+  ctx.save();
+  ctx.fillStyle = item.color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (; size >= 22; size -= 2) {
+    ctx.font = `600 ${size}px ${PREVIEW_TEXT_FONTS[item.font]}`;
+    lines = messageLines(ctx, item.text, maxWidth, 4);
+    lineHeight = size * 1.25;
+    if (lines.length * lineHeight <= maxHeight && lines.every((l) => ctx.measureText(l).width <= maxWidth)) break;
+  }
+  const firstY = item.y - (lines.length - 1) * lineHeight / 2;
+  lines.forEach((line, i) => ctx.fillText(line, LAYER_CANVAS / 2, firstY + i * lineHeight, maxWidth));
+  ctx.restore();
+}
+
 function drawHeartOutline(ctx, cx, cy, width, height) {
   ctx.save();
   ctx.beginPath();
@@ -2135,6 +2205,7 @@ function currentLayers() {
   if (calendar) layers.push({ z: 60, calendarCake: calendar });
   const directMessage = ownPreview ? currentDirectMessageLayer() : null;
   if (directMessage) layers.push({ z: 66, directMessage });
+  for (const previewText of currentPreviewTexts()) layers.push({ z: 66, previewText });
   return layers.sort((a, b) => a.z - b.z);
 }
 
@@ -2158,6 +2229,7 @@ async function updatePreview() {
     }
     const imgs = await Promise.all(layers.map((l) => loadImg(l.url)));
     if (layers.some((l) => l.calendarCake || l.directMessage || l.messagePlateText)) await loadOyatsupokkeFont();
+    await loadPreviewTextFonts(layers.filter((l) => l.previewText).map((l) => l.previewText));
     if (token !== previewToken) return; // 描画中に選択が変わったら破棄
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, LAYER_CANVAS, LAYER_CANVAS);
@@ -2167,6 +2239,7 @@ async function updatePreview() {
     for (let i=0;i<imgs.length;i++) {
       if(layers[i].calendarCake){drawSizedCalendarLayer(ctx,layers[i].calendarCake);continue;}
       // カレンダーケーキの下のメッセージは、カレンダーと同じ縮小・位置合わせで描く（12cmで下にはみ出していた・2026-10-02）
+      if(layers[i].previewText){drawPreviewText(ctx,layers[i].previewText);continue;}
       if(layers[i].directMessage){ctx.save();if(layers.some(l=>l.calendarCake))applyCalendarTransform(ctx);else ctx.translate(LEGACY_LAYER_OFFSET,LEGACY_LAYER_OFFSET);drawDirectMessageLayer(ctx,layers[i].directMessage);ctx.restore();continue;}
       const img=imgs[i]; if(!img)continue;
       // わんこホイップ＋ナンバークッキー（大1〜2枚）：犬は上面の左へずらす（数字は drawNumberCookieLayers で右へ）

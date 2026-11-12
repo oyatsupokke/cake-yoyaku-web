@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ケーキ屋さんの予約帳の操作マニュアル。商品を登録するを画面写真付きで案内します。"><title>商品を登録する｜ケーキ屋さんの予約帳 ヘルプ</title><link rel="stylesheet" href="help.css?v=1794454250"><script defer src="help.js?v=1794454250"></script></head><body>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ケーキ屋さんの予約帳の操作マニュアル。商品を登録するを画面写真付きで案内します。"><title>商品を登録する｜ケーキ屋さんの予約帳 ヘルプ</title><link rel="stylesheet" href="help.css?v=1794463039"><script defer src="help.js?v=1794463039"></script></head><body>
 <a class="skip" href="#content">本文へ移動</a><header class="site-header"><a class="brand" href="index.html">ケーキ屋さんの予約帳<span>導入店舗向けマニュアル</span></a><a class="admin-link" href="../admin/">管理画面へ <span aria-hidden="true">↗</span></a></header>
 <div class="layout"><aside class="sidebar"><details class="mobile-nav"><summary>目次を開く</summary><nav aria-label="マニュアルの目次"><a href="index.html" >使い方を探す</a><a href="start.html" >はじめてガイド</a><a href="staff.html" >毎日の早見表</a><a href="overview.html" >できること</a><a href="products.html" aria-current="page">商品を登録する</a><a href="daily.html" >毎日の使い方</a><a href="settings.html" >受付のルール・設定</a><a href="customer.html" >お客様の操作</a><a href="billing.html" >ご契約とお支払い</a><a href="faq.html" >困ったとき</a></nav></details><nav class="desktop-nav" aria-label="マニュアルの目次"><a href="index.html" >使い方を探す</a><a href="start.html" >はじめてガイド</a><a href="staff.html" >毎日の早見表</a><a href="overview.html" >できること</a><a href="products.html" aria-current="page">商品を登録する</a><a href="daily.html" >毎日の使い方</a><a href="settings.html" >受付のルール・設定</a><a href="customer.html" >お客様の操作</a><a href="billing.html" >ご契約とお支払い</a><a href="faq.html" >困ったとき</a></nav></aside>
 <main id="content" tabindex="-1"><div class="search-area"><label for="help-search">マニュアル内を検索</label><div class="search-row"><input id="help-search" type="search" placeholder="例：締切、写真、キャンセル" autocomplete="off" aria-controls="search-results"><button type="button" id="search-clear" hidden>クリア</button></div><p id="search-status" role="status" aria-live="polite"></p><div id="search-results" hidden></div></div><p class="ai-help-link"><a href="assistant.html">使い方をAIに質問する</a> · ログインした店舗向け</p><article><p class="eyebrow">使い方ガイド <span>更新 2026.09.28</span></p><h1>第2章 商品を登録する</h1>
@@ -7,7 +7,7 @@
 ケーキの登録・編集、サイズと価格、お客様に選んでもらう項目、クリスマスなどの季節商品の設定ができるようになります。</p>
 </blockquote>
 <p>商品の画面は、管理画面のメニュー <strong>「商品」</strong> から開きます。</p>
-<figure><a href="img/product.png?v=1794454250" target="_blank" rel="noopener" aria-label="商品の設定：商品を切り替えて編集しますを拡大"><img src="img/product.png?v=1794454250" alt="商品の設定：商品を切り替えて編集します" loading="lazy" width="780" height="1688"></a><figcaption>商品の設定：商品を切り替えて編集します · タップで拡大</figcaption></figure>
+<figure><a href="img/product.png?v=1794463039" target="_blank" rel="noopener" aria-label="商品の設定：商品を切り替えて編集しますを拡大"><img src="img/product.png?v=1794463039" alt="商品の設定：商品を切り替えて編集します" loading="lazy" width="780" height="1688"></a><figcaption>商品の設定：商品を切り替えて編集します · タップで拡大</figcaption></figure>
 <p>💡 この画面では、<strong>商品の追加・削除・公開の切り替え・写真</strong>は押した時点ですぐ反映されます。文字や数字の変更は、画面下の <strong>「保存する」</strong> を押すまで反映されません。</p>
 <h2 id="section-1">商品を追加する<a class="anchor" href="#section-1" aria-label="この項目へのリンク">#</a></h2>
 <ol>
@@ -98,6 +98,7 @@
 <li>「保存する」を押します。</li>
 </ol>
 <p>受付開始前と受付終了後は、お客様の予約ページに商品が表示されません。ケーキを受け取れる日は、別に「受取日の指定方法」で設定します。</p>
+<p>一年じゅう販売する商品は、「受付開始日時」「受付終了日時」を空欄のままにします。「今月分だけ受け付ける」つもりで受付終了日時に月末を入れると、その日時を過ぎたときに商品が予約ページから消えます。月ごとに受付を開けたいときは、下の「毎月決まった日に翌月分の受付を開ける」の方法を使ってください。</p>
 <h3>受取日を日付で指定する</h3>
 <ol>
 <li>管理画面の「商品」で対象のケーキを選び、「販売期間・受取可能日」を開きます。</li>
@@ -108,14 +109,33 @@
 </ol>
 <p>追加した日だけ受け付けます。「この商品だけ受け付けない日」は優先されます。期間と曜日で指定する場合は「期間で指定」、通常商品は「通常どおり（お店の営業日）」を選びます。店舗の予約可能日数・締切・満枠の条件も確認してください。</p>
 <p>全商品を定休日に受け付けたい場合は、設定の「臨時休業・臨時営業」で「定休日だけど営業」を登録します。</p>
-<figure><a href="img/season.png?v=1794454250" target="_blank" rel="noopener" aria-label="季節商品：受付期間と受取期間を分けて設定しますを拡大"><img src="img/season.png?v=1794454250" alt="季節商品：受付期間と受取期間を分けて設定します" loading="lazy" width="780" height="1688"></a><figcaption>季節商品：受付期間と受取期間を分けて設定します · タップで拡大</figcaption></figure>
+<h3>毎月決まった日に翌月分の受付を開ける</h3>
+<p>「毎月20日に翌月分の予約を始める」のように、月ごとにまとめて受付を開けたいときの設定です。商品の「受取できる期間」の終了日を、月に1回書き換えます。</p>
+<p>はじめに1回だけ行う設定</p>
+<ol>
+<li>設定の「予約できる期間・受付の締切」で、<strong>「何日先の受取まで予約を受け付けるか」</strong> を45日にして「保存する」を押します。ここが短いと、翌月分を開けても月の後半が選べません。</li>
+<li>管理画面の「商品」で対象のケーキを選び、「販売期間・受取可能日」を開きます。</li>
+<li>「受付開始日時」「受付終了日時」は空欄にします。</li>
+<li><strong>「受取日の指定方法」</strong> で「期間で指定」を選びます。</li>
+<li><strong>「受取できる期間（終了）」</strong> に、いま受け付けている月の末日を入れます。開始は空欄のままで構いません。</li>
+<li>「保存する」を押します。月ごとに開けたい商品すべてで、2〜6を繰り返します。</li>
+</ol>
+<p>毎月、受付を開ける日に行うこと</p>
+<ol>
+<li>翌月の休みの日を、設定の「臨時休業・臨時営業」に登録しておきます。</li>
+<li>「商品」で対象のケーキを選び、「受取できる期間（終了）」を翌月の末日に書き換えて「保存する」を押します。対象の商品すべてで繰り返します。</li>
+<li>商品画面の「お客様画面を見る」から予約ページを開き、翌月のカレンダーが選べることを確認します。</li>
+</ol>
+<p>例）11月20日に12月分を開ける → 11月19日までは終了日を11/30、11月20日に12/31へ書き換える</p>
+<p>書き換えを忘れても、商品は予約ページに出たままです。選べる受取日が無くなるだけなので、気づいたときに終了日を書き換えれば受付を再開できます。定休日・臨時休業・締切・満枠の条件は、期間の中でもそのまま適用されます。</p>
+<figure><a href="img/season.png?v=1794463039" target="_blank" rel="noopener" aria-label="季節商品：受付期間と受取期間を分けて設定しますを拡大"><img src="img/season.png?v=1794463039" alt="季節商品：受付期間と受取期間を分けて設定します" loading="lazy" width="780" height="1688"></a><figcaption>季節商品：受付期間と受取期間を分けて設定します · タップで拡大</figcaption></figure>
 <h2 id="section-7">サイズと価格<a class="anchor" href="#section-7" aria-label="この項目へのリンク">#</a></h2>
 <ol>
 <li>サイズ名（例：12cm、4号）と価格（税込）を入れて <strong>「追加」</strong> を押します。</li>
 <li>サイズの数だけ繰り返します。</li>
 </ol>
 <p>金額はお客様が選ぶと自動で計算・表示されます。</p>
-<figure><a href="img/variants.png?v=1794454250" target="_blank" rel="noopener" aria-label="サイズと価格の登録欄を拡大"><img src="img/variants.png?v=1794454250" alt="サイズと価格の登録欄" loading="lazy" width="780" height="1688"></a><figcaption>サイズと価格の登録欄 · タップで拡大</figcaption></figure>
+<figure><a href="img/variants.png?v=1794463039" target="_blank" rel="noopener" aria-label="サイズと価格の登録欄を拡大"><img src="img/variants.png?v=1794463039" alt="サイズと価格の登録欄" loading="lazy" width="780" height="1688"></a><figcaption>サイズと価格の登録欄 · タップで拡大</figcaption></figure>
 <h2 id="section-8">質問を追加する（選択式・文字・画像）<a class="anchor" href="#section-8" aria-label="この項目へのリンク">#</a></h2>
 <p>商品画面の <strong>「質問」</strong> で、選択式と記入欄をまとめて作ります。以前の「選択グループ」と「共通の質問」は、この一覧にまとまりました。</p>
 <ol>
@@ -128,7 +148,7 @@
 </ol>
 <p>例：「果物」＝いちご（+0円）／ミックス（+300円）。追加料金がある選択式は、以下で「選択グループ」と呼ぶ設定に当たります。</p>
 <p>追加のボタンには、どこに足すかが名前で書かれています。「＋ 新しい質問をつくる」は質問そのものを作るボタン、「＋『果物を選んでください』に選択肢を足す」はその質問に選択肢を足すボタン、「＋『必要』を選んだ人にだけ聞く質問を足す」は選択肢の中に質問を足すボタンです。選択肢の中の質問は、一段内側に下げて表示します。</p>
-<figure><a href="img/questions.png?v=1794454250" target="_blank" rel="noopener" aria-label="質問：回答方法・表示するケーキ・表示条件を設定しますを拡大"><img src="img/questions.png?v=1794454250" alt="質問：回答方法・表示するケーキ・表示条件を設定します" loading="lazy" width="780" height="1688"></a><figcaption>質問：回答方法・表示するケーキ・表示条件を設定します · タップで拡大</figcaption></figure>
+<figure><a href="img/questions.png?v=1794463039" target="_blank" rel="noopener" aria-label="質問：回答方法・表示するケーキ・表示条件を設定しますを拡大"><img src="img/questions.png?v=1794463039" alt="質問：回答方法・表示するケーキ・表示条件を設定します" loading="lazy" width="780" height="1688"></a><figcaption>質問：回答方法・表示するケーキ・表示条件を設定します · タップで拡大</figcaption></figure>
 <h3>果物の選択肢を作る</h3>
 <p>果物を1つ選んでもらう質問を作れます。</p>
 <ol>
@@ -392,6 +412,23 @@ oyatsupokkeの動物トッピングはケーキごとの定位置に配置され
 <p>何も選ばれていないときの絵は、グループの **「プレビュー用イラスト（何も選ばれていない時・任意）」**に登録します。商品写真・質問の見本画像・プレビュー用イラストは、それぞれ別の欄です。</p>
 <p>イラスト制作を依頼したい場合は、管理画面の **「サポート」→「イラスト作成のご相談」**から、商品点数と希望内容をお知らせください。制作内容・料金・納期は個別に確認します。</p>
 <p>💡 枠の下に出る注意書きは、**設定タブの「予約ページの注意書き」**で変えられます（空欄なら何も出ません）。「写真はイメージです」など、お店の商品に合う文言にしてください。</p>
+<h3>お客様が書いたメッセージを絵に文字で出す</h3>
+<p>「Happy Birthday」などお客様が記入欄に書いた文を、「選択中のケーキ」の絵の上に文字で出せます。プレビュー用イラストを登録してある商品で使えます。</p>
+<ol>
+<li>商品画面で、メッセージを書いてもらう質問（回答方法が <strong>「1行」</strong> か <strong>「複数行」</strong> の質問）を開きます。</li>
+<li><strong>「答えをデザインイメージに文字で出す」</strong> にチェックを入れます。</li>
+<li>下に出る4つを選びます。<ul>
+<li><strong>位置</strong>：上面の上寄り／上面の真ん中／上面の下寄り</li>
+<li><strong>大きさ</strong>：大／中／小（長い文は自動で小さくして収めます）</li>
+<li><strong>字体</strong>：丸ゴシック／明朝／筆記体（筆記体は英字だけ。日本語は丸ゴシックで出ます）</li>
+<li><strong>文字の色</strong>：濃い茶／白／黒</li>
+</ul>
+</li>
+<li>お客様が文字の色を選べる店は、<strong>「色見本の答えに合わせる」</strong> で、その色を聞いている質問（回答方法が「色見本から選ぶ」の質問）を選びます。お客様が選んだ色で文字が出ます。色が選ばれていないとき（「おまかせ」など）は「文字の色」で出ます。</li>
+<li>画面下の <strong>「保存する」</strong> を押します。</li>
+<li>画面上部の <strong>「編集内容で予約画面を確認」</strong> で、文字を打って位置・大きさを確かめます。</li>
+</ol>
+<p>予約時に保存される完成イメージにも、文字が入った状態で残ります。字体・文字の形はあくまでイメージで、実際の仕上がりはお店の手書きになることを、注意書きなどでお知らせしてください。</p>
 <h2 id="section-13">メニュー表を作る<a class="anchor" href="#section-13" aria-label="この項目へのリンク">#</a></h2>
 <blockquote>
 <p>2026-09-09公開。商品画面から利用できます。</p>
@@ -425,7 +462,7 @@ oyatsupokkeの動物トッピングはケーキごとの定位置に配置され
 <p>確認画面では予約を送信できません。空き状況や受付締切は保存済みの設定で判定するため、日程の設定変更は保存後に確認してください。確認画面を閉じても、編集内容は設定画面に残ります。</p>
 <p>右側の「入力内容の見本」は編集箇所を確認するための表示です。実際の選び方やサイズ別料金は上記の確認画面を使ってください。</p>
 <h2 id="section-15">イラストの対応範囲<a class="anchor" href="#section-15" aria-label="この項目へのリンク">#</a></h2>
-<p>透過PNGの重ね合わせ・重ね順・回答ごとの素材は、商品設定で登録できます。カレンダー文字、数字の自動配置、動物の定位置、サイズ別の専用素材差し替えは、oyatsupokke用の個別設定です。他店への提供を希望する場合はサポートへ相談してください。</p>
+<p>透過PNGの重ね合わせ・重ね順・回答ごとの素材は、商品設定で登録できます。記入欄のメッセージを絵に文字で出す設定も、商品設定で登録できます。カレンダー文字、数字の自動配置、動物の定位置、サイズ別の専用素材差し替えは、oyatsupokke用の個別設定です。他店への提供を希望する場合はサポートへ相談してください。</p>
 <p><strong>サイズ別のイラスト</strong>：12cmと18cmで絵の大きさや配置を変えたいときは、各イラスト欄の下の「サイズ別のイラスト（任意）」を開き、サイズごとに透過PNGを登録します。空欄のサイズは共通のイラストを使います。サイズ名が同じなら、ほかの商品でも同じ絵になります。</p>
 <p><strong>組み合わせで絵を変える</strong>：果物の種類によって「フルーツ1周」などの絵を変えたいときは、飾り方の選択肢のイラスト欄の下で「＋ 組み合わせで絵を変える」を開き、果物のグループを選んで、果物ごとに絵を登録します（組み合わせごとにサイズ別も登録できます）。登録のない組み合わせは、その選択肢のふだんの絵を使います。</p>
 <p>「イラストに使う回答」がある商品では、その選択肢のどの質問を絵に使うか選べます。質問の並び順を変えても、この対応は維持されます。</p>

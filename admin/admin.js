@@ -699,7 +699,7 @@ function fillOrderBody(el, o) {
   el.querySelector(".cancel-btn")?.addEventListener("click", () => {
     // カードで払われている予約は、キャンセルだけでは返金されない（返金ボタンは別。キャンセル料を引くこともあるため）
     const paidNote = o.paid_amount > 0
-      ? `\n\n⚠️ カードで ${yen(o.paid_amount)} 払われています。キャンセルだけでは返金されません。キャンセルのあと、詳細の「${PAY_PROVIDER(o)}で返金する」から返金してください。` : "";
+      ? `\n\n⚠️ 事前に ${yen(o.paid_amount)} 払われています。キャンセルだけでは返金されません。キャンセルのあと、詳細の「${PAY_PROVIDER(o)}で返金する」から返金してください。` : "";
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）${paidNote}`))
       updateStatus(o, "canceled");
   });
@@ -840,13 +840,13 @@ function renderRefundBox(el, o) {
     (o.paid_amount > 0 ? `<label class="field">返金する金額（円）
         <input class="refund-amount" type="number" min="1" max="${esc(o.paid_amount)}" step="1" value="${esc(p.over || o.paid_amount)}"></label>
       <button type="button" class="pill danger refund-btn">${PAY_PROVIDER(o)}で返金する</button>
-      <p class="small">お客様のカードへ返金されます。取り消しはできません。</p>` : "");
+      <p class="small">お客様が払った方法（カード・PayPayなど）へ返金されます。取り消しはできません。</p>` : "");
   el.appendChild(box);
   box.querySelector(".refund-btn")?.addEventListener("click", async (e) => {
     const button = e.currentTarget;
     const amount = Number(box.querySelector(".refund-amount").value);
     if (!Number.isInteger(amount) || amount < 1 || amount > o.paid_amount) { toast(`1〜${o.paid_amount}円で入れてください`); return; }
-    if (!confirm(`No.${o.order_number} ${o.customer_name}様に ${yen(amount)} を返金しますか？\n（${PAY_PROVIDER(o)}からお客様のカードへ返金されます。取り消しはできません）`)) return;
+    if (!confirm(`No.${o.order_number} ${o.customer_name}様に ${yen(amount)} を返金しますか？\n（${PAY_PROVIDER(o)}からお客様が払った方法へ返金されます。取り消しはできません）`)) return;
     button.disabled = true;
     try {
       // 配送のカード払いは Stripe（delivery-payments）、店頭予約の事前払いは Square（square-payments）

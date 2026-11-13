@@ -201,7 +201,7 @@ async function startPrepay(e) {
   if (r.ok && r.url) { location.href = r.url; return; }
   toast(r.message || "お支払い画面を開けませんでした。時間をおいてもう一度お試しください");
   if (r.paid) await load();
-  else if (b) { b.disabled = false; b.textContent = "事前にカードでお支払いする"; }
+  else if (b) { b.disabled = false; b.textContent = "事前にお支払いする"; }
 }
 /* ---------- 配送のカード払い（Stripe・2026-10-05） ----------
  * 配送の予約は注文時にカード必須。お支払いが済むまで「支払い待ち」で、30分を過ぎると取り消される。
@@ -230,7 +230,7 @@ async function startCardPay(e) {
   if (r.ok && r.url) { location.href = r.url; return; }
   toast(r.message || "お支払い画面を開けませんでした。時間をおいてもう一度お試しください");
   if (r.paid || r.expired) await load();
-  else if (b) { b.disabled = false; b.textContent = "カードでお支払いする"; }
+  else if (b) { b.disabled = false; b.textContent = "お支払いへ進む"; }
 }
 const hhmm = (iso) => { const d = new Date(iso); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
 function fmtDelivery(dl) {
@@ -294,15 +294,15 @@ function renderOrder() {
   // 見積もりを出したあとは「選択分（仮）」ではなく見積もりの総額を出す（金額が2つ並んで迷わないように・2026-10-19）
   const quoted = o.review_state === 'quoted' && o.quote;
   rows.push(`<div class="confirm-row total"><span class="k">${quoted ? 'お見積もりの総額（税込）' : o.review_state === 'requested' ? '選択分（税込・仮）' : dl ? '合計（税込・送料込み）' : '合計（税込）'}</span><span>${yen(quoted ? o.quote.amount : o.total_amount)}</span></div>`);
-  if (dl) row("お支払い", dl.payment_status === "paid" ? "カードでお支払い済み"
+  if (dl) row("お支払い", dl.payment_status === "paid" ? "お支払い済み"
     : o.status === "canceled" ? "お支払いがなかったため、ご注文は取り消されました"
     : `まだお支払いいただいていません（${dl.payment_due_at ? hhmm(dl.payment_due_at) + "まで" : "ご注文から30分以内"}にお支払いください）`);
   else if (o.card_required && o.card_required.payment_status !== "paid") row("お支払い",
     o.status === "canceled" ? (o.card_required.payment_due_at ? "お支払いがなかったため、ご予約は取り消されました" : "なし")
     : o.card_required.payment_due_at ? `まだお支払いいただいていません（${hhmm(o.card_required.payment_due_at)}までにお支払いください）`
-    : o.review_state === "accepted" ? "カード払い（まだお支払いいただいていません）"
-    : "カード払い（お見積もりの承諾後にお支払いいただきます）");
-  else rows.push(...paymentRows(o.payment, o.card_required ? "カードでのお支払い" : undefined));
+    : o.review_state === "accepted" ? "事前のお支払い（まだお支払いいただいていません）"
+    : "事前のお支払い（お見積もりの承諾後にお支払いいただきます）");
+  else rows.push(...paymentRows(o.payment, o.card_required ? "お支払い" : undefined));
   $("order-detail").innerHTML = rows.join("");
   loadOrderImages();
 
@@ -321,18 +321,18 @@ function renderOrder() {
     return b;
   };
   if (cardUnpaid(o))
-    btn(`カードでお支払いする（${yen(o.total_amount)}）`, "btn-primary",
+    btn(`お支払いへ進む（${yen(o.total_amount)}）`, "btn-primary",
       dl ? "お支払いが済むと、ご注文が確定し確認メールが届きます。" : "お支払いが済むと、ご予約が確定し確認メールが届きます。", startCardPay);
   else if (o.payment?.can_prepay && o.card_required)
-    btn(`カードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
-      "このお店のお支払いはカードです。カードのお支払い画面に移ります。", startPrepay);
+    btn(`お支払いへ進む（${yen(o.payment.due_amount)}）`, "btn-primary",
+      "このお店は事前のお支払いです。お支払い画面に移ります。", startPrepay);
   else if (o.payment?.can_prepay)
-    btn(`事前にカードでお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
-      "ご希望の方だけ。受取日の前日までお支払いいただけます。カードのお支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
+    btn(`事前にお支払いする（${yen(o.payment.due_amount)}）`, "btn-primary",
+      "ご希望の方だけ。受取日の前日までお支払いいただけます。お支払い画面に移ります。お支払いがなければ、これまでどおり店頭でのお支払いです。", startPrepay);
   else if (o.payment?.enabled && o.payment.reason === "past" && !(o.payment.paid_amount > 0)) {
     // 事前払いは受取日の前日まで（2026-10-22）。当日はボタンを出さず、店頭払いの案内だけ
     const p = document.createElement("p");
-    p.className = "action-hint"; p.textContent = "事前のカードでのお支払いは受取日の前日までです。受取時に店頭でお支払いください。";
+    p.className = "action-hint"; p.textContent = "事前のお支払いは受取日の前日までです。受取時に店頭でお支払いください。";
     list.appendChild(p);
   }
   if (allowed.slot)
@@ -845,7 +845,7 @@ function openCancelView() {
   else row("受取日時", fmtPickup(o.pickup_date, o.pickup_slot_label));
   rows.push(`<div class="confirm-row total"><span class="k">合計（税込）</span><span>${yen(o.total_amount)}</span></div>`);
   if (o.payment?.paid_amount > 0)
-    rows.push(`<p class="small">キャンセルすると、事前にお支払いいただいた ${yen(o.payment.paid_amount)} は、お支払いに使われたカードへ自動で全額返金されます（カード会社により、反映まで日数がかかる場合があります）。</p>`);
+    rows.push(`<p class="small">キャンセルすると、事前にお支払いいただいた ${yen(o.payment.paid_amount)} は、お支払いいただいた方法へ自動で全額返金されます（反映まで日数がかかる場合があります）。</p>`);
   $("cancel-detail").innerHTML = rows.join("");
   $("cancel-error").classList.add("hidden");
   show("view-cancel");
@@ -865,7 +865,7 @@ $("btn-cancel-confirm").onclick = async () => {
     $("done-emoji").classList.add("hidden"); // 絵文字（しおれたバラ）は出さない（2026-10-02 まりほ）
     $("done-title").textContent = "ご予約をキャンセルしました";
     $("done-text").textContent = (r.refund_amount > 0
-      ? `事前にお支払いいただいた ${yen(r.refund_amount)} は、お支払いに使われたカードへ返金いたします（カード会社により、反映まで日数がかかる場合があります）。`
+      ? `事前にお支払いいただいた ${yen(r.refund_amount)} は、お支払いいただいた方法へ返金いたします（反映まで日数がかかる場合があります）。`
       : "") + "確認メールをお送りしますのでご確認ください。またのご利用をお待ちしております。";
     show("view-done");
   } catch (e) {

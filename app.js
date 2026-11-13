@@ -398,7 +398,7 @@ function prepayOffered() {
 function cardRequired() {
   return !!state.tenant?.card_required && !STAFF_MODE && !TRIAL_MODE && !EDIT_MODE && !EDITOR_PREVIEW;
 }
-const CARD_ONLY_NOTE = "お支払い方法：<strong>カード</strong>（ご予約のあと、カードのお支払い画面に進みます。30分以内にお支払いください）";
+const CARD_ONLY_NOTE = "お支払い方法：<strong>事前のお支払い</strong>（カードなど。ご予約のあと、お支払い画面に進みます。30分以内にお支払いください）";
 function setupPayChoice() {
   const box = $("pay-note");
   if (box && cardRequired()) { box.innerHTML = CARD_ONLY_NOTE; return; }
@@ -407,8 +407,8 @@ function setupPayChoice() {
   box.innerHTML =
     `<div class="pay-title">お支払い方法</div>` +
     `<label class="pick"><input type="radio" name="pay-method" value="store" checked> 店頭でお支払い（受取時）</label>` +
-    `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にカードでお支払い</label>` +
-  `<p class="small pay-card-note hidden">ご予約のあと、カードのお支払い画面に進みます（事前のお支払いは受取日の前日までです）。</p>`;
+    `<label class="pick"><input type="radio" name="pay-method" value="card"> 事前にお支払い（カードなど）</label>` +
+  `<p class="small pay-card-note hidden">ご予約のあと、お支払い画面に進みます（事前のお支払いは受取日の前日までです）。</p>`;
   box.addEventListener("change", () => {
     box.querySelector(".pay-card-note").classList.toggle("hidden", payChoice() !== "card");
   });
@@ -549,7 +549,7 @@ function renderFulfill() {
   if (isDelivery()) {
     pay.dataset.saved ??= pay.innerHTML;
     pay.classList.remove("pay-choice");
-    pay.innerHTML = "お支払い方法：<strong>カード</strong>（ご注文のあと、カードのお支払い画面に進みます。30分以内にお支払いください）";
+    pay.innerHTML = "お支払い方法：<strong>事前のお支払い</strong>（カードなど。ご注文のあと、お支払い画面に進みます。30分以内にお支払いください）";
   } else if (pay.dataset.saved != null) {
     pay.innerHTML = pay.dataset.saved;
     delete pay.dataset.saved;
@@ -3538,10 +3538,10 @@ function renderConfirm() {
   document.querySelector("#view-confirm .preview-note").textContent = review
     ? "追加希望の対応内容と金額をお店が確認します。この送信では予約は確定しません。お見積もりへの承諾後に確定します。"
     : STAFF_MODE ? "内容を確認のうえ登録してください。" : EDIT_MODE ? "内容を確認のうえ変更を確定してください。"
-    : isDelivery() ? "「カードで支払う」を押すとお支払い画面に進みます。お支払いが済んだ時点でご注文が確定します。"
-    : cardRequired() ? "「カードで支払う」を押すとお支払い画面に進みます。お支払いが済んだ時点でご予約が確定します。"
+    : isDelivery() ? "「お支払いへ進む」を押すとお支払い画面に進みます。お支払いが済んだ時点でご注文が確定します。"
+    : cardRequired() ? "「お支払いへ進む」を押すとお支払い画面に進みます。お支払いが済んだ時点でご予約が確定します。"
     : "この内容で注文すると、ご注文が確定します。";
-  if ((isDelivery() || cardRequired()) && !review) $("btn-submit").textContent = "カードで支払う";
+  if ((isDelivery() || cardRequired()) && !review) $("btn-submit").textContent = "お支払いへ進む";
   // 確認画面で止めて「予約したつもり」になる人がいるので、まだ終わっていないことを赤字で出す
   const doneWord = TRIAL_MODE ? "これはお試しのテスト予約です（予約は保存されません）。"
     : review ? "まだお見積もりの依頼は送信されていません。" : STAFF_MODE ? "まだ登録されていません。"
@@ -3613,12 +3613,12 @@ function renderConfirm() {
   if ($("cust-address") && $("cust-address").value.trim())
     row("ご住所", `${$("cust-postal").value.trim()} ${$("cust-address").value.trim()}`.trim());
   if (isDelivery()) row("送料", yen(shippingFee()));
-  row("お支払い", isDelivery() ? "カード（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご注文は取り消されます）"
-    : cardRequired() ? (review ? "カード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただきます）"
-      : "カード（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご予約は取り消されます）")
+  row("お支払い", isDelivery() ? "事前のお支払い（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご注文は取り消されます）"
+    : cardRequired() ? (review ? "事前のお支払い（お見積もりの承諾後に、ご予約の確認ページからお支払いいただきます）"
+      : "事前のお支払い（このあとお支払い画面に進みます。30分以内にお支払いがないと、ご予約は取り消されます）")
     : payChoice() !== "card" ? "店頭でのお支払い"
-    : review ? "事前にカード（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
-    : "事前にカード（このあとカードのお支払い画面に進みます）");
+    : review ? "事前のお支払い（お見積もりの承諾後に、ご予約の確認ページからお支払いいただけます）"
+    : "事前のお支払い（このあとお支払い画面に進みます）");
   rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
   $("cancel-policy").textContent = state.tenant.cancel_policy || "";
@@ -3742,7 +3742,7 @@ $("btn-submit").onclick = async () => {
       // まだ予約は確定していないので、お祝いの🎉は出さない（2026-10-28 まりほ指摘）
       $("view-done").querySelector(".done-emoji").classList.add("hidden");
       $("done-total").textContent = yen(r.total_amount) + "［選択分・追加希望分は未確定］";
-      if (r.card_required) $("done-total").parentElement.lastChild.textContent = "（お見積もりの承諾後にカード払い）";
+      if (r.card_required) $("done-total").parentElement.lastChild.textContent = "（お見積もりの承諾後に事前のお支払い）";
       $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取希望として受け付けました。対応内容と金額をご案内します。専用ページで承諾すると予約が確定します。`;
     }
     if (r.payment_required && !TRIAL_MODE) {   // テスト予約は保存されないので支払いの案内を出さない
@@ -3750,13 +3750,13 @@ $("btn-submit").onclick = async () => {
       $("view-done").querySelector("h2").textContent = "お支払いに進んでください";
       $("view-done").querySelector(".done-emoji").textContent = "💳";
       if (payload.p.delivery_date) {
-        $("done-total").parentElement.lastChild.textContent = "（送料込み・カード払い）";
+        $("done-total").parentElement.lastChild.textContent = "（送料込み・事前のお支払い）";
         $("done-pickup").textContent = `${fmtJpDate(payload.p.delivery_date)} ${payload.p.delivery_time} のお届けで承りました。` +
-          "30分以内にカードでお支払いいただくと、ご注文が確定し確認メールをお送りします。お支払いがない場合、ご注文は自動で取り消されます。";
+          "30分以内にお支払いいただくと、ご注文が確定し確認メールをお送りします。お支払いがない場合、ご注文は自動で取り消されます。";
       } else {
-        $("done-total").parentElement.lastChild.textContent = "（カード払い）";
+        $("done-total").parentElement.lastChild.textContent = "（事前のお支払い）";
         $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取で承りました。` +
-          "30分以内にカードでお支払いいただくと、ご予約が確定し確認メールをお送りします。お支払いがない場合、ご予約は自動で取り消されます。";
+          "30分以内にお支払いいただくと、ご予約が確定し確認メールをお送りします。お支払いがない場合、ご予約は自動で取り消されます。";
       }
     }
     $("view-confirm").classList.add("hidden");
@@ -3783,7 +3783,7 @@ $("btn-submit").onclick = async () => {
       div.id = "done-prepay";
       div.className = "done-prepay";
       div.innerHTML =
-        `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">事前にカードでお支払いする（任意）</a>` +
+        `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">事前にお支払いする（任意）</a>` +
         `<p class="small">ご希望の方だけ。お支払いがなければ、受取の際に店頭でお支払いください。受取日の前日までなら、あとでご予約の確認ページからもお支払いいただけます。</p>`;
       $("view-done").querySelector(".done-box").appendChild(div);
     }
@@ -3810,7 +3810,7 @@ $("btn-submit").onclick = async () => {
       const div = document.createElement("div");
       div.id = "done-prepay";
       div.className = "done-prepay";
-      div.innerHTML = `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">カードでお支払いする</a>`;
+      div.innerHTML = `<a class="btn-primary" href="manage.html?t=${encodeURIComponent(r.manage_token)}&pay=1">お支払いへ進む</a>`;
       $("view-done").querySelector(".done-box").appendChild(div);
     }
     if ((payChoice() === "card" || r.payment_required) && r.manage_token && r.review_state !== "requested" && r.total_amount > 0) {
@@ -3838,7 +3838,7 @@ $("btn-submit").onclick = async () => {
     let pending = false;
     try { pending = RETRY_ENABLED && !!retryStore().pending(); } catch { /* storage unavailable */ }
     btn.textContent = pending ? "もう一度送信する" : requiresReview() && !TRIAL_MODE ? "この内容で見積もりを依頼する"
-      : (isDelivery() || cardRequired()) ? "カードで支払う" : SUBMIT_LABEL;
+      : (isDelivery() || cardRequired()) ? "お支払いへ進む" : SUBMIT_LABEL;
     $("btn-back").disabled = pending;
   }
 };

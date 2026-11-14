@@ -1,0 +1,7 @@
+# cakebook.jp（2026-11-14）
+# 営業用の仮の画面（/<店名>-demo/）と管理画面は、.htaccess の X-Robots-Tag で検索に出さないようにしている。
+# ここでブロックすると検索エンジンがその指示を読めなくなるので、Disallow には書かない。
+User-agent: *
+Allow: /
+
+Sitemap: https://cakebook.jp/sitemap.xml

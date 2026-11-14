@@ -36,6 +36,17 @@ RewriteRule ^([a-z0-9][a-z0-9-]{0,48})/?$ reserve/index.html [L]
   Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://teqqbcsxiknwttiftzel.supabase.co https://zipcloud.ibsnet.co.jp; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
 </IfModule>
 
+# --- 検索に出さないページ（2026-11-14） ---
+# 営業用の仮の画面（/<店名>-demo/）は実在のお店の名前と架空の予約で作っているので、検索に出さない。
+# お店の名前で検索したお客様が仮の画面にたどり着くと、お店に迷惑がかかる。
+# 書き換え（reserve/index.html）の後は REQUEST_URI が変わるので、最初のリクエスト行（THE_REQUEST）で判定する。
+# 管理画面（/admin/）のログイン画面も検索に出さない。
+# robots.txt でブロックすると検索エンジンがこの指示を読めなくなるので、robots.txt には書かない。
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow" "expr=%{THE_REQUEST} =~ m#^[A-Z]+ /[a-z0-9][a-z0-9-]*-demo(/|\?| )#"
+  Header always set X-Robots-Tag "noindex, nofollow" "expr=%{THE_REQUEST} =~ m#^[A-Z]+ /admin/#"
+</IfModule>
+
 # 画像は別のサイトからも読めるようにする（2026-10-11）。予約ページのプレビューは画像を crossOrigin="anonymous" で
 # 読んで canvas に重ねるため、この許可が無いと旧URL（oyatsupokke.github.io）から開いたページで cakebook.jp の絵が出ない。
 # 公開してよい静的な画像だけが対象（店がアップした画像は Supabase Storage 側で、ここは通らない）。

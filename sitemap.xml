@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cakebook.jp の検索に出したいページ（2026-11-14）。店の予約ページ・仮の画面・管理画面は入れない。
+     ページを足したり消したりしたら、ここも直す。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://cakebook.jp/</loc></url>
+  <url><loc>https://cakebook.jp/lp/features/</loc></url>
+  <url><loc>https://cakebook.jp/signup.html</loc></url>
+  <url><loc>https://cakebook.jp/help/</loc></url>
+  <url><loc>https://cakebook.jp/help/overview.html</loc></url>
+  <url><loc>https://cakebook.jp/help/start.html</loc></url>
+  <url><loc>https://cakebook.jp/help/products.html</loc></url>
+  <url><loc>https://cakebook.jp/help/settings.html</loc></url>
+  <url><loc>https://cakebook.jp/help/daily.html</loc></url>
+  <url><loc>https://cakebook.jp/help/customer.html</loc></url>
+  <url><loc>https://cakebook.jp/help/billing.html</loc></url>
+  <url><loc>https://cakebook.jp/help/staff.html</loc></url>
+  <url><loc>https://cakebook.jp/help/faq.html</loc></url>
+  <url><loc>https://cakebook.jp/terms.html</loc></url>
+  <url><loc>https://cakebook.jp/privacy.html</loc></url>
+  <url><loc>https://cakebook.jp/tokushoho.html</loc></url>
+</urlset>

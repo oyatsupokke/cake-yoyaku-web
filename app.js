@@ -18,6 +18,15 @@ const CONFIG = {
   })(),
 };
 
+// 営業用の仮の画面（店名が -demo で終わる店）は検索に出さない。実在のお店の名前を使っているため（2026-11-14）。
+// cakebook.jp では .htaccess の X-Robots-Tag でも止めている。これは旧URL（GitHub Pages）や ?shop= で開いたときの分。
+if (/-demo$/.test(CONFIG.shop)) {
+  const robots = document.createElement("meta");
+  robots.name = "robots";
+  robots.content = "noindex, nofollow";
+  document.head.appendChild(robots);
+}
+
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 

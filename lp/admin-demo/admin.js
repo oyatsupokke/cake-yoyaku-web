@@ -662,6 +662,7 @@ function fillOrderBody(el, o) {
     (hasImages ? `<div class="confirm-row"><span class="k">添付画像</span></div>
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
+  renderMailDelivery(el, o);
   renderStaffNote(el, o);
   if (o.review_state && o.review_state !== "none") renderQuoteEditor(el,o);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
@@ -704,6 +705,61 @@ function fillOrderBody(el, o) {
     if (confirm(`No.${o.order_number} ${o.customer_name}様の予約をキャンセルしますか？（枠が1つ戻ります）${paidNote}`))
       updateStatus(o, "canceled");
   });
+}
+/* 詳細を開いたときだけ送信結果を読む。一覧や予約ページの読み込みは増やさない。 */
+function renderMailDelivery(el, o) {
+  const tenant = state.tenantId;
+  const box = document.createElement("section");
+  box.className = "confirm-box mail-delivery";
+  const heading = document.createElement("h3");
+  heading.textContent = "メールの送信状況";
+  const content = document.createElement("div");
+  content.className = "mail-delivery-content";
+  content.setAttribute("aria-live", "polite");
+  const refresh = document.createElement("button");
+  refresh.type = "button";
+  refresh.className = "pill mail-delivery-refresh";
+  refresh.textContent = "状況を更新";
+  box.append(heading, content, refresh);
+  el.appendChild(box);
+  async function load() {
+    refresh.disabled = true;
+    content.textContent = "読み込み中…";
+    try {
+      const mails = await api("GET", `/rest/v1/order_emails?tenant_id=eq.${tenant}&order_id=eq.${o.id}&select=kind,status,last_error&order=kind.asc`);
+      if (!box.isConnected || tenant !== state.tenantId) return;
+      content.replaceChildren();
+      if (!mails?.length) {
+        content.textContent = "確認メールの送信履歴はありません。";
+        return;
+      }
+      for (const mail of mails) {
+        const info = MailDelivery.describe(mail);
+        const item = document.createElement("div");
+        item.className = "mail-delivery-item";
+        const title = document.createElement("strong");
+        title.textContent = `${info.target}：${info.status}`;
+        item.appendChild(title);
+        for (const text of [info.reason, info.action].filter(Boolean)) {
+          const line = document.createElement("p");
+          line.textContent = text;
+          item.appendChild(line);
+        }
+        content.appendChild(item);
+      }
+      const note = document.createElement("p");
+      note.className = "small";
+      note.textContent = "「送信済み」は配信サービスが受け付けた状態です。受信箱への到着を保証するものではありません。";
+      content.appendChild(note);
+    } catch {
+      if (box.isConnected && tenant === state.tenantId)
+        content.textContent = "送信状況を読み込めませんでした。「状況を更新」で再度お試しください。";
+    } finally {
+      refresh.disabled = false;
+    }
+  }
+  refresh.onclick = load;
+  load();
 }
 /* ---------- お店のメモ（2026-10-03・まりほ要望） ----------
  * 予約ごとに店内向けのメモを残す（例：電話で聞いた補足・当日の受け渡しの注意）。お客様には見えない。

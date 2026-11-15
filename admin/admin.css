@@ -64,6 +64,8 @@
 .st-completed { background: #e6f6e8; color: #2e8b3d; }
 .st-canceled { background: #eee; color: #888; }
 .st-mailfail { background: #fff3d6; color: #a76a00; }
+.mail-delivery-item { margin-bottom: 16px; overflow-wrap: anywhere; }
+.mail-delivery-item p { margin: 6px 0; }
 .cf-row {
   display: flex; align-items: center; gap: 18px; padding: 9px 2px;
   border-bottom: 1px solid var(--line); font-size: .92rem;

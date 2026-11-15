@@ -1129,6 +1129,36 @@ function renderProducts() {
     none.textContent = "いま表示できる商品がありません。商品の画面で「公開する」を押した商品が、ここに並びます（受付期間の外の商品は並びません）。";
     wrap.appendChild(none);
   }
+  renderNoProductsNotice(wrap);
+}
+/* お客様の画面で商品が1つも並ばないとき（受付開始前・受付終了後）に理由を出す。
+ * 2026-11-15 HelloBake：全商品の受付開始を当日18:00にしていて、開始前に開くと
+ * 「1 ケーキを選ぶ」の下が空白のまま＝壊れて見えた。開始時刻が来たら読み込み直さなくても並ぶ。 */
+let saleStartTimer = null;
+function renderNoProductsNotice(wrap) {
+  if (STAFF_MODE || TRIAL_MODE || EDITOR_PREVIEW) return;
+  clearTimeout(saleStartTimer);
+  if (wrap.children.length) return;
+  const now = Date.now();
+  const upcoming = state.products
+    .filter((p) => p.sale_start_at && Date.parse(p.sale_start_at) > now)
+    .map((p) => Date.parse(p.sale_start_at));
+  const none = document.createElement("p");
+  none.className = "confirm-box product-empty";
+  none.style.gridColumn = "1 / -1";
+  if (upcoming.length) {
+    const d = new Date(Math.min(...upcoming));
+    const hm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    none.textContent = `ご予約の受付開始前です。${d.getMonth() + 1}月${d.getDate()}日 ${hm} から受付を開始します。`;
+    const wait = d.getTime() - now;
+    // 店頭受取と配送の両方がある店は、先に「受け取り方」の選択を出し直す（renderProducts だけだと一覧が隠れたままになる）
+    if (wait < 24 * 60 * 60 * 1000) saleStartTimer = setTimeout(() => { renderMode(); renderProducts(); }, wait + 1000);
+  } else if (state.products.length) {
+    none.textContent = "ご予約の受付は終了しました。";
+  } else {
+    none.textContent = "ただいま準備中です。";
+  }
+  wrap.appendChild(none);
 }
 /* ---------- プレビュー ----------
  * 優先順位（商品ごとに自動で切り替わる。店側のモード設定は不要）

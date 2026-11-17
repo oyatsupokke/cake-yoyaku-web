@@ -1166,7 +1166,7 @@ function renderProducts() {
     const none = document.createElement("p");
     none.className = "confirm-box";
     none.style.gridColumn = "1 / -1";
-    none.textContent = "いま表示できる商品がありません。商品の画面で「公開する」を押した商品が、ここに並びます（受付期間の外の商品は並びません）。";
+    none.textContent = "いま表示できる商品がありません。商品の画面の「公開と販売期間」で「公開する」を選んで保存した商品が、ここに並びます（受付期間の外の商品は並びません）。";
     wrap.appendChild(none);
   }
   renderNoProductsNotice(wrap);

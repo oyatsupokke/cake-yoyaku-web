@@ -59,8 +59,8 @@
 /* 操作ボタンと白い記入欄を、静止時にも見分けられるようにする。 */
 .admin .pill:not(.selected):not(.full){background:#e8efeb;border-color:#93aa9d;color:#294b3c;font-weight:600;box-shadow:0 2px 0 #b8c8bf;cursor:pointer}
 .admin .pill:not(.selected):not(.full):hover:not(:disabled){background:#d8e5dd;border-color:#537660}
-.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill{background:#3e604e;border-color:#3e604e;color:#fff;box-shadow:0 2px 0 #243f31}
-.admin :is(#btn-p-copy,#btn-p-publish,#btn-new-product).pill:hover:not(:disabled){background:#2e4c3c;border-color:#2e4c3c}
+.admin :is(#btn-p-copy,#btn-new-product).pill{background:#3e604e;border-color:#3e604e;color:#fff;box-shadow:0 2px 0 #243f31}
+.admin :is(#btn-p-copy,#btn-new-product).pill:hover:not(:disabled){background:#2e4c3c;border-color:#2e4c3c}
 .admin .pill.danger:not(.selected):not(.full){background:#fbe9e8;border-color:#c9908c;color:#923b36;box-shadow:0 2px 0 #dfb5b1}
 .admin .pill.danger:not(.selected):not(.full):hover:not(:disabled){background:#f4d8d6;border-color:#ae625d}
 .admin .pill:not(.selected):not(.full):active:not(:disabled){transform:translateY(2px);box-shadow:none}

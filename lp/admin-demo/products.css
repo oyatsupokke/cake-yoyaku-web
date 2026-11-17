@@ -843,3 +843,11 @@ textarea.q-help { width: 100%; min-height: 4.5em; resize: vertical; margin-top: 
 .qpt-controls input[type=range], .qpt-controls select { width: 100%; max-width: 100%; box-sizing: border-box; }
 .qpt-fontmap { display: grid; gap: 6px; padding-left: 12px; border-left: 3px solid #eee; }
 .qpt-fontmap:empty { display: none; }
+
+/* 公開の設定（非公開／公開する／日時を決めて公開する）と、その下の「お客様からどう見えるか」（2026-11-17） */
+.publish-modes { display: grid; gap: 2px; margin: 4px 0 8px; }
+.publish-modes > .radio-line { padding: 6px 0; font-size: .95rem; }
+.publish-sched { margin: 2px 0 6px 26px; padding: 10px 12px 6px; border-left: 3px solid var(--line); }
+.publish-sched .field { margin-bottom: 6px; }
+.presale-state { margin: 6px 0 16px; padding: 10px 12px; border-radius: 8px; background: #eef5f0; font-size: .86rem; line-height: 1.6; }
+.presale-state.warn { background: #fff4e0; color: #7a4a00; font-weight: bold; }

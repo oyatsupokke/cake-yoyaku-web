@@ -71,6 +71,10 @@ function markDirty() {
   $("btn-save-all").disabled = !!state.saving || (!state.dirty && !pendingSize());
 }
 function validateChange(c) {
+  if (c.table === "products" && c.id === state.current?.id && c.patch.is_published === true
+      && publishMode() === "scheduled" && !$("p-sale-start").value) {
+    throw new Error("「日時を決めて公開する」の受付開始日時を入れてください");
+  }
   if (c.table === "options" && ("pickup_from" in c.patch || "pickup_until" in c.patch)) {
     const source = [...state.products.flatMap(p => p.option_groups || []), ...state.globalGroups]
       .flatMap(g => g.options || []).find(o => o.id === c.id) || {};
@@ -177,7 +181,9 @@ async function saveAll() {
     try { if (!(await addPendingSize())) return; } catch (e) { toast(e.message); return; }
     if (!collectChanges().length) { toast("サイズを追加しました"); await loadAll(); return; }
   }
-  const changes = collectChanges();
+  // 公開は最後に送る（サイズと価格が無い商品の公開はサーバーが断るので、同じ保存で直したサイズを先に入れる）
+  const publishing = (c) => (c.table === "products" && c.patch.is_published === true ? 1 : 0);
+  const changes = collectChanges().sort((a, b) => publishing(a) - publishing(b));
   if (!changes.length) { toast("変更はありません"); return; }
   try { changes.forEach(validateChange); validateQuestionFlow(changes); }
   catch (e) { toast(e.message); return; }
@@ -197,6 +203,7 @@ async function saveAll() {
     await loadAll();
   } catch (e) {
     toast(`保存済み ${savedCount}件／未保存 ${changes.length - savedCount}件。未保存の変更は画面に残っています：${e.message}`);
+    if (/サイズと価格/.test(e.message)) gotoSizes();   // 公開できない理由がサイズなら、そこへ案内する
   } finally {
     state.saving = false;
     btn.textContent = "保存する";
@@ -1045,8 +1052,9 @@ function renderEditor() {
   const lite = state.tenant?.reservation_plan === 'lite';
   for (const id of ['p-deadline','p-cap-daily','p-window','p-fulfillment']) $(id).closest('.field').classList.toggle('hidden',lite);   // 受け取り方（配送）もStandardの機能
   $('p-date-limits').classList.toggle('hidden', lite);  // 特定の日だけの上限もStandard（設定ページと同じ）
-  const saleCard = $('p-sale-start').closest('.confirm-box');
-  if (saleCard) saleCard.classList.toggle("hidden",lite);
+  // Lite は季節商品（受付期間・受取期間）を使えない。公開の設定は同じカードにあるので、カードは出して中身だけ隠す
+  $('p-season-body').classList.toggle('hidden', lite);
+  $('p-mode-scheduled').classList.toggle('hidden', lite);
   $('product-visual-editor').classList.toggle('hidden',lite);
   (lite ? $('editor') : $('product-visual-editor')).appendChild($('btn-p-delete').closest('.product-delete-action'));
   for (const option of $('g-type').options) option.hidden = lite && !['select','text','textarea'].includes(option.value);
@@ -1066,18 +1074,15 @@ function renderEditor() {
   $("p-window").value = p.booking_window_days ?? "";
   $("p-window").placeholder = `空欄=店の設定（${state.tenant?.booking_window_days ?? 90}日）`;
   // 状態の表示と、押したらどうなるかのボタンを分ける（兼用は分かりにくいため）
-  const stateEl = $("p-publish-state");
-  stateEl.textContent = p.is_published ? "公開中" : "非公開";
-  stateEl.classList.toggle("on", p.is_published);
-  $("btn-p-publish").textContent = p.is_published ? "非公開にする" : "公開する";
-
+  // 公開の設定（非公開／公開／日時を決めて公開）。受付開始日時が入っていれば「日時を決めて公開」
+  const mode = !p.is_published ? "private" : p.sale_start_at && !lite ? "scheduled" : "now";
+  for (const r of document.querySelectorAll('input[name="p-publish-mode"]')) r.checked = r.value === mode;
   $("p-sale-start").value = isoToLocal(p.sale_start_at);
   $("p-sale-end").value = isoToLocal(p.sale_end_at);
-  // 受付開始前から見せる（2026-11-17）。受付開始日時が空のうちは意味が無いので、押せなくしておく
   $("p-show-before-sale").checked = !!p.show_before_sale;
-  const syncPresale = () => { $("p-show-before-sale").disabled = !$("p-sale-start").value; };
-  syncPresale();
-  $("p-sale-start").oninput = syncPresale;   // 商品を開くたびに呼ばれるので、積み重ならない書き方にする
+  // 商品を開くたびに呼ばれるので、積み重ならない書き方にする
+  $("p-publish-mode").onchange = paintPublishState;
+  $("p-sale-start").oninput = paintPublishState;
   $("p-pickup-start").value = p.pickup_start_date || "";
   $("p-pickup-end").value = p.pickup_end_date || "";
   initPickupSchedule(p);
@@ -1104,11 +1109,16 @@ function renderEditor() {
   if (state.tenant?.reservation_plan !== "lite") regField("products", p.id, "booking_window_days", $("p-window"), {
     get: () => { const v = $("p-window").value.trim(); return v === "" ? null : Number(v); },
   });
+  // 公開の設定は保存バーで確定する。「公開する」を選んだら受付開始日時は空にする（すぐ受け付ける）。
+  // 「非公開」のときは入っている日時をそのまま残す（あとで「日時を決めて公開」を選べば、その日時から始められる）
+  regField("products", p.id, "is_published", $("p-publish-mode"), { get: () => publishMode() !== "private" });
   regField("products", p.id, "sale_start_at", $("p-sale-start"),
-    { get: () => localToIso($("p-sale-start").value) });
+    { get: () => (publishMode() === "now" ? null : localToIso($("p-sale-start").value)) });
   regField("products", p.id, "sale_end_at", $("p-sale-end"),
     { get: () => localToIso($("p-sale-end").value) });
   regField("products", p.id, "show_before_sale", $("p-show-before-sale"));
+  $("p-show-before-sale").onchange = paintPublishState;
+  paintPublishState();
   regField("products", p.id, "pickup_start_date", $("p-pickup-start"));
   regField("products", p.id, "pickup_end_date", $("p-pickup-end"));
   regField("products", p.id, "allowed_pickup_weekdays", w, {
@@ -1277,26 +1287,47 @@ const productDateLimits = window.DateLimits.mount($("p-date-limits"), {
 
 /* ---------- 基本情報 ---------- */
 $("btn-save-all").onclick = saveAll;
-$("btn-p-publish").onclick = async () => {
+/* ---------- 公開の設定（2026-11-17 まりほ指摘で1か所にまとめた） ----------
+ * それまでは「公開する」ボタンが基本情報に、受付開始日時が下の販売期間にあり、
+ *  ・受付開始日時を入れれば、その時刻に自動で公開されるように読めた（実際に出るのは公開中の商品だけ）
+ *  ・「受付開始前から、お客様に見せる」も、非公開のままだと何も起きなかった
+ * 「公開と販売期間」で 非公開／公開する／日時を決めて公開する を選び、保存バーで確定する。
+ * 上の「公開状態」は、保存済みの状態を見せるだけ。 */
+const publishMode = () => document.querySelector('input[name="p-publish-mode"]:checked')?.value || "private";
+const saleWhen = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+function paintPublishState() {
   const p = state.current;
-  const message = $("p-publish-error");
-  message.classList.add("hidden");
-  if (!p.is_published && state.dirty) {
-    message.textContent = "入力内容を「保存する」で保存してから、公開してください。";
-    message.classList.remove("hidden");
-    return;
-  }
-  const btn = $("btn-p-publish");
-  btn.disabled = true;
-  try {
-    await api("PATCH", `/rest/v1/products?id=eq.${p.id}`, { is_published: !p.is_published });
-    toast(p.is_published ? "非公開にしました" : "公開しました");
-    await reloadAll();
-  } catch (e) {
-    message.textContent = e.message;
-    message.classList.remove("hidden");
-    if (/サイズと価格/.test(e.message)) gotoSizes();
-  } finally { btn.disabled = false; }
+  if (!p) return;
+  const mode = publishMode(), sched = mode === "scheduled";
+  $("p-sched-body").classList.toggle("hidden", !sched);
+  // 保存済みの値（下書きを重ねる前）は、登録した項目の original にある
+  const field = (column) => state.fields.find((f) => f.table === "products" && f.id === p.id && f.column === column);
+  const dirty = ["is_published", "sale_start_at", "show_before_sale"].some((c) => {
+    const f = field(c); return f && JSON.stringify(f.get()) !== JSON.stringify(f.original);
+  });
+  // 上の「公開状態」＝保存済みの状態
+  const savedOn = !!field("is_published")?.original, savedStart = field("sale_start_at")?.original;
+  const badge = $("p-publish-state");
+  badge.textContent = !savedOn ? "非公開" : savedStart && Date.parse(savedStart) > Date.now() ? `公開中（${saleWhen(savedStart)} から受付）` : "公開中";
+  badge.classList.toggle("on", savedOn);
+  // いま選んでいる内容だと、お客様からどう見えるか
+  const startIso = localToIso($("p-sale-start").value);
+  const future = !!startIso && Date.parse(startIso) > Date.now();
+  let text, warn = false;
+  if (mode === "private") text = "お客様の予約ページには出ません。";
+  else if (mode === "now") text = "お客様の予約ページに出て、すぐに予約できます。";
+  else if (!startIso) { text = "受付開始日時を入れてください。"; warn = true; }
+  else if (!future) text = "受付開始日時を過ぎているので、お客様の予約ページに出て、すぐに予約できます。";
+  else if ($("p-show-before-sale").checked) text = `お客様の予約ページに「${saleWhen(startIso)} 受付開始」の印つきで出ます（デザインと金額を見られます）。予約できるのは ${saleWhen(startIso)} からです。`;
+  else text = `${saleWhen(startIso)} までは、お客様の予約ページに出ません。その日時になると自動で出て、予約できます。`;
+  const box = $("p-presale-state");
+  box.textContent = (dirty ? "「保存する」を押すと → " : "いまの設定 → ") + text;
+  box.classList.toggle("warn", warn || dirty);
+}
+$("btn-goto-publish").onclick = () => {
+  const card = $("p-publish-card");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.remove("size-flash"); void card.offsetWidth; card.classList.add("size-flash");
 };
 /* ---------- この商品をコピー（サーバー側 fn_duplicate_product が丸ごと写す） ---------- */
 $("btn-p-copy").onclick = async () => {

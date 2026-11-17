@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1794893204">
-<link rel="stylesheet" href="admin.css?v=1794893204">
-<link rel="stylesheet" href="products.css?v=1794893204">
-<link rel="stylesheet" href="admin-layout.css?v=1794893204">
-<link rel="stylesheet" href="help-panel.css?v=1794893204">
+<link rel="stylesheet" href="../styles.css?v=1794897209">
+<link rel="stylesheet" href="admin.css?v=1794897209">
+<link rel="stylesheet" href="products.css?v=1794897209">
+<link rel="stylesheet" href="admin-layout.css?v=1794897209">
+<link rel="stylesheet" href="help-panel.css?v=1794897209">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -78,9 +78,9 @@
         <h3>基本情報</h3>
         <label class="field">商品名<input type="text" id="p-name"></label>
         <div class="status-line product-publish-section">
-          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。">？</button>
+          <span class="text-field-label">公開状態</span><button type="button" class="tip" data-tip="公開にするとお客様の予約ページに表示されます。準備中の商品は非公開のままにしておけます。変えるときは、下の「公開と販売期間」で選んで保存します。">？</button>
           <span id="p-publish-state" class="state-badge"></span>
-          <button type="button" class="pill" id="btn-p-publish"></button>
+          <button type="button" class="pill" id="btn-goto-publish">公開の設定を変える</button>
         </div>
         <p id="p-publish-error" class="small warn hidden" role="alert"></p>
         <p id="p-size-hint" class="size-hint hidden">公開するには、<strong>サイズと価格</strong>を1つ以上入れてください。 <button type="button" class="pill" id="btn-goto-sizes">サイズと価格へ</button></p>
@@ -139,16 +139,24 @@
         <div id="p-date-limits"></div>
       </div>
 
-      <div class="confirm-box product-compact-card">
-        <h3>販売期間・受取可能日</h3>
-        <p class="small">クリスマスなどの季節限定の商品の場合は、ここで期間を設定します。</p>
-        <div class="season-grid">
-          <label class="field">受付開始日時（この日時に自動で表示されます）<input type="datetime-local" id="p-sale-start">
-          </label>
-          <label class="field">受付終了日時（この日時に自動で締め切ります）<input type="datetime-local" id="p-sale-end">
-          </label>
+      <div class="confirm-box product-compact-card" id="p-publish-card">
+        <h3>公開と販売期間</h3>
+        <!-- 公開の設定はここ1か所にまとめる（2026-11-17 まりほ指摘：公開ボタンが上・受付開始日時が下に分かれていて、
+             日時を入れれば自動で公開されるように読めた）。選んで、下の「保存する」で確定する -->
+        <div class="publish-modes" id="p-publish-mode" role="radiogroup" aria-label="お客様への公開">
+          <label class="radio-line"><input type="radio" name="p-publish-mode" value="private">非公開（お客様には見えません）</label>
+          <label class="radio-line"><input type="radio" name="p-publish-mode" value="now">公開する（すぐに予約を受け付けます）</label>
+          <label class="radio-line" id="p-mode-scheduled"><input type="radio" name="p-publish-mode" value="scheduled">日時を決めて公開する（決めた日時から予約を受け付けます）</label>
+          <div class="publish-sched hidden" id="p-sched-body">
+            <label class="field">受付開始日時<input type="datetime-local" id="p-sale-start"></label>
+            <label class="radio-line" id="p-presale-field"><input type="checkbox" id="p-show-before-sale">受付前からプレビューを表示する（お客様はデザインと金額を見られます。予約は受付開始日時からです）</label>
+          </div>
         </div>
-        <label class="radio-line" id="p-presale-field"><input type="checkbox" id="p-show-before-sale">受付開始前から、お客様に見せる（デザインと金額を見られます。予約は受付開始から）</label>
+        <p class="presale-state" id="p-presale-state" aria-live="polite"></p>
+        <div id="p-season-body">
+        <p class="small">クリスマスなどの季節限定の商品の場合は、ここで期間を設定します。</p>
+        <label class="field">受付終了日時（この日時に自動で締め切ります）<input type="datetime-local" id="p-sale-end">
+        </label>
         <label class="field">受取日の指定方法
           <select id="p-pickup-mode"><option value="normal">通常どおり（お店の営業日）</option><option value="period">期間で指定</option><option value="dates">日付で指定</option></select>
         </label>
@@ -175,6 +183,7 @@
         <div class="field" style="margin-top:8px">この商品だけ受け付けない日
           <p class="small">お店は営業する日でも、この商品だけ予約を止めたい日を追加します。続けて休むときは終了日も入れると、期間でまとめて登録できます。</p>
           <div id="p-stops"></div>
+        </div>
         </div>
       </div>
 
@@ -234,7 +243,7 @@
 
   <!-- 画面下に固定される保存バー -->
   <div id="save-bar" class="save-bar hidden">
-    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・公開／停止・画像の変更はその場で反映します。</small></div>
+    <div><span id="save-status">変更はありません</span><small class="save-help">入力欄の変更は「保存する」で確定。追加・削除・停止・画像の変更はその場で反映します。</small></div>
     <button type="button" class="btn-primary" id="btn-save-all" disabled>保存する</button>
   </div>
 
@@ -250,18 +259,18 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1794893204"></script>
-<script src="edit-drafts.js?v=1794893204"></script>
-<script src="products-menu.js?v=1794893204"></script>
-<script src="pickup-schedule.js?v=1794893204"></script>
-<script src="../question-flow.js?v=1794893204"></script>
-<script src="../preview-text.js?v=1794893204"></script>
-<script src="../crop.js?v=1794893204"></script>
-<script src="limit-check.js?v=1794893204"></script>
-<script src="date-limits.js?v=1794893204"></script>
-<script src="products.js?v=1794893204"></script>
-<script type="module" src="product-assistant.js?v=1794893204"></script>
-<script src="products-outline.js?v=1794893204"></script>
-<script src="navigation.js?v=1794893204"></script>
+<script src="tips.js?v=1794897209"></script>
+<script src="edit-drafts.js?v=1794897209"></script>
+<script src="products-menu.js?v=1794897209"></script>
+<script src="pickup-schedule.js?v=1794897209"></script>
+<script src="../question-flow.js?v=1794897209"></script>
+<script src="../preview-text.js?v=1794897209"></script>
+<script src="../crop.js?v=1794897209"></script>
+<script src="limit-check.js?v=1794897209"></script>
+<script src="date-limits.js?v=1794897209"></script>
+<script src="products.js?v=1794897209"></script>
+<script type="module" src="product-assistant.js?v=1794897209"></script>
+<script src="products-outline.js?v=1794897209"></script>
+<script src="navigation.js?v=1794897209"></script>
 </body>
 </html>

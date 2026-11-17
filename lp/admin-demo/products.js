@@ -1074,6 +1074,11 @@ function renderEditor() {
 
   $("p-sale-start").value = isoToLocal(p.sale_start_at);
   $("p-sale-end").value = isoToLocal(p.sale_end_at);
+  // 受付開始前から見せる（2026-11-17）。受付開始日時が空のうちは意味が無いので、押せなくしておく
+  $("p-show-before-sale").checked = !!p.show_before_sale;
+  const syncPresale = () => { $("p-show-before-sale").disabled = !$("p-sale-start").value; };
+  syncPresale();
+  $("p-sale-start").oninput = syncPresale;   // 商品を開くたびに呼ばれるので、積み重ならない書き方にする
   $("p-pickup-start").value = p.pickup_start_date || "";
   $("p-pickup-end").value = p.pickup_end_date || "";
   initPickupSchedule(p);
@@ -1104,6 +1109,7 @@ function renderEditor() {
     { get: () => localToIso($("p-sale-start").value) });
   regField("products", p.id, "sale_end_at", $("p-sale-end"),
     { get: () => localToIso($("p-sale-end").value) });
+  regField("products", p.id, "show_before_sale", $("p-show-before-sale"));
   regField("products", p.id, "pickup_start_date", $("p-pickup-start"));
   regField("products", p.id, "pickup_end_date", $("p-pickup-end"));
   regField("products", p.id, "allowed_pickup_weekdays", w, {

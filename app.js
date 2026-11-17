@@ -346,7 +346,7 @@ async function restoreSaved() {
   try {
     // お名前・連絡先は下書きに入れていないので、復元しない（欄は空のまま）
     const p = state.products.find((x) => x.id === saved.product_id);
-    if (!p || !onSale(p) || !p.product_variants.some(validVariant)) return;
+    if (!p || (!onSale(p) && !preSale(p)) || !p.product_variants.some(validVariant)) return;
     selectProduct(p);
     const v = p.product_variants.find((x) => x.id === saved.variant_id && validVariant(x));
     if (!v) return;
@@ -845,6 +845,44 @@ function onSale(p) {
   if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
   return true;
 }
+/* 受付開始前でも「見るだけ」でお客様に出す商品（products.show_before_sale・2026-11-17 まりほ要望）。
+ * サイズとケーキの内容を選んでデザインイメージと金額を見られるが、受取日・お客様情報・送信は出さない。
+ * 注文はサーバーが受付開始前を弾く（fn_date_orderable）ので、ここは表示だけの切り替え。
+ * 代行登録はもともと全部出して予約もできる。変更モードは開いた予約の商品をいつもどおり扱う。 */
+function preSale(p) {
+  if (!p || STAFF_MODE || EDITOR_PREVIEW || EDIT_MODE) return false;
+  return !!p.show_before_sale && !!p.sale_start_at && Date.now() < Date.parse(p.sale_start_at);
+}
+function saleStartLabel(p) {
+  const d = new Date(p.sale_start_at);
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+/* 受付開始前の案内（受取日の場所と、いちばん下）。受付が始まったら消して、いつもの手順を出す */
+let preSaleTimer = null;
+function renderPreSale() {
+  const p = state.sel.product;
+  const on = preSale(p) && !!state.sel.variant;
+  for (const id of ["sec-presale", "sec-presale-end"]) $(id)?.classList.toggle("hidden", !on);
+  if (on) {
+    const when = saleStartLabel(p);
+    $("presale-text").textContent = `このケーキのご予約は ${when} から受け付けます。それまでは、デザインと金額をご覧いただけます。`;
+    $("presale-end-text").textContent = `ご予約の受付は ${when} からです。受付が始まりましたら、このページからお申し込みください。`;
+  }
+  // 開いたまま受付開始を迎えたら、読み込み直さなくても予約に進めるようにする。
+  // setTimeout は約24.8日までしか待てないので、それより先は上限で起きて掛け直す（何日も前から開いたままのページでも切り替わる）
+  clearTimeout(preSaleTimer);
+  const now = Date.now();
+  const next = state.products.filter(preSale).map((x) => Date.parse(x.sale_start_at) - now).sort((a, b) => a - b)[0];
+  if (next != null) preSaleTimer = setTimeout(() => {
+    renderMode(); renderProducts();
+    const sp = state.sel.product;
+    if (sp && state.sel.variant && !preSale(sp) && $("sec-date").classList.contains("hidden")) {
+      openDateStep();
+      toast("ご予約の受付が始まりました。受取日を選んでください");
+    }
+    renderPreSale();
+  }, Math.min(next + 1000, 2147483647));
+}
 /* 何日先の受取まで予約できるか。商品に設定があればそれ、無ければ店の設定（Liteは店の設定のみ）。
  * サーバーの fn_booking_window_days と同じ決め方（2026-10-09：普段のケーキは30日・クリスマスは45日、など） */
 function windowDays(p = state.sel.product) {
@@ -860,7 +898,7 @@ function listableProducts() {
   // 配送の商品は、配送を受けられるとき（お客様の予約ページ・Stripe接続済み）だけ出す
   const fulfillable = (p) => EDITOR_PREVIEW || productFulfillment(p) !== "delivery" || !!deliverySettings();
   if (STAFF_MODE) return state.products.filter(fulfillable);
-  return state.products.filter((p) => (onSale(p) || p.id === state.sel.product?.id) && fulfillable(p));
+  return state.products.filter((p) => (onSale(p) || preSale(p) || p.id === state.sel.product?.id) && fulfillable(p));
 }
 /** 店頭受取の商品と配送の商品の両方がある店だけ、最初に受け取り方を選んでもらう（2026-11-09） */
 function needsModeChoice() {
@@ -902,6 +940,7 @@ function renderMode() {
       state.sel.slot = null;
       state.sel.deliveryDate = null;
       ["sec-size", "sec-groups", "sec-date", "sec-questions", "sec-customer"].forEach((x) => $(x)?.classList.add("hidden"));
+      renderPreSale();
       renderMode();
       renderProducts();
       updatePreview();
@@ -1116,7 +1155,8 @@ function renderProducts() {
       ${visual}
       <div class="card-name">${esc(p.name)}</div>
       <div class="card-desc">${esc(p.description || "")}</div>
-      <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>`;
+      <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>
+      ${preSale(p) ? `<div class="card-presale">${esc(saleStartLabel(p))} 受付開始</div>` : ""}`;
     el.setAttribute("aria-disabled", String(!prices.length));
     if (prices.length) el.onclick = () => selectProduct(p);
     wrap.appendChild(el);
@@ -1130,6 +1170,7 @@ function renderProducts() {
     wrap.appendChild(none);
   }
   renderNoProductsNotice(wrap);
+  renderPreSale();   // 一覧を見ているだけのときも、受付開始の時刻に印を外す
 }
 /* お客様の画面で商品が1つも並ばないとき（受付開始前・受付終了後）に理由を出す。
  * 2026-11-15 HelloBake：全商品の受付開始を当日18:00にしていて、開始前に開くと
@@ -2309,6 +2350,7 @@ function selectProduct(p) {
   renderSizes();
   $("sec-size").classList.remove("hidden");
   ["sec-groups", "sec-date", "sec-questions", "sec-customer"].forEach((s) => $(s).classList.add("hidden"));
+  renderPreSale();
   if (!THEME_PREVIEW) $("sec-size").scrollIntoView({ behavior: "smooth", block: "center" });
   updatePriceBar();
 }
@@ -2343,6 +2385,25 @@ function selectVariant(v) {
   state.sel.deliveryDate = null;
   $("dtime-area")?.classList.add("hidden");
   renderFulfill();
+  // 受付開始前に見せている商品は、受取日・お客様情報を出さずにケーキの内容だけ出す（2026-11-17）
+  if (preSale(state.sel.product)) {
+    ["sec-date", "sec-questions", "sec-customer"].forEach((s) => $(s).classList.add("hidden"));
+    $("slot-area").classList.add("hidden");
+    renderPreSale();
+    renderQuestions();
+    updatePriceBar();
+    updatePreview();
+    return;
+  }
+  openDateStep();
+  $("sec-questions").classList.add("hidden");
+  renderPreSale();
+  updatePriceBar();
+  // サイズごとの専用土台・装飾へ、その場でプレビューを切り替える。
+  updatePreview();
+}
+/* 受取日の手順を開く（サイズを選んだとき・開いたまま受付開始を迎えたとき） */
+function openDateStep() {
   // 受取できる期間が先にある商品（クリスマスなど）は、その最初の月から開く。
   // 今月から開くと、12月受取の商品なのに真っ白な今月のカレンダーが出てしまう
   const sp = state.sel.product;
@@ -2355,13 +2416,9 @@ function selectVariant(v) {
   state.calMonth = new Date(calBase.getFullYear(), calBase.getMonth(), 1);
   $("sec-date").classList.remove("hidden");
   $("slot-area").classList.add("hidden");
+  $("sec-customer").classList.remove("hidden");
   loadCalendar();
   renderQuestions();
-  $("sec-questions").classList.add("hidden");
-  $("sec-customer").classList.remove("hidden");
-  updatePriceBar();
-  // サイズごとの専用土台・装飾へ、その場でプレビューを切り替える。
-  updatePreview();
 }
 
 function resetDesign() {
@@ -3097,7 +3154,8 @@ function buildQuestionField(q) {
   if (q.input_type === "image") {
     // labelの中にfileを置くと、サムネイルを消すボタンを押しただけでも
     // ファイル選択が開いてしまう。押せる場所を「写真を選ぶ」だけに絞る
-    field.className = "field img-field";
+    // 受付開始前に見せているだけの間は、写真は預からない（予約にならないため）。選択肢に付けた写真の質問もここで隠す
+    field.className = "field img-field" + (preSale(state.sel.product) ? " hidden" : "");
     const picker = field.querySelector(".img-pick");
     const file = picker.querySelector("input[type=file]");
     picker.onclick = (e) => {
@@ -3153,7 +3211,7 @@ function buildQuestionField(q) {
   return field;
 }
 // ケーキの内容（選択肢・質問）を出してよいか。受取日を選んでから（見本表示では常に出す）
-const contentReady = () => !!state.sel.date || THEME_PREVIEW || EDITOR_PREVIEW;
+const contentReady = () => !!state.sel.date || THEME_PREVIEW || EDITOR_PREVIEW || preSale(state.sel.product);
 function renderQuestions() {
   pruneHiddenQuestions();
   const wrap = $("group-list");
@@ -3162,6 +3220,7 @@ function renderQuestions() {
   for (const q of visibleQuestions()) {
     const row = document.createElement('div'); row.className = 'group standalone-question';
     row.dataset.questionKey = `question:${q.id}`; row.appendChild(buildQuestionField(q)); wrap.appendChild(row);
+    if (q.input_type === "image" && preSale(state.sel.product)) row.classList.add("hidden");
   }
   const rows = new Map([...wrap.children].map(el => [el.dataset.questionKey, el]));
   for (const entry of QuestionFlow.ordered(state.sel.product, state.sel.product.option_groups, state.questions)) {
@@ -3554,6 +3613,7 @@ function showErrorAt(msg) {
 }
 
 $("btn-confirm").onclick = () => {
+  if (preSale(state.sel.product)) { toast(`このケーキのご予約は ${saleStartLabel(state.sel.product)} から受け付けます`); return; }
   const err = validate();
   if (err) { trackStuck("confirm_blocked", err); showErrorAt(err); return; }
   renderConfirm();

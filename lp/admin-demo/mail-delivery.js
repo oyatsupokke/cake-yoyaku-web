@@ -15,7 +15,7 @@ globalThis.MailDelivery = (() => {
     let reason = "", action = "";
     if (/Invalid\s+`?to`?\s+field/i.test(error)) {
       reason = "メールアドレスの形式が正しくありません。";
-      action = customer ? "お客様に正しいメールアドレスをご確認ください。訂正・再送についてはサポートへご連絡ください。"
+      action = customer ? "お客様に正しいメールアドレスをご確認ください。「内容を変更」が使える予約は訂正して保存後、「確認メールを再送」できます。"
         : "「設定」の予約通知先メールアドレスをご確認のうえ、訂正・再送についてはサポートへご連絡ください。";
     } else if (/daily_quota_exceeded|monthly_quota_exceeded/i.test(error)) {
       reason = "メール配信サービスの送信上限に達しています。";

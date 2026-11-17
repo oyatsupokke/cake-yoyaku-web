@@ -653,7 +653,7 @@ function fillOrderBody(el, o) {
   if (o.status !== "canceled") {
     actions += `<button type="button" class="pill danger cancel-btn">キャンセル</button>`;
   }
-  if (o.mail_failed) {
+  if (o.status !== "canceled" && o.customer_email && !awaitingPay(o)) {
     actions += `<button type="button" class="pill mail-btn">確認メールを再送</button>`;
   }
   const hasImages = (o.order_images || []).length > 0;
@@ -688,7 +688,7 @@ function fillOrderBody(el, o) {
     const list = await orderGallery(o);
     openOrderGallery(list, Math.max(0, list.findIndex((x) => x.url === btn.dataset.url)));
   };
-  el.querySelector(".mail-btn")?.addEventListener("click", () => resendMail(o));
+  el.querySelector(".mail-btn")?.addEventListener("click", (event) => resendMail(o, event.currentTarget));
   el.querySelector(".content-btn")?.addEventListener("click", () => {
     // 予約ページを「代行＋変更」で開く（番号・お客様の変更リンクは維持。送信は fn_staff_replace）
     window.open(`/lp/product-demo/?shop=${encodeURIComponent(state.subdomain)}&staff=1&edit=${encodeURIComponent(o.id)}`, "_blank");
@@ -1123,21 +1123,34 @@ function renderQuoteEditor(el,o) {
   }
   el.appendChild(box);
 }
-/** 確認メールの再送：送信待ちに戻して送信ワーカーを起こす（宛先・本文はサーバー側で組む） */
-async function resendMail(o) {
+/** 現在の登録宛先へ確認メール1通を積む。配達完了とは表示しない。 */
+const resendingOrders = new Set();
+async function resendMail(o, button) {
+  if (resendingOrders.has(o.id)) return;
+  if (!confirm(`No.${o.order_number} の確認メールを ${o.customer_email} 宛に再送しますか？\n送信済みの場合も再送します。受信側で再度ブロックされる場合があります。`)) return;
+  resendingOrders.add(o.id);
+  if (button) button.disabled = true;
   try {
-    await api("PATCH", `/rest/v1/order_emails?order_id=eq.${o.id}&status=neq.sent`,
-      { status: "pending", attempts: 0, processing_at: null, last_error: null });
-    await api("PATCH", `/rest/v1/orders?id=eq.${o.id}`, { mail_failed: false });
-    await fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
-      method: "POST",
-      headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}` },
-    });
-    toast(`No.${o.order_number} の確認メールを送信しました`);
+    const r = await api("POST", "/rest/v1/rpc/fn_staff_resend_confirmation", { p_order: o.id });
+    if (!r?.ok) throw new Error(r?.message || "再送を受け付けられませんでした");
+    // 定期実行でも回収される。起動失敗時も、積んだ依頼を再登録しない。
+    try {
+      const response = await fetch(`${CONFIG.url}/functions/v1/send-order-emails`, {
+        method: "POST",
+        headers: { apikey: CONFIG.anonKey, Authorization: `Bearer ${state.session.access_token}` },
+      });
+      if (!response.ok) throw new Error("worker unavailable");
+      toast(`No.${o.order_number} の確認メールの再送を受け付けました。送信状況をご確認ください`);
+    } catch {
+      toast(`No.${o.order_number} の確認メールを送信待ちにしました。自動送信をお待ちください`);
+    }
+    loadOrders();
   } catch (e) {
-    toast("再送に失敗しました：" + e.message);
+    toast("再送できませんでした：" + e.message);
+  } finally {
+    resendingOrders.delete(o.id);
+    if (button) button.disabled = false;
   }
-  loadOrders();
 }
 
 async function updateStatus(o, status) {

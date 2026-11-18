@@ -1197,15 +1197,24 @@ function renderEditor() {
 
 /* ---------- この商品の上限（ほかの入力欄と同じ保存ボタンで確定） ---------- */
 const capacityRules = new Map();
+const SLOT_KEY = "slot:";  // 時間帯ごとの台数（capacity_rule_slot_limits）は "_product_capacity" の "slot:<枠ID>" 列として下書きに載せる
 async function loadCapacityRule(p) {
   productDateLimits.clear();  // 前の商品の日別上限を、読み込みを待たずに消す
   const dailyEl = $("p-cap-daily"), slotEl = $("p-cap-slot");
+  const slotsBox = $("p-cap-slots"), slotList = $("p-cap-slot-list"), sharedEl = $("p-cap-shared");
   dailyEl.disabled = slotEl.disabled = true;
   dailyEl.value = slotEl.value = "";
+  slotList.innerHTML = ""; slotsBox.hidden = true; sharedEl.hidden = true;
   try {
-    const rules = await api("GET",
-      `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=eq.products&is_active=eq.true` +
-      `&select=*,capacity_rule_products!inner(product_id)&capacity_rule_products.product_id=eq.${p.id}`);
+    const [rules, slots] = await Promise.all([
+      api("GET",
+        `/rest/v1/capacity_rules?tenant_id=eq.${state.tenantId}&scope=eq.products&is_active=eq.true` +
+        `&select=*,capacity_rule_products!capacity_rule_products_rule_id_fkey!inner(product_id)` +
+        `,shared:capacity_rule_products!capacity_rule_products_rule_id_fkey(product_id)` +
+        `,capacity_rule_slot_limits!capacity_rule_slot_limits_rule_id_fkey(slot_id,slot_limit)` +
+        `&capacity_rule_products.product_id=eq.${p.id}`),
+      api("GET", `/rest/v1/pickup_time_slots?tenant_id=eq.${state.tenantId}&is_active=is.true&is_delivery=is.false&order=start_time&select=id,label`),
+    ]);
     if (state.current?.id !== p.id) return;
     if (rules.length > 1) throw new Error("複数の上限ルールがあります。個別の確認が必要です");
     const rule = rules[0] || null;
@@ -1216,37 +1225,82 @@ async function loadCapacityRule(p) {
       el.disabled = false;
       regField("_product_capacity", p.id, column, el, { number: true });
     }
+    // 時間帯ごとの台数。行の無い時間帯は空欄＝「同じ時間帯」の台数に従う
+    const saved = new Map((rule?.capacity_rule_slot_limits || []).map((x) => [x.slot_id, x.slot_limit]));
+    for (const s of slots) {
+      const row = document.createElement("div");
+      row.className = "product-unit-row";
+      row.innerHTML = `<label for="p-cap-slot-${esc(s.id)}">${esc(s.label)}</label>` +
+        `<input type="number" id="p-cap-slot-${esc(s.id)}" min="0" step="1"><span>台まで</span>`;
+      const el = row.querySelector("input");
+      el.placeholder = slotEl.value === "" ? "なし" : slotEl.value;
+      el.value = drafts.value("_product_capacity", p.id, SLOT_KEY + s.id, saved.get(s.id) ?? null) ?? "";
+      regField("_product_capacity", p.id, SLOT_KEY + s.id, el, { number: true });
+      slotList.appendChild(row);
+    }
+    slotEl.oninput = () => slotList.querySelectorAll("input").forEach((el) => { el.placeholder = slotEl.value === "" ? "なし" : slotEl.value; });
+    slotsBox.hidden = !slots.length;
+    slotsBox.open = [...slotList.querySelectorAll("input")].some((el) => el.value !== "");
+    // 1つのルールを複数の商品で使っている（共有枠）ときは、どの商品ページで変えても同じになることを書く
+    const others = (rule?.shared || []).map((x) => x.product_id).filter((id) => id !== p.id)
+      .map((id) => state.products.find((x) => x.id === id)?.name).filter(Boolean);
+    if (others.length) {
+      sharedEl.textContent = `※この上限は「${others.join("」「")}」と共有しています（合わせて数えます）。どちらの商品ページで変えても同じ上限が変わります。`;
+      sharedEl.hidden = false;
+    }
     markDirty();
   } catch (e) {
     if (state.current?.id === p.id) toast("商品の上限を読み込めませんでした：" + e.message);
   }
 }
+/** この商品だけの上限ルールを作る（中身が空でも作る＝日別・時間帯別の上限の受け皿） */
+async function createProductRule(pid, values) {
+  const created = await api("POST", "/rest/v1/capacity_rules", [{
+    tenant_id: state.tenantId, name: state.products.find(p => p.id === pid)?.name || "商品上限",
+    scope: "products", daily_limit: null, slot_limit: null, ...values,
+  }]);
+  try {
+    await api("POST", "/rest/v1/capacity_rule_products", [{
+      rule_id: created[0].id, product_id: pid, tenant_id: state.tenantId,
+    }]);
+  } catch (e) {
+    await api("DELETE", `/rest/v1/capacity_rules?id=eq.${created[0].id}`);
+    throw e;
+  }
+  return created[0];
+}
 async function saveCapacityRule(c) {
-  const rule = capacityRules.get(c.id);
+  let rule = capacityRules.get(c.id);
   if (!capacityRules.has(c.id)) throw new Error("商品の上限を読み直してください");
-  const values = { daily_limit: rule?.daily_limit ?? null, slot_limit: rule?.slot_limit ?? null, ...c.patch };
-  for (const v of Object.values(values)) {
+  const slotPatch = Object.entries(c.patch).filter(([k]) => k.startsWith(SLOT_KEY));
+  const basePatch = Object.fromEntries(Object.entries(c.patch).filter(([k]) => !k.startsWith(SLOT_KEY)));
+  const values = { daily_limit: rule?.daily_limit ?? null, slot_limit: rule?.slot_limit ?? null, ...basePatch };
+  for (const v of [...Object.values(values), ...slotPatch.map(([, v]) => v)]) {
     if (v !== null && (!Number.isInteger(v) || v < 0)) throw new Error("上限は0以上の整数、または空欄にしてください");
   }
   if (rule) {
     // 空欄もPATCHで扱う。削除→作成の途中状態を作らない。
-    await api("PATCH", `/rest/v1/capacity_rules?id=eq.${rule.id}`, values);
-    capacityRules.set(c.id, { ...rule, ...values });
-  } else if (values.daily_limit !== null || values.slot_limit !== null) {
-    const created = await api("POST", "/rest/v1/capacity_rules", [{
-      tenant_id: state.tenantId, name: state.products.find(p => p.id === c.id)?.name || "商品上限",
-      scope: "products", ...values,
-    }]);
-    try {
-      await api("POST", "/rest/v1/capacity_rule_products", [{
-        rule_id: created[0].id, product_id: c.id, tenant_id: state.tenantId,
-      }]);
-    } catch (e) {
-      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${created[0].id}`);
-      throw e;
-    }
-    capacityRules.set(c.id, created[0]);
+    if (Object.keys(basePatch).length) await api("PATCH", `/rest/v1/capacity_rules?id=eq.${rule.id}`, values);
+    rule = { ...rule, ...values };
+  } else if (values.daily_limit !== null || values.slot_limit !== null || slotPatch.some(([, v]) => v !== null)) {
+    rule = { ...(await createProductRule(c.id, values)), capacity_rule_slot_limits: [] };
   }
+  if (rule && slotPatch.length) {
+    let limits = rule.capacity_rule_slot_limits || [];
+    for (const [k, v] of slotPatch) {
+      const slotId = k.slice(SLOT_KEY.length);
+      if (v === null) {
+        await api("DELETE", `/rest/v1/capacity_rule_slot_limits?rule_id=eq.${rule.id}&slot_id=eq.${slotId}`);
+      } else {
+        await api("POST", "/rest/v1/capacity_rule_slot_limits?on_conflict=rule_id,slot_id",
+          [{ tenant_id: state.tenantId, rule_id: rule.id, slot_id: slotId, slot_limit: v }],
+          { prefer: "resolution=merge-duplicates,return=minimal" });
+      }
+      limits = [...limits.filter((x) => x.slot_id !== slotId), ...(v === null ? [] : [{ slot_id: slotId, slot_limit: v }])];
+    }
+    rule = { ...rule, capacity_rule_slot_limits: limits };
+  }
+  if (rule) capacityRules.set(c.id, rule);
 }
 
 /* この商品の上限を特定の日だけ変える（部品は date-limits.js・2026-10-10）。
@@ -1271,17 +1325,9 @@ const productDateLimits = window.DateLimits.mount($("p-date-limits"), {
     if (!capacityRules.has(p.id)) throw new Error("商品の上限を読み直してください");
     const rule = capacityRules.get(p.id);
     if (rule) return [rule.id];
-    const created = await api("POST", "/rest/v1/capacity_rules", [{
-      tenant_id: state.tenantId, name: p.name || "商品上限", scope: "products", daily_limit: null, slot_limit: null,
-    }]);
-    try {
-      await api("POST", "/rest/v1/capacity_rule_products", [{ rule_id: created[0].id, product_id: p.id, tenant_id: state.tenantId }]);
-    } catch (e) {
-      await api("DELETE", `/rest/v1/capacity_rules?id=eq.${created[0].id}`);
-      throw e;
-    }
-    capacityRules.set(p.id, created[0]);
-    return [created[0].id];
+    const created = await createProductRule(p.id, {});
+    capacityRules.set(p.id, { ...created, capacity_rule_slot_limits: [] });
+    return [created.id];
   },
 });
 

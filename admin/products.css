@@ -70,6 +70,10 @@
 .products-page .product-unit-row input[type=number]{display:block;flex:0 0 90px;width:90px;min-width:0;margin:0}
 .products-page .product-unit-row #p-deadline,.products-page .product-unit-row #p-lead{flex-basis:180px;width:180px}
 .products-page .product-limit-field .help{display:block;margin:10px 0 0;line-height:1.7}
+.products-page .product-cap-slots{margin:4px 0 10px}
+.products-page .product-limit-field .help[hidden]{display:none}
+.products-page .product-cap-slots>summary{cursor:pointer;color:var(--primary-deep,#555);font-size:.92rem}
+.products-page .product-cap-slots .product-unit-row{margin:8px 0 8px 1em}
 .products-page .product-publish-section{margin:10px 0 22px;padding:12px 14px;border:1px solid var(--line);border-radius:5px;background:#f7f8f6}
 .products-page .product-copy-action{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 22px}
 .products-page .product-delete-action{border-top:1px solid var(--line);padding:22px 0;margin:30px 0 36px}

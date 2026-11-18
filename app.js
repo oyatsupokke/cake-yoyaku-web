@@ -853,6 +853,13 @@ function preSale(p) {
   if (!p || STAFF_MODE || EDITOR_PREVIEW || EDIT_MODE) return false;
   return !!p.show_before_sale && !!p.sale_start_at && Date.now() < Date.parse(p.sale_start_at);
 }
+/* 受付が終わっても「受付終了」の札をつけて一覧に残す商品（products.show_after_sale・2026-11-18 まりほ要望）。
+ * 合計上限（product_total_limits）に達すると sale_end_at が入る＝一覧から消えると「まだ出ないの？」の問い合わせが来るため。
+ * 選べない札だけで、受取日・送信は出さない。代行登録・変更モードはいつもどおり */
+function afterSale(p) {
+  if (!p || STAFF_MODE || EDITOR_PREVIEW || EDIT_MODE) return false;
+  return !!p.show_after_sale && !!p.sale_end_at && Date.now() > Date.parse(p.sale_end_at);
+}
 function saleStartLabel(p) {
   const d = new Date(p.sale_start_at);
   return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -898,7 +905,7 @@ function listableProducts() {
   // 配送の商品は、配送を受けられるとき（お客様の予約ページ・Stripe接続済み）だけ出す
   const fulfillable = (p) => EDITOR_PREVIEW || productFulfillment(p) !== "delivery" || !!deliverySettings();
   if (STAFF_MODE) return state.products.filter(fulfillable);
-  return state.products.filter((p) => (onSale(p) || preSale(p) || p.id === state.sel.product?.id) && fulfillable(p));
+  return state.products.filter((p) => (onSale(p) || preSale(p) || afterSale(p) || p.id === state.sel.product?.id) && fulfillable(p));
 }
 /** 店頭受取の商品と配送の商品の両方がある店だけ、最初に受け取り方を選んでもらう（2026-11-09） */
 function needsModeChoice() {
@@ -1147,7 +1154,8 @@ function renderProducts() {
   for (const p of visibleProducts()) {
     const prices = p.product_variants.filter(validVariant).map((v) => v.price);
     const el = document.createElement("div");
-    el.className = "card" + (state.sel.product?.id === p.id ? " selected" : "");
+    const ended = afterSale(p);
+    el.className = "card" + (state.sel.product?.id === p.id ? " selected" : "") + (ended ? " ended" : "");
     const visual = p.photo_url
       ? `<div class="card-photo"><img src="${esc(safeImageUrl(p.photo_url))}" alt="${esc(p.name)}" loading="lazy"></div>`
       : `<div class="card-emoji">${EMOJI[p.name] || "🎂"}</div>`;
@@ -1156,9 +1164,10 @@ function renderProducts() {
       <div class="card-name">${esc(p.name)}</div>
       <div class="card-desc">${esc(p.description || "")}</div>
       <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>
-      ${preSale(p) ? `<div class="card-presale">${esc(saleStartLabel(p))} 受付開始</div>` : ""}`;
-    el.setAttribute("aria-disabled", String(!prices.length));
-    if (prices.length) el.onclick = () => selectProduct(p);
+      ${preSale(p) ? `<div class="card-presale">${esc(saleStartLabel(p))} 受付開始</div>` : ""}
+      ${ended ? `<div class="card-ended">ご予約受付終了</div>` : ""}`;
+    el.setAttribute("aria-disabled", String(!prices.length || ended));
+    if (prices.length && !ended) el.onclick = () => selectProduct(p);
     wrap.appendChild(el);
   }
   // テスト予約で一覧が空のまま黙っていると、店は故障に見える（新しい商品は非公開で作られる）

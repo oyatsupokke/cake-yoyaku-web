@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1794897209">
-<link rel="stylesheet" href="admin.css?v=1794897209">
-<link rel="stylesheet" href="products.css?v=1794897209">
-<link rel="stylesheet" href="admin-layout.css?v=1794897209">
-<link rel="stylesheet" href="help-panel.css?v=1794897209">
+<link rel="stylesheet" href="../styles.css?v=1794987587">
+<link rel="stylesheet" href="admin.css?v=1794987587">
+<link rel="stylesheet" href="products.css?v=1794987587">
+<link rel="stylesheet" href="admin-layout.css?v=1794987587">
+<link rel="stylesheet" href="help-panel.css?v=1794987587">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -133,6 +133,13 @@
           <div>この商品の上限（何台まで受けるか）</div>
           <div class="product-unit-row"><label for="p-cap-daily">1日</label><input type="number" id="p-cap-daily" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
           <div class="product-unit-row"><label for="p-cap-slot">同じ時間帯</label><input type="number" id="p-cap-slot" min="0" placeholder="なし" aria-describedby="p-cap-help"><span>台まで</span></div>
+          <!-- 時間帯ごとに違う台数（capacity_rule_slot_limits・2026-11-18） -->
+          <details class="product-cap-slots" id="p-cap-slots" hidden>
+            <summary>時間帯ごとに台数を変える</summary>
+            <div id="p-cap-slot-list"></div>
+            <p class="help">空欄の時間帯は、上の「同じ時間帯」の台数に従います（そこも空欄なら上限なし）。0にすると、その時間帯はこの商品を受け付けません。</p>
+          </details>
+          <p class="help" id="p-cap-shared" hidden></p>
           <p class="help" id="p-cap-help">空欄=この商品だけの上限なし（設定ページの「1日の上限台数設定」だけが適用されます）。<br>例えば、全体は1日10台、このケーキは1日3台・同じ時間帯2台まで、という設定が可能です。<br>画面下の「保存する」で確定します。</p>
         </div>
         <!-- この商品の上限を特定の日だけ変える（2026-10-10・部品は date-limits.js） -->
@@ -259,18 +266,18 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1794897209"></script>
-<script src="edit-drafts.js?v=1794897209"></script>
-<script src="products-menu.js?v=1794897209"></script>
-<script src="pickup-schedule.js?v=1794897209"></script>
-<script src="../question-flow.js?v=1794897209"></script>
-<script src="../preview-text.js?v=1794897209"></script>
-<script src="../crop.js?v=1794897209"></script>
-<script src="limit-check.js?v=1794897209"></script>
-<script src="date-limits.js?v=1794897209"></script>
-<script src="products.js?v=1794897209"></script>
-<script type="module" src="product-assistant.js?v=1794897209"></script>
-<script src="products-outline.js?v=1794897209"></script>
-<script src="navigation.js?v=1794897209"></script>
+<script src="tips.js?v=1794987587"></script>
+<script src="edit-drafts.js?v=1794987587"></script>
+<script src="products-menu.js?v=1794987587"></script>
+<script src="pickup-schedule.js?v=1794987587"></script>
+<script src="../question-flow.js?v=1794987587"></script>
+<script src="../preview-text.js?v=1794987587"></script>
+<script src="../crop.js?v=1794987587"></script>
+<script src="limit-check.js?v=1794987587"></script>
+<script src="date-limits.js?v=1794987587"></script>
+<script src="products.js?v=1794987587"></script>
+<script type="module" src="product-assistant.js?v=1794987587"></script>
+<script src="products-outline.js?v=1794987587"></script>
+<script src="navigation.js?v=1794987587"></script>
 </body>
 </html>

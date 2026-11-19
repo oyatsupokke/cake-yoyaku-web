@@ -25,6 +25,22 @@ if (/-demo$/.test(CONFIG.shop)) {
 const $ = (id) => document.getElementById(id);
 const yen = (n) => "¥" + n.toLocaleString("ja-JP");
 
+function productCancelNotice() {
+  const days = state.sel.product?.self_cancel_days;
+  if (days == null) return "";
+  const effective = Math.max(Number(days), Number(state.tenant.self_cancel_days) || 0);
+  const time = String(state.tenant.self_cancel_time || "09:00").slice(0, 5).replace(/^0/, "");
+  return `お受け取り日の${effective}日前の${time}まで`;
+}
+function productCancelPolicy() {
+  const policy = state.tenant.cancel_policy || "";
+  const notice = productCancelNotice();
+  if (!notice) return policy;
+  return policy.includes("・キャンセル：")
+    ? policy.replace(/・キャンセル：[^\n]*/, `・キャンセル：${notice}`)
+    : `${policy}\nキャンセルは、${notice}です。`;
+}
+
 // 管理画面のデザイン見本。お客様の下書きや外側の画面位置に干渉しない。
 const EDITOR_PREVIEW = new URLSearchParams(location.search).get("preview") === "editor";
 const THEME_PREVIEW = EDITOR_PREVIEW || (window.self !== window.top
@@ -2555,6 +2571,12 @@ function renderGroups() {
     pn.textContent = state.sel.product.note;
     wrap.appendChild(pn);
   }
+  if (productCancelNotice()) {
+    const pn = document.createElement("p");
+    pn.className = "group-note product-note note-accent";
+    pn.textContent = `この商品のキャンセルは、${productCancelNotice()}です。`;
+    wrap.appendChild(pn);
+  }
   for (const g of sortedGroups(state.sel.product)) {
     if (groupAllHidden(g)) continue;
     const box = document.createElement("div");
@@ -3724,7 +3746,7 @@ function renderConfirm() {
     : "事前のお支払い（このあとお支払い画面に進みます）");
   rows.push(`<div class="confirm-row total"><span class="k">${review ? "選択分（税込・仮）" : "合計（税込）"}</span><span>${yen(currentTotal())}</span></div>`);
   $("confirm-detail").innerHTML = rows.join("");
-  $("cancel-policy").textContent = state.tenant.cancel_policy || "";
+  $("cancel-policy").textContent = productCancelPolicy();
   // 特商法の表記。店が設定していれば確認画面に折りたたみで出す（未設定なら丸ごと非表示）
   const toku = (state.tenant.tokushoho?.text || "").trim();
   $("tokushoho-text").textContent = toku;

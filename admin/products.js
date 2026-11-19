@@ -98,7 +98,7 @@ function validateChange(c) {
       (!Number.isInteger(c.patch.order_deadline_days) || c.patch.order_deadline_days < 0 || c.patch.order_deadline_days > 365)) {
     throw new Error("選択肢の締切は0〜365の整数で入力してください");
   }
-  if (c.table === "options" && c.patch.self_cancel_days != null &&
+  if (["products", "options"].includes(c.table) && c.patch.self_cancel_days != null &&
       (!Number.isInteger(c.patch.self_cancel_days) || c.patch.self_cancel_days < 1 || c.patch.self_cancel_days > 365)) {
     throw new Error("お客様ご自身でのキャンセルの期限は1〜365の整数で入力してください");
   }
@@ -1065,6 +1065,7 @@ function renderEditor() {
   $("p-note").value = p.note || "";
   $("p-note-accent").checked = !!p.note_accent;
   $("p-deadline").value = p.order_deadline_days ?? "";
+  $("p-self-cancel").value = p.self_cancel_days ?? "";
   $("p-fulfillment").value = p.fulfillment || "pickup";
   $("p-lead").value = p.delivery_extra_days ?? "";
   // 発送を早める日数は配送する商品だけ（店頭受取のみなら出さない・Liteも出さない）
@@ -1103,6 +1104,9 @@ function renderEditor() {
   regField("products", p.id, "note", $("p-note"));
   regField("products", p.id, "note_accent", $("p-note-accent"));
   regField("products", p.id, "order_deadline_days", $("p-deadline"), { number: true });
+  regField("products", p.id, "self_cancel_days", $("p-self-cancel"), {
+    get: () => { const v = $("p-self-cancel").value.trim(); return v === "" ? null : Number(v); },
+  });
   regField("products", p.id, "fulfillment", $("p-fulfillment"));   // 店頭のみ／配送のみ／両方（2026-10-05）
   regField("products", p.id, "delivery_extra_days", $("p-lead"), { number: true });   // 空欄＝早めない（2026-11-09）
   // Lite は店の設定だけ（欄も出さない）。小数は切り捨てずに保存前のチェックで止める

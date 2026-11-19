@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定の操作デモ｜CakeBook</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="styles.css?v=1794987587">
-<link rel="stylesheet" href="admin.css?v=1794987587">
-<link rel="stylesheet" href="products.css?v=1794987587">
-<link rel="stylesheet" href="admin-layout.css?v=1794987587">
-<link rel="stylesheet" href="help-panel.css?v=1794987587">
-<link rel="stylesheet" href="demo-banner.css?v=1794987587">
+<link rel="stylesheet" href="styles.css?v=1795073209">
+<link rel="stylesheet" href="admin.css?v=1795073209">
+<link rel="stylesheet" href="products.css?v=1795073209">
+<link rel="stylesheet" href="admin-layout.css?v=1795073209">
+<link rel="stylesheet" href="help-panel.css?v=1795073209">
+<link rel="stylesheet" href="demo-banner.css?v=1795073209">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -125,6 +125,11 @@
           <label for="p-deadline">締切（受取日の何日前まで受け付けるか）</label>
           <div class="product-unit-row"><input type="number" id="p-deadline" min="0" placeholder="空欄=店の基本" aria-describedby="p-deadline-help"><span>日前</span></div>
           <p class="help" id="p-deadline-help">※空欄にすると、店舗情報で決めた「基本の締切」に従います。この商品だけ変えたいときに入力してください。</p>
+        </div>
+        <div class="field product-limit-field">
+          <label for="p-self-cancel">キャンセル（受取日の何日前まで）</label>
+          <div class="product-unit-row"><input type="number" id="p-self-cancel" min="1" max="365" step="1" placeholder="空欄=店の設定" aria-describedby="p-self-cancel-help"><span>日前まで</span></div>
+          <p class="help" id="p-self-cancel-help">この商品全体に適用します。時刻は店舗のキャンセル設定と同じです。店舗設定より遅い期限にはできません。内容変更・受取日時変更の期限は変わりません。設定後に入る予約から適用します。</p>
         </div>
         <div class="field product-limit-field">
           <label for="p-window">何日先の受取まで予約を受け付けるか</label>
@@ -268,18 +273,18 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="demo-runtime.js?v=1794987587"></script>
-<script src="tips.js?v=1794987587"></script>
-<script src="edit-drafts.js?v=1794987587"></script>
-<script src="products-menu.js?v=1794987587"></script>
-<script src="pickup-schedule.js?v=1794987587"></script>
-<script src="question-flow.js?v=1794987587"></script>
-<script src="preview-text.js?v=1794987587"></script>
-<script src="limit-check.js?v=1794987587"></script>
-<script src="date-limits.js?v=1794987587"></script>
-<script src="products.js?v=1794987587"></script>
-<script type="module" src="product-assistant.js?v=1794987587"></script>
-<script src="products-outline.js?v=1794987587"></script>
-<script src="navigation.js?v=1794987587"></script>
+<script src="demo-runtime.js?v=1795073209"></script>
+<script src="tips.js?v=1795073209"></script>
+<script src="edit-drafts.js?v=1795073209"></script>
+<script src="products-menu.js?v=1795073209"></script>
+<script src="pickup-schedule.js?v=1795073209"></script>
+<script src="question-flow.js?v=1795073209"></script>
+<script src="preview-text.js?v=1795073209"></script>
+<script src="limit-check.js?v=1795073209"></script>
+<script src="date-limits.js?v=1795073209"></script>
+<script src="products.js?v=1795073209"></script>
+<script type="module" src="product-assistant.js?v=1795073209"></script>
+<script src="products-outline.js?v=1795073209"></script>
+<script src="navigation.js?v=1795073209"></script>
 </body>
 </html>

@@ -104,3 +104,23 @@
  #sec-groups .group>.opt>.qty-stepper{grid-column:2 / 4;justify-self:end}
 }
 .booking-credit a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
+/* 写真だけの商品（重ねるイラストが無い商品）も、選んだケーキを上（PCは右）に残す。
+   2026-11-18 まりほ指摘：クリスマスケーキは選んだ瞬間に下へ飛び、何を選んだか見えなくなっていた */
+@media(min-width:850px){
+ #view-form.booking-image{max-width:none;display:grid;grid-template-columns:minmax(0,650px) clamp(280px,30vw,360px);column-gap:44px;align-items:start;overflow:visible}
+ .booking-image>.step{grid-column:1}
+ .booking-image>.preview-box{grid-column:2;grid-row:1 / span 6;align-self:start;height:max-content;position:-webkit-sticky;position:sticky;top:24px;margin:30px 0 0;padding:0 0 20px;background:var(--bg)}
+ .booking-image .preview-canvas{width:100%;height:auto;aspect-ratio:1}
+}
+@media(max-width:849px){
+ .booking-image>.preview-box{--pv:min(164px,43vw);position:-webkit-sticky;position:sticky;top:0;z-index:10;align-self:start;height:max-content;background:var(--bg);display:grid;grid-template-columns:var(--pv) minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr;column-gap:12px;align-items:start;padding:10px 0;margin:0;border-bottom:1px solid var(--line);text-align:left}
+ .booking-image .preview-canvas{grid-column:1;grid-row:1 / -1;width:var(--pv);height:var(--pv);margin:0}
+ .booking-image .preview-caption,.booking-image .preview-note{grid-column:2}
+ .booking-image .preview-caption{margin:0 0 4px;font-size:.85rem}
+ .booking-image .preview-note{margin:0;font-size:.72rem;line-height:1.5}
+ .booking-image .booking-expand{grid-column:2;width:fit-content;max-width:100%;min-height:32px;margin:6px 0 0;padding:4px 10px;font-size:.72rem;line-height:1.3;letter-spacing:0;border-radius:5px;white-space:normal;text-align:left}
+ .booking-image>.step{scroll-margin-top:calc(var(--booking-preview-height,150px) + 14px)}
+}
+/* 重ねるイラストが無い商品は「デザインをリセット」しても絵が変わらないので出さない */
+.booking-image .btn-reset-design{display:none}

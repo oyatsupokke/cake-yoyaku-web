@@ -1065,6 +1065,7 @@ function renderEditor() {
   $("p-desc").value = p.description || "";
   $("p-note").value = p.note || "";
   $("p-note-accent").checked = !!p.note_accent;
+  $("p-hide-preview-note").checked = !!p.hide_preview_note;
   $("p-deadline").value = p.order_deadline_days ?? "";
   $("p-self-cancel").value = p.self_cancel_days ?? "";
   $("p-fulfillment").value = p.fulfillment || "pickup";
@@ -1104,6 +1105,7 @@ function renderEditor() {
   regField("products", p.id, "description", $("p-desc"));
   regField("products", p.id, "note", $("p-note"));
   regField("products", p.id, "note_accent", $("p-note-accent"));
+  regField("products", p.id, "hide_preview_note", $("p-hide-preview-note"));
   regField("products", p.id, "order_deadline_days", $("p-deadline"), { number: true });
   regField("products", p.id, "self_cancel_days", $("p-self-cancel"), {
     get: () => { const v = $("p-self-cancel").value.trim(); return v === "" ? null : Number(v); },

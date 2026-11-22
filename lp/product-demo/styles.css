@@ -95,6 +95,10 @@ body {
 .card .card-name { font-weight: bold; font-size: .92rem; margin-top: 4px; }
 .card .card-desc { font-size: .74rem; color: var(--mute); margin-top: 4px; }
 .card .card-price { font-size: .8rem; color: var(--primary-deep); margin-top: 4px; }
+/* カテゴリ名の札（カテゴリが2つ以上並ぶときだけ。2026-11-18） */
+.card .card-cat { display: inline-block; font-size: .68rem; font-weight: bold; line-height: 1.5; border-radius: 999px; padding: 1px 9px; margin-top: 2px;
+  color: var(--primary-deep); background: #fff; border: 1px solid var(--primary-deep); }
+.card .card-cat.first { color: #fff; background: var(--primary-deep); }
 /* 受付開始前に見せている商品（2026-11-17） */
 .card .card-presale { display: inline-block; font-size: .72rem; font-weight: bold; color: var(--primary-deep);
   border: 1px solid var(--primary-deep); border-radius: 999px; padding: 2px 10px; margin-top: 6px; }
@@ -241,6 +245,9 @@ body {
 .field .help { font-weight: normal; font-size: .76rem; color: var(--mute); margin: 2px 0 0; }
 /* 質問の補足は改行をそのまま出す（管理画面で複数行を書けるようにした・2026-10-02） */
 .field .help, .cfield .help { white-space: pre-line; }
+/* 携帯会社のメールアドレスへの注意（2026-11-18） */
+.field .help.carrier-mail-note { display: block; color: var(--ink); background: var(--boxbg); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; margin-top: 6px; line-height: 1.6; }
+.field .help.carrier-mail-note.hidden { display: none; }
 /* 選択式の質問（ラジオ・チェックボックス） */
 .pick-list { display: block; margin-top: 6px; }
 label.pick {

@@ -644,10 +644,14 @@ function fillOrderBody(el, o) {
   // 店側からの変更（2026-10-03）。未確認・確認済で、追加希望（見積もり）の途中でないものだけ
   // 配送の予約は日時・内容を変えない（キャンセル＝返金して入れ直す・2026-10-05）
   // 支払い待ち（カード払いのみの店・30分）の間は変えない＝開いている支払い画面の金額とずれるため
-  const staffEditable = ["new", "confirmed"].includes(o.status) && (o.review_state || "none") === "none" && o.fulfillment !== "delivery" && !awaitingPay(o);
-  if (staffEditable) {
-    actions += `<button type="button" class="pill slot-btn">受取日時を変更</button>` +
-               `<button type="button" class="pill content-btn">内容を変更</button>`;
+  // 見積もりを承諾済みの予約は受取日時だけ変えられる（金額は変わらない・2026-11-22）。内容の変更は見積もりとずれるので出さない
+  const staffChangeable = ["new", "confirmed"].includes(o.status) && o.fulfillment !== "delivery" && !awaitingPay(o);
+  const review = o.review_state || "none";
+  if (staffChangeable && (review === "none" || review === "accepted")) {
+    actions += `<button type="button" class="pill slot-btn">受取日時を変更</button>`;
+  }
+  if (staffChangeable && review === "none") {
+    actions += `<button type="button" class="pill content-btn">内容を変更</button>`;
   }
   if (o.status !== "canceled") {
     actions += `<button type="button" class="pill danger cancel-btn">キャンセル</button>`;

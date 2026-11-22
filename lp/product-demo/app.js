@@ -656,7 +656,7 @@ async function load() {
     // お試し中のテスト予約は店のログインで読むので、非公開・削除した商品、止めた受取時間まで返ってくる。
     // お客様（anon）にはもともと返らないものなので、ここで同じ条件に絞る
     api(`/rest/v1/products?tenant_id=eq.${T}&is_published=is.true&deleted_at=is.null&order=display_order` +
-        `&select=*,product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
+        `&select=*,categories!products_category_id_fkey(name,display_order),product_variants!product_variants_product_id_fkey(*),option_groups!option_groups_product_id_fkey(*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))),option_exclusions!option_exclusions_product_id_fkey(*)`),
     api(`/rest/v1/option_groups?tenant_id=eq.${T}&product_id=is.null&order=display_order` +
         `&select=*,options!options_group_id_fkey(*,shared_list_items!options_shared_list_item_id_fkey(*))`),
     api(`/rest/v1/common_questions?tenant_id=eq.${T}&order=display_order,id` +
@@ -796,6 +796,7 @@ async function enterEditMode() {
     $("cust-sei").value = sei; $("cust-mei").value = mei;
     $("cust-sei-kana").value = seiK; $("cust-mei-kana").value = meiK;
     $("cust-phone").value = c.phone || ""; $("cust-email").value = c.email || "";
+    paintCarrierMailNote();
     if ($("cust-postal")) {
       $("cust-postal").value = c.postal_code || "";
       $("cust-address").value = c.address || "";
@@ -1162,7 +1163,14 @@ function renderProducts() {
   wrap.innerHTML = "";
   const choose = needsModeChoice() && !state.mode;
   $("sec-products").classList.toggle("hidden", choose);
-  for (const p of visibleProducts()) {
+  // カテゴリが2つ以上並ぶときだけ、商品名の上にカテゴリ名の札を出す（2026-11-18 まりほ要望：クリスマスと通常を見分けたい）。
+  // 一覧でいちばん上のカテゴリ（期間限定を上に置く店が多い）は塗り、ほかは白抜き
+  const shown = visibleProducts();
+  const cats = [...new Map(shown.filter((p) => p.categories?.name).map((p) => [p.category_id, p.categories])).entries()]
+    .sort((a, b) => (a[1].display_order ?? 0) - (b[1].display_order ?? 0));
+  const catBadge = (p) => cats.length < 2 || !p.categories?.name ? ""
+    : `<span class="card-cat${p.category_id === cats[0][0] ? " first" : ""}">${esc(p.categories.name)}</span>`;
+  for (const p of shown) {
     const prices = p.product_variants.filter(validVariant).map((v) => v.price);
     const el = document.createElement("div");
     const ended = afterSale(p);
@@ -1172,6 +1180,7 @@ function renderProducts() {
       : `<div class="card-emoji">${EMOJI[p.name] || "🎂"}</div>`;
     el.innerHTML = `
       ${visual}
+      ${catBadge(p)}
       <div class="card-name">${esc(p.name)}</div>
       <div class="card-desc">${esc(p.description || "")}</div>
       <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>
@@ -2279,6 +2288,11 @@ async function updatePreview() {
   const layers = currentLayers();
   // 写真を出す商品は、商品一覧のカードと同じ横長4:3の枠にする（イラストは正方形のまま・2026-09-30）
   box.classList.toggle("is-photo", !layers && !!p?.photo_url);
+  // 店の注意書きは、商品ごとに出さないこともできる（2026-11-18 まりほ要望：クリスマスケーキの写真に
+  // 通常ケーキ向けの「フルーツの大きさ…」が出ていた）。拡大の画面も同じ文を写すので、文ごと空にする
+  const pnote = p?.hide_preview_note ? "" : (state.tenant.preview_note || "").trim();
+  $("preview-note").textContent = pnote;
+  $("preview-note").classList.toggle("hidden", !pnote);
 
   if (layers) {
     const token = ++previewToken;
@@ -3856,7 +3870,7 @@ $("btn-submit").onclick = async () => {
        : STAFF_MODE ? ($("cust-email").value.trim()
            ? "「確認済」で登録し、お客様に確認メールをお送りします。"
            : "「確認済」で登録しました（メール未記入のため確認メールは送られません）。")
-       : "確認のご連絡をお待ちください。");
+       : "ご予約は完了しています。");
     if (TRIAL_MODE) {
       $("view-done").querySelector("h2").textContent = "テスト予約を確認しました";
       $("done-number").textContent = "テスト（保存なし）";
@@ -3883,6 +3897,15 @@ $("btn-submit").onclick = async () => {
         $("done-pickup").textContent = `${y}年${+m}月${+d}日 ${pending?.slotLabel || s.slot.label} の受取で承りました。` +
           "30分以内にお支払いいただくと、ご予約が確定し確認メールをお送りします。お支払いがない場合、ご予約は自動で取り消されます。";
       }
+    }
+    // 予約が成立したお客様には、メールを待たなくてよいことをはっきり伝える（2026-11-18 まりほ：
+    // 「メールが届かない、スクショはある」の問い合わせが続いた。これまでは「確認のご連絡をお待ちください」だった）
+    if (!STAFF_MODE && !EDIT_MODE && !TRIAL_MODE && r.review_state !== "requested" && !r.payment_required && !$("done-mail-note")) {
+      const mn = document.createElement("p");
+      mn.className = "small";
+      mn.id = "done-mail-note";
+      mn.textContent = "確認メールが届かない場合は、迷惑メールフォルダをご確認の上、ご連絡ください。";
+      $("done-pickup").after(mn);
     }
     $("view-confirm").classList.add("hidden");
     if (!EDIT_MODE && !STAFF_MODE) clearSavedState();
@@ -4044,3 +4067,15 @@ function renumberSteps() {
   if (groups) observer.observe(groups, { childList: true });
   renumberSteps();
 })();
+
+/* 携帯会社のメールアドレスには、その場で注意を出す（入力は止めない）。
+ * 2026-11-18 oyatsupokke のクリスマス受付：確認メールは送信済みなのに、au・ソフトバンク・ワイモバイルの
+ * お客様から「届かない」の問い合わせが続いた。店の画面（STAFF_MODE）では出さない */
+const CARRIER_MAIL = /@(?:[a-z0-9-]+\.)*(?:docomo\.ne\.jp|ezweb\.ne\.jp|au\.com|softbank\.ne\.jp|i\.softbank\.jp|vodafone\.ne\.jp|ymobile\.ne\.jp|ymail\.ne\.jp|y-mobile\.ne\.jp|emobile\.ne\.jp|emnet\.ne\.jp|uqmobile\.jp|rakumail\.jp|disney\.ne\.jp|willcom\.com|pdx\.ne\.jp)$/i;
+function paintCarrierMailNote() {
+  const note = $("carrier-mail-note");
+  if (!note) return;
+  note.classList.toggle("hidden", STAFF_MODE || !CARRIER_MAIL.test($("cust-email").value.trim()));
+}
+$("cust-email")?.addEventListener("input", paintCarrierMailNote);
+$("cust-email")?.addEventListener("change", paintCarrierMailNote);

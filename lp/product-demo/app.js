@@ -852,6 +852,10 @@ async function enterEditMode() {
  * お客様から見ると「選べるのにカレンダーが全部灰色の商品」になる（2026-09-06 修正）。 */
 function onSale(p) {
   if (EDITOR_PREVIEW) return !p.deleted_at;
+  if (p.new_orders_closed && !STAFF_MODE) {
+    const original = state.products.find(x => x.id === EDIT_ORDER?.product_id);
+    if (!EDIT_MODE || !original?.new_orders_closed || original.category_id !== p.category_id) return false;
+  }
   const now = Date.now();
   if (p.sale_start_at && now < Date.parse(p.sale_start_at)) return false;
   if (p.sale_end_at   && now > Date.parse(p.sale_end_at))   return false;
@@ -863,6 +867,7 @@ function onSale(p) {
  * 代行登録はもともと全部出して予約もできる。変更モードは開いた予約の商品をいつもどおり扱う。 */
 function preSale(p) {
   if (!p || STAFF_MODE || EDITOR_PREVIEW || EDIT_MODE) return false;
+  if (p.new_orders_closed) return false;
   return !!p.show_before_sale && !!p.sale_start_at && Date.now() < Date.parse(p.sale_start_at);
 }
 /* 受付が終わっても「受付終了」の札をつけて一覧に残す商品（products.show_after_sale・2026-11-18 まりほ要望）。
@@ -870,6 +875,7 @@ function preSale(p) {
  * 選べない札だけで、受取日・送信は出さない。代行登録・変更モードはいつもどおり */
 function afterSale(p) {
   if (!p || STAFF_MODE || EDITOR_PREVIEW || EDIT_MODE) return false;
+  if (p.new_orders_closed) return true;
   return !!p.show_after_sale && !!p.sale_end_at && Date.now() > Date.parse(p.sale_end_at);
 }
 function saleStartLabel(p) {
@@ -1185,7 +1191,7 @@ function renderProducts() {
       <div class="card-desc">${esc(p.description || "")}</div>
       <div class="card-price">${prices.length ? yen(Math.min(...prices)) + "〜" : "ただいま準備中です"}</div>
       ${preSale(p) ? `<div class="card-presale">${esc(saleStartLabel(p))} 受付開始</div>` : ""}
-      ${ended ? `<div class="card-ended">ご予約受付終了</div>` : ""}`;
+      ${ended ? `<div class="card-ended">${p.new_orders_closed ? "新規ご予約受付終了" : "ご予約受付終了"}</div>` : ""}`;
     el.setAttribute("aria-disabled", String(!prices.length || ended));
     if (prices.length && !ended) el.onclick = () => selectProduct(p);
     wrap.appendChild(el);
@@ -1197,6 +1203,15 @@ function renderProducts() {
     none.style.gridColumn = "1 / -1";
     none.textContent = "いま表示できる商品がありません。商品の画面の「公開と販売期間」で「公開する」を選んで保存した商品が、ここに並びます（受付期間の外の商品は並びません）。";
     wrap.appendChild(none);
+  }
+  if (!STAFF_MODE && !EDITOR_PREVIEW && shown.some(p => p.new_orders_closed)) {
+    const notice = document.createElement("p");
+    notice.className = "confirm-box";
+    notice.style.gridColumn = "1 / -1";
+    notice.textContent = EDIT_MODE
+      ? "新規受付は終了しました。ご予約の変更は、期限内・空き枠のある商品と日時に限り承ります。台数は増やせません。"
+      : "新規受付が終了した商品も、ご予約済みの方は予約メールのURLから変更・キャンセルができます。変更は期限内・空き枠のみ、キャンセルはご案内の期限まで承ります。";
+    wrap.prepend(notice);
   }
   renderNoProductsNotice(wrap);
   renderPreSale();   // 一覧を見ているだけのときも、受付開始の時刻に印を外す

@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品の設定｜管理画面</title>
-<link rel="stylesheet" href="../styles.css?v=1795336710">
-<link rel="stylesheet" href="admin.css?v=1795336710">
-<link rel="stylesheet" href="products.css?v=1795336710">
-<link rel="stylesheet" href="admin-layout.css?v=1795336710">
-<link rel="stylesheet" href="help-panel.css?v=1795336710">
+<link rel="stylesheet" href="../styles.css?v=1795505356">
+<link rel="stylesheet" href="admin.css?v=1795505356">
+<link rel="stylesheet" href="products.css?v=1795505356">
+<link rel="stylesheet" href="admin-layout.css?v=1795505356">
+<link rel="stylesheet" href="help-panel.css?v=1795505356">
 </head>
 <body>
 <div id="app" class="admin products-page">
@@ -168,6 +168,8 @@
         <p class="presale-state" id="p-presale-state" aria-live="polite"></p>
         <div id="p-season-body">
         <p class="small">クリスマスなどの季節限定の商品の場合は、ここで期間を設定します。</p>
+        <label class="radio-line"><input type="checkbox" id="p-new-orders-closed">新規予約だけ終了する（既存予約の変更・キャンセルは継続）</label>
+        <p class="hint">変更は期限内・空き枠のみ。同じカテゴリの受付終了商品から変更でき、台数は増やせません。変更を続ける間は商品を公開し、受付終了日時を過ぎない設定にしてください。</p>
         <label class="field">受付終了日時（この日時に自動で締め切ります）<input type="datetime-local" id="p-sale-end">
         </label>
         <label class="field">受取日の指定方法
@@ -272,18 +274,18 @@
   <div class="ai-product-actions"><button type="button" class="pill" id="ai-product-generate">設定案を作る</button><span id="ai-product-status" role="status"></span></div>
   <div id="ai-product-review" class="hidden"></div>
 </dialog>
-<script src="tips.js?v=1795336710"></script>
-<script src="edit-drafts.js?v=1795336710"></script>
-<script src="products-menu.js?v=1795336710"></script>
-<script src="pickup-schedule.js?v=1795336710"></script>
-<script src="../question-flow.js?v=1795336710"></script>
-<script src="../preview-text.js?v=1795336710"></script>
-<script src="../crop.js?v=1795336710"></script>
-<script src="limit-check.js?v=1795336710"></script>
-<script src="date-limits.js?v=1795336710"></script>
-<script src="products.js?v=1795336710"></script>
-<script type="module" src="product-assistant.js?v=1795336710"></script>
-<script src="products-outline.js?v=1795336710"></script>
-<script src="navigation.js?v=1795336710"></script>
+<script src="tips.js?v=1795505356"></script>
+<script src="edit-drafts.js?v=1795505356"></script>
+<script src="products-menu.js?v=1795505356"></script>
+<script src="pickup-schedule.js?v=1795505356"></script>
+<script src="../question-flow.js?v=1795505356"></script>
+<script src="../preview-text.js?v=1795505356"></script>
+<script src="../crop.js?v=1795505356"></script>
+<script src="limit-check.js?v=1795505356"></script>
+<script src="date-limits.js?v=1795505356"></script>
+<script src="products.js?v=1795505356"></script>
+<script type="module" src="product-assistant.js?v=1795505356"></script>
+<script src="products-outline.js?v=1795505356"></script>
+<script src="navigation.js?v=1795505356"></script>
 </body>
 </html>

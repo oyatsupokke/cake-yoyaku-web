@@ -1081,6 +1081,7 @@ function renderEditor() {
   for (const r of document.querySelectorAll('input[name="p-publish-mode"]')) r.checked = r.value === mode;
   $("p-sale-start").value = isoToLocal(p.sale_start_at);
   $("p-sale-end").value = isoToLocal(p.sale_end_at);
+  $("p-new-orders-closed").checked = !!p.new_orders_closed;
   $("p-show-before-sale").checked = !!p.show_before_sale;
   // 商品を開くたびに呼ばれるので、積み重ならない書き方にする
   $("p-publish-mode").onchange = paintPublishState;
@@ -1122,6 +1123,7 @@ function renderEditor() {
     { get: () => (publishMode() === "now" ? null : localToIso($("p-sale-start").value)) });
   regField("products", p.id, "sale_end_at", $("p-sale-end"),
     { get: () => localToIso($("p-sale-end").value) });
+  regField("products", p.id, "new_orders_closed", $("p-new-orders-closed"));
   regField("products", p.id, "show_before_sale", $("p-show-before-sale"));
   $("p-show-before-sale").onchange = paintPublishState;
   paintPublishState();

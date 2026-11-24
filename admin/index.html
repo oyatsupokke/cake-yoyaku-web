@@ -5,11 +5,11 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面｜オーダーケーキ予約</title>
-<link rel="stylesheet" href="../styles.css?v=1795336710">
-<link rel="stylesheet" href="admin.css?v=1795336710">
-<link rel="stylesheet" href="admin-layout.css?v=1795336710">
-<link rel="stylesheet" href="support.css?v=1795336710">
-<link rel="stylesheet" href="help-panel.css?v=1795336710">
+<link rel="stylesheet" href="../styles.css?v=1795505356">
+<link rel="stylesheet" href="admin.css?v=1795505356">
+<link rel="stylesheet" href="admin-layout.css?v=1795505356">
+<link rel="stylesheet" href="support.css?v=1795505356">
+<link rel="stylesheet" href="help-panel.css?v=1795505356">
 </head>
 <body>
 <div id="app" class="admin">
@@ -102,6 +102,12 @@
 
     <!-- 予約・製造：同じ日の製造数と受取順を1画面で確認する -->
     <section id="tab-pickup" class="hidden">
+      <!-- お客様で探す（2026-11-24 まりほ要望「名前とかで検索する機能欲しい」）。受取日に関係なく全部の予約から探す -->
+      <form id="order-search" class="order-search no-print" role="search">
+        <input type="search" id="order-search-q" placeholder="お名前・フリガナ・電話番号・予約番号で探す" aria-label="お名前・フリガナ・電話番号・予約番号で予約を探す" autocomplete="off" enterkeyhint="search">
+        <button type="submit" class="pill">探す</button>
+        <button type="button" class="pill hidden" id="order-search-clear">✕ やめる</button>
+      </form>
       <div id="tab-kitchen">
         <h2 class="print-title print-only" id="kitchen-title"></h2>
         <div class="daily-section-heading no-print">
@@ -644,26 +650,26 @@
 
   <div id="toast" class="toast hidden"></div>
 </div>
-<script src="tips.js?v=1795336710"></script>
-<script src="edit-drafts.js?v=1795336710"></script>
-<script src="report-core.js?v=1795336710"></script>
-<script src="line-settings.js?v=1795336710"></script>
-<script src="delivery-settings.js?v=1795336710"></script>
-<script src="shipping-csv.js?v=1795336710"></script>
-<script src="billing-upgrade.js?v=1795336710"></script>
-<script src="trial-plan.js?v=1795336710"></script>
-<script src="../crop.js?v=1795336710"></script>
-<script src="order-gallery.js?v=1795336710"></script>
-<script src="option-counts.js?v=1795336710"></script>
-<script src="kitchen-breakdown.js?v=1795336710"></script>
-<script src="limit-check.js?v=1795336710"></script>
-<script src="date-limits.js?v=1795336710"></script>
-<script src="mail-delivery.js?v=1795336710"></script>
-<script src="admin.js?v=1795336710"></script>
-<script src="order-calendar.js?v=1795336710"></script>
-<script src="onboarding.js?v=1795336710"></script>
-<script src="reports.js?v=1795336710"></script>
-<script src="support.js?v=1795336710"></script>
-<script src="navigation.js?v=1795336710"></script>
+<script src="tips.js?v=1795505356"></script>
+<script src="edit-drafts.js?v=1795505356"></script>
+<script src="report-core.js?v=1795505356"></script>
+<script src="line-settings.js?v=1795505356"></script>
+<script src="delivery-settings.js?v=1795505356"></script>
+<script src="shipping-csv.js?v=1795505356"></script>
+<script src="billing-upgrade.js?v=1795505356"></script>
+<script src="trial-plan.js?v=1795505356"></script>
+<script src="../crop.js?v=1795505356"></script>
+<script src="order-gallery.js?v=1795505356"></script>
+<script src="option-counts.js?v=1795505356"></script>
+<script src="kitchen-breakdown.js?v=1795505356"></script>
+<script src="limit-check.js?v=1795505356"></script>
+<script src="date-limits.js?v=1795505356"></script>
+<script src="mail-delivery.js?v=1795505356"></script>
+<script src="admin.js?v=1795505356"></script>
+<script src="order-calendar.js?v=1795505356"></script>
+<script src="onboarding.js?v=1795505356"></script>
+<script src="reports.js?v=1795505356"></script>
+<script src="support.js?v=1795505356"></script>
+<script src="navigation.js?v=1795505356"></script>
 </body>
 </html>

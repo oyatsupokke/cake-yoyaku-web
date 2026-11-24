@@ -737,3 +737,8 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .billing-term label { display: block; padding: 6px 0; cursor: pointer; }
 .billing-term label input { margin-right: 8px; }
 .billing-term label span { display: block; margin-left: 1.9em; font-size: .85rem; color: var(--mute); }
+
+/* お客様で探す（2026-11-24） */
+.order-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.order-search input[type="search"] { flex: 1 1 220px; min-width: 0; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: #fff; }
+.order-search .pill.hidden { display: none; }

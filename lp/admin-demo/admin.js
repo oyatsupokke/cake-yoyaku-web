@@ -263,6 +263,7 @@ function renderBillingBanner(t) {
 const fmt = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function setDate(d) {
+  endOrderSearch();
   state.date = fmt(d);
   $("date-input").value = state.date;
   loadOrders();
@@ -283,16 +284,74 @@ function normalizeOrder(o) {
   o.order_previews = [].concat(o.order_previews || []);
   return o;
 }
+/* ---------- お客様で探す（2026-11-24 まりほ要望「名前とかで検索する機能欲しい」） ----------
+ * 受取日に関係なく、その店の全部の予約から お名前・フリガナ・電話番号・メール・予約番号 で探す（キャンセル済みも出す）。
+ * 名前の空白（「中川 まりほ」と「中川まりほ」）・ひらがなとカタカナ・全角と半角・電話のハイフンの違いは無視する。
+ * サーバーには文字の間に * を挟んだゆるい条件で聞き、画面側で空白などを除いた形で絞り直す。 */
+const searching = () => !!state.orderSearch;
+const toKatakana = (s) => s.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+const toHiragana = (s) => s.replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const searchKey = (s) => toKatakana(String(s ?? "").normalize("NFKC").toLowerCase()).replace(/[\s-]/g, "");
+const digitsOf = (s) => String(s ?? "").normalize("NFKC").replace(/\D/g, "");
+// 予約番号として読むのは「24」「No.24」のように数字だけのとき
+const orderNumberOf = (q) => { const m = q.normalize("NFKC").trim().match(/^(?:no\.?\s*)?(\d{1,7})$/i); return m ? Number(m[1]) : null; };
+const searchPhoneDigits = (q) => /^[\d\s()+\-ー－‐]+$/.test(q.normalize("NFKC")) && digitsOf(q).length >= 4 ? digitsOf(q) : "";
+function orderSearchPath(q) {
+  const key = searchKey(q), conds = [];
+  const quote = (v) => `"${v.replace(/[\\"]/g, "\\$&")}"`;
+  const loose = (str) => "*" + [...str].join("*") + "*";
+  if (key) {
+    for (const k of new Set([key, toHiragana(key)])) {
+      conds.push(`customer_name.ilike.${quote(loose(k))}`, `customer_kana.ilike.${quote(loose(k))}`);
+    }
+    conds.push(`customer_email.ilike.${quote(loose(key))}`);
+  }
+  const phone = searchPhoneDigits(q);
+  if (phone) conds.push(`customer_phone.ilike.${quote(loose(phone))}`);
+  const no = orderNumberOf(q);
+  if (no != null) conds.push(`order_number.eq.${no}`);
+  return `&or=${encodeURIComponent(`(${conds.join(",")})`)}`;
+}
+function matchesOrderSearch(o, q) {
+  const key = searchKey(q), phone = searchPhoneDigits(q), no = orderNumberOf(q);
+  return (no != null && Number(o.order_number) === no) ||
+    (!!phone && digitsOf(o.customer_phone).includes(phone)) ||
+    (!!key && [o.customer_name, o.customer_kana, o.customer_email].some((v) => searchKey(v).includes(key)));
+}
+function endOrderSearch() {
+  state.orderSearch = "";
+  $("order-search-q").value = "";
+  $("order-search-clear").classList.add("hidden");
+  $("review-filter").disabled = false;
+}
+$("order-search").onsubmit = (e) => {
+  e.preventDefault();
+  const q = $("order-search-q").value.trim();
+  if (!q) { if (searching()) { endOrderSearch(); loadOrders().catch(() => {}); } return; }
+  if (!searchKey(q) && orderNumberOf(q) == null) return;
+  state.orderSearch = q;
+  $("order-search-clear").classList.remove("hidden");
+  $("review-filter").disabled = true;
+  loadOrders().catch(() => toast("探せませんでした。通信状態を確認して、もう一度お試しください。"));
+};
+$("order-search-clear").onclick = () => {
+  endOrderSearch();
+  loadOrders().catch(() => toast("読み込めませんでした。通信状態を確認して、もう一度お試しください。"));
+};
+
 let orderLoadGeneration = 0;
 async function loadOrders() {
-  const filter = $("review-filter")?.value || "";
+  const query = state.orderSearch || "";
+  const filter = query ? "" : $("review-filter")?.value || "";
   const generation = ++orderLoadGeneration, tenant = state.tenantId, date = state.date;
-  $("tab-kitchen").classList.toggle("hidden", !!filter);
+  $("tab-kitchen").classList.toggle("hidden", !!filter || !!query);
   const path = `/rest/v1/orders?tenant_id=eq.${tenant}` +
     // 支払い待ち（配送・カード払いのみの店の店頭受取＝支払い期限あり・30分で自動取り消し）は「未確認」に入れない（2026-10-05・11-09）
-    (filter === "new" ? `&status=eq.new&review_state=eq.none&payment_due_at=is.null`
+    (query ? orderSearchPath(query)
+      : filter === "new" ? `&status=eq.new&review_state=eq.none&payment_due_at=is.null`
       : filter ? `&review_state=eq.${filter}&status=neq.canceled` : `&pickup_date=eq.${date}`) +
-    `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc` +
+    // 探すときは受取日の新しい順（これからの予約・最近の予約が上に来る）
+    (query ? `&order=pickup_date.desc,pickup_slot_label.asc,order_number.desc` : `&order=pickup_date.asc,pickup_slot_label.asc,order_number.asc`) +
     `&select=*,quote:order_quotes!orders_current_quote_id_fkey(*),change_requests:order_quote_change_requests!order_quote_change_requests_order_id_fkey(id,quote_id,reasons,comment,images,answers,created_at),order_items!order_items_order_id_fkey(*,order_item_options!order_item_options_order_item_id_fkey(*)),order_answers!order_answers_order_id_fkey(*),order_images!order_images_order_id_fkey(id,path,question_id,note,created_at),order_previews!order_previews_order_id_fkey(id,path,created_at),order_refunds!order_refunds_order_id_fkey(amount,status,error,created_at),order_payments!order_payments_order_id_fkey(provider,status)`;
   const orders = [];
   for (;;) {
@@ -301,7 +360,12 @@ async function loadOrders() {
     orders.push(...page.map(normalizeOrder));
     if (page.length < 500) break;
   }
-  state.orders = orders;
+  state.orders = query ? orders.filter((o) => matchesOrderSearch(o, query)) : orders;
+  if (query) {
+    renderPickup();
+    refreshUnconfirmedCount().catch(() => {});
+    return;
+  }
   // 質問→選択肢の対応は待たずに一覧を出し、読めたら製造数だけ描き直す。
   ensureQuestionOptions().then((loaded) => {
     if (!loaded || generation !== orderLoadGeneration || tenant !== state.tenantId) return;
@@ -335,7 +399,7 @@ async function refreshUnconfirmedCount() {
 function renderBulkConfirm() {
   const box = $("bulk-confirm");
   if (!box) return;
-  const targets = $("review-filter")?.value === "new" ? state.orders.filter((o) => o.status === "new" && !reviewPending(o)) : [];
+  const targets = !searching() && $("review-filter")?.value === "new" ? state.orders.filter((o) => o.status === "new" && !reviewPending(o)) : [];
   box.classList.toggle("hidden", !targets.length);
   if (!targets.length) return;
   $("bulk-confirm-note").textContent = `未確認 ${targets.length}件（受取日順）。内容を見てから、まとめて確認済にできます。`;
@@ -392,7 +456,7 @@ const legacyOrder = (o) => String(o.internal_memo || "").startsWith("SELECTTYPE"
 /* 送り状CSV（2026-10-05）：選んだ日に発送する配送の予約（支払い済み）があるときだけ出す */
 function renderShipCsv() {
   const box = $("ship-csv");
-  const list = !$("review-filter")?.value && !$("kitchen-range-mode").checked && window.ShippingCsv ? ShippingCsv.targets(state.orders) : [];
+  const list = !searching() && !$("review-filter")?.value && !$("kitchen-range-mode").checked && window.ShippingCsv ? ShippingCsv.targets(state.orders) : [];
   box.classList.toggle("hidden", !list.length);
   if (!list.length) return;
   $("ship-csv-note").textContent = `この日に発送する配送 ${list.length}件`;
@@ -405,16 +469,17 @@ function renderShipCsv() {
 }
 // 「期間を指定してまとめる」を使っている間は、下の予約一覧も同じ期間を出す
 // （2026-10-15 まりほ指摘「期間を指定しても明らかに少ない数しか並ばない」＝一覧だけ1日分のままだった）。
-const pickupRange = () => !$("review-filter")?.value && $("kitchen-range-mode").checked && kitchenRange ? kitchenRange : null;
+const pickupRange = () => !searching() && !$("review-filter")?.value && $("kitchen-range-mode").checked && kitchenRange ? kitchenRange : null;
 function renderPickup() {
   const wrap = $("pickup-list");
   wrap.innerHTML = "";
   const range = pickupRange();
-  $("pickup-heading").textContent = (receivedFirst() ? "予約が入った順の予約" : "受取時間順の予約") +
-    (range ? `（受取日 ${range.from} 〜 ${range.to}）` : "");
+  $("pickup-heading").textContent = searching()
+    ? `「${state.orderSearch}」で探した予約（${state.orders.length}件・${receivedFirst() ? "予約が入った順" : "受取日の新しい順"}）`
+    : (receivedFirst() ? "予約が入った順の予約" : "受取時間順の予約") + (range ? `（受取日 ${range.from} 〜 ${range.to}）` : "");
   renderBulkConfirm();
   renderShipCsv();
-  if (!range && !$("review-filter")?.value && $("kitchen-range-mode").checked) {
+  if (!searching() && !range && !$("review-filter")?.value && $("kitchen-range-mode").checked) {
     // 期間の読み込み中・読み込めなかったときに、1日分を期間の一覧と取り違えないようにする
     wrap.innerHTML = '<p class="empty-note">期間の予約を読み込むと、ここに並びます</p>';
     return;
@@ -422,7 +487,7 @@ function renderPickup() {
   const active = sortForView(range ? range.orders : state.orders);
   if (!active.length) {
     const filter = $("review-filter")?.value;
-    wrap.innerHTML = `<p class="empty-note">${filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : range ? 'この期間の予約はありません' : 'この日の予約はありません'}</p>`;
+    wrap.innerHTML = `<p class="empty-note">${searching() ? `「${esc(state.orderSearch)}」に当たる予約はありません（お名前は一部だけでも探せます）` : filter === "new" ? '未確認の予約はありません' : filter ? '該当する依頼はありません' : range ? 'この期間の予約はありません' : 'この日の予約はありません'}</p>`;
     return;
   }
   for (const o of active) {
@@ -432,7 +497,7 @@ function renderPickup() {
     card.dataset.orderId = o.id;
     card.innerHTML = `
       <div class="order-head">
-        <span class="order-time">${$("review-filter")?.value || range ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
+        <span class="order-time">${searching() || $("review-filter")?.value || range ? esc(o.pickup_date) + " " : ""}${esc(o.pickup_slot_label)}${
           // 受付日時は並び順に関係なくいつも出す（2026-10-20 まりほ「いつ入った予約なのかわからない」）
           // （旧フォームから移した予約は移した日時になるので出さない）
           !legacyOrder(o) && BookingReport.receivedLabel(o) ? `<span class="order-received">受付 ${esc(BookingReport.receivedLabel(o))}</span>` : ""}</span>

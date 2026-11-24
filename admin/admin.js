@@ -694,6 +694,9 @@ function fillOrderBody(el, o) {
   const linkable = /^[^\s@?#%&<>"',;:/\\]+@[^\s@?#%&<>"',;:/\\]+\.[^\s@?#%&<>"',;:/\\]+$/.test(email);
   if (linkable) rows.push(`<div class="confirm-row"><span class="k">メール</span><span><a href="mailto:${esc(email)}">${esc(email)}</a></span></div>`);
   else row("メール", email);
+  // ご住所（店の設定でお客様に聞いているとき・2026-11-24 まりほ指摘「住所聞いてるはずなのに出ない」＝保存はされていたが画面に出していなかった）
+  const address = String(o.customer_address ?? "").trim(), zip = String(o.customer_postal_code ?? "").trim();
+  if (address || zip) row("ご住所", `${zip ? `〒${zip} ` : ""}${address}`);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) {
     const p = prepayNumbers(o);
     row("支払い", o.fulfillment === "delivery" || o.card_required ? `カード払い ${yen(o.paid_amount)}（Stripe）` : `事前払い ${yen(o.paid_amount)}（${PAY_PROVIDER(o)}）`);

@@ -24,14 +24,40 @@
   const dirty = () => { if (typeof markDirty === "function") markDirty(); };
   const intOrNull = (v) => { const n = parseInt(String(v).trim(), 10); return Number.isFinite(n) && n >= 0 ? n : null; };
 
+  /** 店のStripe口座の状態（2026-11-25）。管理画面の上の帯（admin.js の renderStripeAlert）でも使う。
+   *  tenants.stripe_requirements＝Stripeの「足りないもの・期限・止めた理由」（Webhook と「状態を更新」が書く）。
+   *  kind：none（つないでいない）／onboarding（登録の途中）／ok／due（使えるが期限つきで確認のお願い）／
+   *        review（Stripeが確認中）／stopped（止まっている）／rejected（Stripeの審査で使えない） */
+  window.stripeAccountState = (t) => {
+    if (!t?.stripe_account_id) return { kind: "none" };
+    const req = t.stripe_requirements || {};
+    const due = [...(req.past_due || []), ...(req.currently_due || [])];
+    const deadline = req.deadline ? new Date(req.deadline) : null;
+    const date = deadline && !isNaN(deadline) ? `${deadline.getMonth() + 1}月${deadline.getDate()}日` : "";
+    if (t.stripe_charges_enabled) return due.length ? { kind: "due", date } : { kind: "ok" };
+    const reason = String(req.disabled_reason || "");
+    if (reason.startsWith("rejected")) return { kind: "rejected" };
+    if (reason === "requirements.pending_verification" || reason === "under_review") return { kind: "review" };
+    // 一度最後まで登録した口座が止まった（期限切れ・追加の確認）。登録の途中とは分けて伝える
+    return req.details_submitted ? { kind: "stopped" } : { kind: "onboarding" };
+  };
+
   function paintStripe() {
     const st = el("dl-stripe-status");
+    const s = window.stripeAccountState(tenant);
     const ready = !!tenant?.stripe_charges_enabled;
-    st.textContent = ready ? "✓ つながっています。お客様にカードで払ってもらえます。"
-      : tenant?.stripe_account_id ? "登録の途中です。「Stripeをつなぐ」から続きを入力してください（入力が終わると数分で使えるようになります）。"
-      : "まだつながっていません。";
-    st.classList.toggle("ok", ready);
-    el("dl-stripe-connect").textContent = ready ? "Stripeの登録内容を確認する" : tenant?.stripe_account_id ? "Stripeの登録を続ける" : "Stripeをつなぐ";
+    st.textContent = {
+      none: "まだつながっていません。",
+      onboarding: "登録の途中です。「Stripeの登録を続ける」から続きを入力してください（入力が終わると数分で使えるようになります）。",
+      ok: "✓ つながっています。お客様にカードで払ってもらえます。",
+      due: `✓ 今はカードで払ってもらえます。ただ、Stripeから確認のお願いが来ています${s.date ? `（${s.date}まで）` : ""}。期限を過ぎるとカード払いが止まるので、「Stripeで確認する」から入力してください。`,
+      review: "Stripeが登録内容を確認しています（数日かかることがあります）。終わるとカード払いが使えるようになります。その間のご予約は店頭払いで入ります。",
+      stopped: "⚠️ Stripeで確認が必要なことがあり、カード払いが止まっています。「Stripeで確認する」から入力してください。止まっている間のご予約は店頭払いで入ります。",
+      rejected: "⚠️ Stripeの審査で、この口座ではカード払いが使えなくなっています。Stripeにお問い合わせください。その間のご予約は店頭払いで入ります。",
+    }[s.kind];
+    st.classList.toggle("ok", s.kind === "ok");
+    st.classList.toggle("warn", ["due", "stopped", "rejected"].includes(s.kind));
+    el("dl-stripe-connect").textContent = { none: "Stripeをつなぐ", onboarding: "Stripeの登録を続ける", ok: "Stripeの登録内容を確認する" }[s.kind] || "Stripeで確認する";
     // 配送の欄：つながるまでは「先にカード払いでStripeをつなぐ」の案内。カード払いの欄：事前払いにチェックしたのに未接続なら注意
     el("dl-not-ready").classList.toggle("hidden", ready);
     el("dl-prepay-not-ready").classList.toggle("hidden", ready || window.payModeValue() === "store");
@@ -96,8 +122,10 @@
     try {
       const j = await connect("refresh");
       tenant.stripe_charges_enabled = !!j.charges_enabled;
+      if (j.requirements) tenant.stripe_requirements = j.requirements;
       if (!j.connected) tenant.stripe_account_id = null;
       paintStripe();
+      window.renderStripeAlert?.(tenant);
     } catch (e) { toast(e.message); } finally { b.disabled = false; }
   }
 

@@ -150,6 +150,9 @@ async function showApp() {
     $("menu-btn").setAttribute("aria-expanded", "false");
   };
   renderBillingBanner(t[0]);
+  // Stripe口座の確認のお願い・停止（2026-11-25）。列が無い古いDBでも画面は止めない
+  api("GET", `/rest/v1/tenants?id=eq.${state.tenantId}&select=reservation_plan,stripe_account_id,stripe_charges_enabled,stripe_requirements`)
+    .then((r) => renderStripeAlert(r[0])).catch(() => {});
   loadKitchenBreakdown();
   // 運営者だけ「運営：店舗一覧」を出す。確かめられなければ出さないだけ（画面は止めない）
   $("operator-link")?.classList.add("hidden");
@@ -257,6 +260,34 @@ function renderBillingBanner(t) {
   const po = $("btn-billing-portal");
   if (po) po.onclick = () => callBillingFn("create-portal-session").catch((e) => toast(e.message));
 }
+
+/* ---------- Stripe口座の帯（2026-11-25 まりほ「管理画面側で止まってることはわからないの？」） ----------
+ * Stripeが「◯日までに確認を」と求めているとき・カード払いが止まったときだけ、課金の帯の下に出す。
+ * 状態の判定は delivery-settings.js の stripeAccountState（設定の「カード払い」の欄と同じ）。
+ * 登録の途中・Stripeの確認待ちは帯にしない（店にできることが無い／「はじめにやること」で案内している） */
+function renderStripeAlert(t) {
+  let box = $("stripe-alert");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "stripe-alert";
+    box.className = "billing-banner no-print hidden";
+    $("billing-banner").after(box);
+  }
+  const s = t && t.reservation_plan !== "lite" ? window.stripeAccountState?.(t) : null;
+  const text = {
+    due: `⚠️ Stripeから確認のお願いが来ています${s?.date ? `（${s.date}まで）` : ""}。期限を過ぎると、お客様のカード払いが止まります。`,
+    stopped: "⚠️ Stripeで確認が必要なことがあり、お客様のカード払いが止まっています。止まっている間のご予約は店頭払いで入ります。",
+    rejected: "⚠️ Stripeの審査で、カード払いが使えなくなっています。Stripeにお問い合わせください。止まっている間のご予約は店頭払いで入ります。",
+  }[s?.kind];
+  box.classList.toggle("hidden", !text);
+  if (!text) return;
+  box.innerHTML = `${esc(text)} <button type="button" class="pill" id="btn-stripe-alert">カード払いの設定を開く</button>`;
+  $("btn-stripe-alert").onclick = () => {
+    document.querySelector('.tab[data-tab="settings"]')?.click();
+    setTimeout(() => $("settings-card")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  };
+}
+window.renderStripeAlert = renderStripeAlert;
 
 /* ---------- 日付 ---------- */
 const fmt = (d) =>
@@ -511,7 +542,7 @@ function renderPickup() {
         ${legacyOrder(o) ? `<span class="status-badge st-legacy" title="旧予約フォーム（SELECTTYPE）で受けたご予約">旧フォーム</span>`
           : o.created_via === "staff" ? `<span class="status-badge st-staff">電話</span>` : ""}
         ${deliveryBadges(o)}
-        ${prepayBadge(o)}
+        <span class="pay-badges">${prepayBadge(o)}${storePaidBadge(o)}</span>
         ${(o.order_images || []).length ? `<button type="button" class="status-badge st-image photo-badge" aria-label="お客様の添付画像を見る（${o.order_images.length}枚）">📷${o.order_images.length}</button>` : ""}
         ${o.mail_failed ? `<span class="status-badge st-mailfail">メール未送信</span>` : ""}
         ${staffNoteBadge(o)}
@@ -708,6 +739,10 @@ function fillOrderBody(el, o) {
       (o.payment_method === "store" ? "店頭払い" : o.payment_method) +
       (legacyOrder(o) ? "（旧フォームでのお支払い済みかは未照合）" : ""));
   }
+  if (o.store_paid_at) {
+    row("店頭でのお支払い", `${yen(o.store_paid_amount)}（${storePaidDate(o)} 受け取り済み）`);
+    if (!(o.paid_amount > 0)) row("当日のお支払い", storeDue(o) > 0 ? `${yen(storeDue(o))}（残り）` : "なし");
+  }
   let actions = "";
   // 店側からの変更（2026-10-03）。未確認・確認済で、追加希望（見積もり）の途中でないものだけ
   // 配送の予約は日時・内容を変えない（キャンセル＝返金して入れ直す・2026-10-05）
@@ -734,6 +769,7 @@ function fillOrderBody(el, o) {
        <div class="order-images">読み込み中…</div>` : "") +
     (actions ? `<div class="order-actions">${actions}</div>` : "");
   renderMailDelivery(el, o);
+  renderStorePaid(el, o);
   renderStaffNote(el, o);
   if (o.review_state && o.review_state !== "none") renderQuoteEditor(el,o);
   if (o.paid_amount > 0 || (o.order_refunds || []).length) renderRefundBox(el, o);
@@ -927,7 +963,58 @@ async function renderSlotChange(el, o) {
 function prepayNumbers(o) {
   const total = o.status === "canceled" ? 0 : (o.total_amount || 0);
   const paid = o.paid_amount || 0;
-  return { due: Math.max(total - paid, 0), over: Math.max(paid - total, 0) };
+  // 当日のお支払いは、店頭で先に受け取った分（store_paid_amount）も引く。返金の要否は事前払いだけで決める
+  return { due: Math.max(total - paid - storePaidAmount(o), 0), over: Math.max(paid - total, 0) };
+}
+/* ---------- 店頭で先に受け取った（2026-11-25 Spoonさんの質問「店頭払いで受取日より前に払ってもらったら？」） ----------
+ * orders.store_paid_at / store_paid_amount。予約の詳細の「店頭でお支払い済みにする」で付ける（日時はサーバーが入れる）。
+ * 一覧の印・詳細・製造カードに出す。お客様の画面・メールには出さない */
+const storePaidAmount = (o) => (o.store_paid_at ? o.store_paid_amount || 0 : 0);
+const storePaidDate = (o) => { const d = new Date(o.store_paid_at); return `${d.getMonth() + 1}/${d.getDate()}`; };
+// まだ受け取っていない金額（見積もりを承諾した予約は見積もりの金額）
+const storeDue = (o) => o.status === "canceled" ? 0
+  : Math.max((o.quote?.amount ?? o.total_amount ?? 0) - (o.paid_amount || 0) - storePaidAmount(o), 0);
+// 店頭で受け取る予約か（配送・カード払いのみの店の予約はカードで払うので出さない）
+const storePayable = (o) => o.fulfillment !== "delivery" && !o.card_required;
+function storePaidBadge(o) {
+  if (!o.store_paid_at) return "";
+  const left = storeDue(o);
+  return `<span class="status-badge st-prepaid st-storepaid" title="${storePaidDate(o)} に店頭で ${yen(o.store_paid_amount)} 受け取り済み">✓ 店頭で支払い済</span>` +
+    (left > 0 && !(o.paid_amount > 0) ? `<span class="status-badge st-prepaid st-storepaid">残り ${yen(left)}</span>` : "");
+}
+function renderStorePaid(el, o) {
+  if (!storePayable(o) || o.status === "canceled" || legacyOrder(o)) return;
+  const due = storeDue(o);
+  if (!o.store_paid_at && due <= 0) return;   // 事前のカード払いで全額済み
+  const box = document.createElement("div");
+  box.className = "order-actions store-paid";
+  box.innerHTML = o.store_paid_at
+    ? `<span class="small">${storePaidDate(o)} に店頭で ${yen(o.store_paid_amount)} 受け取り済み</span><button type="button" class="pill store-paid-btn">お支払い済みを取り消す</button>`
+    : `<button type="button" class="pill store-paid-btn">店頭でお支払い済みにする（${yen(due)}）</button>`;
+  const btn = box.querySelector(".store-paid-btn");
+  btn.onclick = async () => {
+    const undo = !!o.store_paid_at;
+    if (undo && !confirm(`No.${o.order_number} の「店頭でお支払い済み」を取り消しますか？`)) return;
+    btn.disabled = true;
+    try {
+      const rows = await api("PATCH", `/rest/v1/orders?id=eq.${o.id}&tenant_id=eq.${state.tenantId}`,
+        undo ? { store_paid_at: null, store_paid_amount: null } : { store_paid_at: new Date().toISOString(), store_paid_amount: due });
+      if (!Array.isArray(rows) || rows.length !== 1 || rows[0]?.id !== o.id) throw new Error("not updated");
+      o.store_paid_at = rows[0].store_paid_at; o.store_paid_amount = rows[0].store_paid_amount;
+      const rangeOrder = kitchenRange?.orders?.find((item) => item.id === o.id);
+      if (rangeOrder) Object.assign(rangeOrder, { store_paid_at: o.store_paid_at, store_paid_amount: o.store_paid_amount });
+      // カードの印と詳細を描き直す（詳細は開いたまま）
+      const badges = el.closest(".order-card")?.querySelector(".pay-badges");
+      if (badges) badges.innerHTML = prepayBadge(o) + storePaidBadge(o);
+      fillOrderBody(el, o);
+      renderKitchen();
+      toast(undo ? `No.${o.order_number} のお支払い済みを取り消しました` : `No.${o.order_number} を店頭でお支払い済みにしました`);
+    } catch (e) {
+      toast(e?.message?.includes("キャンセル済み") ? "キャンセル済みのご予約は、お支払い済みにできません" : "保存できませんでした。通信状態を確認して、もう一度お試しください。");
+      btn.disabled = false;
+    }
+  };
+  el.appendChild(box);
 }
 // 支払いの決済会社：配送は Stripe。店頭受取の事前払いは、実際の支払いの記録で決める（Square の店・Stripe の店がある）
 const PAY_PROVIDER = (o) => o.fulfillment === "delivery" || o.card_required || (o.order_payments || []).some((p) => p.provider === "stripe" && p.status === "completed") ? "Stripe" : "Square";
@@ -1460,10 +1547,15 @@ $("kb-save").onclick = async () => {
 function kitchenPayLine(o) {
   const total = o.quote?.amount ?? o.total_amount ?? 0;
   const paid = o.paid_amount || 0;
+  const store = storePaidAmount(o);
   let pay;
   if (paid > 0) {
-    const due = Math.max(total - paid, 0), over = Math.max(paid - total, 0);
-    pay = `<strong>事前払い済 ${yen(paid)}</strong>・` + (over > 0 ? `<strong>返金 ${yen(over)} が必要</strong>` : due > 0 ? `<strong>当日 ${yen(due)}</strong>（差額）` : "当日のお支払いなし");
+    const due = Math.max(total - paid - store, 0), over = Math.max(paid - total, 0);
+    pay = `<strong>事前払い済 ${yen(paid)}</strong>・` + (store > 0 ? `<strong>店頭で支払い済 ${yen(store)}</strong>・` : "") +
+      (over > 0 ? `<strong>返金 ${yen(over)} が必要</strong>` : due > 0 ? `<strong>当日 ${yen(due)}</strong>（差額）` : "当日のお支払いなし");
+  } else if (o.store_paid_at) {
+    const due = Math.max(total - store, 0);
+    pay = `<strong>店頭で支払い済 ${yen(store)}</strong>（${storePaidDate(o)}）・` + (due > 0 ? `<strong>当日 ${yen(due)}</strong>（残り）` : "当日のお支払いなし");
   } else if ((o.card_required || o.fulfillment === "delivery") && o.payment_status !== "paid") {
     pay = `<strong>カード未払い ${yen(total)}</strong>（お客様のカード払い待ち）`;   // 店頭では受け取らない
   } else if (legacyOrder(o)) {

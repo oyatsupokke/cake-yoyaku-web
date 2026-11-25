@@ -570,6 +570,7 @@ body.onboarding-setup #date-nav, body.onboarding-setup #tab-calendar, body.onboa
 .st-unpaid { background: #fff1e6; color: #b45309; }
 .dl-stripe-status { font-weight: normal; margin: 6px 0; }
 .dl-stripe-status.ok { color: #24723f; }
+.dl-stripe-status.warn { color: #a4471d; font-weight: bold; }
 .dl-fees { width: 100%; border-collapse: collapse; margin-top: 6px; font-weight: normal; }
 .dl-fees th, .dl-fees td { padding: 6px 4px; border-bottom: 1px solid var(--line, #e6e0da); text-align: left; vertical-align: middle; }
 .dl-fees thead th { font-size: .8rem; color: var(--mute); white-space: nowrap; }

@@ -2814,9 +2814,12 @@ async function loadCalendar() {
     });
     if (request !== calendarRequest) return false;
     state.avail = Object.fromEntries(rows.map((r) => [r.d, r.status]));
-    // 短縮前に成立した予約の同日編集を維持。その他の可否は送信時に再検証する。
-    if (EDIT_MODE && EDIT_ORDER && EDIT_ORDER.pickup_date > BookingWindow.bounds(windowTenant()).end &&
-        Object.hasOwn(state.avail, EDIT_ORDER.pickup_date)) {
+    // 変更前の予約自身で満枠になっていても、元の日を選び直せるようにする。
+    // 時間枠と同様に表示だけの例外。サイズ別上限・数量・期限は変更確定時にサーバーで再検証する。
+    // 予約可能期間の短縮前に成立した予約の同日編集も維持する。
+    if (EDIT_MODE && EDIT_ORDER && Object.hasOwn(state.avail, EDIT_ORDER.pickup_date) &&
+        (state.avail[EDIT_ORDER.pickup_date] === "full" ||
+         EDIT_ORDER.pickup_date > BookingWindow.bounds(windowTenant()).end)) {
       state.avail[EDIT_ORDER.pickup_date] = "few";
     }
     renderCalendar();
